@@ -2,7 +2,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import connectDb from "@/lib/server/db";
 import { Order } from "@/models/order.model";
+import { User } from "@/models/user.model";
 import { auth } from "@/auth";
+import { sendOrderStatusEmail } from "@/lib/server/email";
 
 export const PATCH = async (req: NextRequest) => {
   try {
@@ -69,6 +71,31 @@ export const PATCH = async (req: NextRequest) => {
     if (orderStatus === "delivered") order.deliveredAt = new Date();
 
     await order.save();
+
+    // Send email notification to user about status change
+    try {
+      const user = await User.findById(order.userId);
+      if (user && user.email) {
+        const statusMessages: Record<string, string> = {
+          confirmed: `Great news! Your order has been confirmed and is being prepared. We'll notify you once it's packed.`,
+          packed: `Your order has been packed and is ready for shipment. It will be shipped soon!`,
+          shipped: `Your order is on its way! It has been shipped and should arrive soon.`,
+          "out-for-delivery": `Your order is out for delivery! Our delivery partner will reach you shortly.`,
+          delivered: `Your order has been delivered! We hope you enjoy your purchase. Thank you for shopping with SnapCart!`,
+        };
+
+        await sendOrderStatusEmail(
+          user.email,
+          user.name,
+          order.orderNumber,
+          orderStatus,
+          statusMessages[orderStatus] || `Your order status has been updated to ${orderStatus}.`
+        );
+      }
+    } catch (emailError) {
+      console.error("Error sending order status email:", emailError);
+      // Don't fail the status update if email fails
+    }
 
     return NextResponse.json(
       { success: true, message: "Order status updated", order },

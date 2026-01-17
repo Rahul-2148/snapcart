@@ -28,34 +28,39 @@ const Sidebar = ({
   isMobile = false,
   onCloseMobile,
 }: SidebarProps) => {
+  // On mobile overlay, always show full sidebar (not collapsed)
+  const shouldShowText = isMobile || !isCollapsed;
+
   return (
     <div
-      className={`h-full flex flex-col bg-gradient-to-b from-slate-800 to-slate-900 text-white`}
+      className={`h-full flex flex-col bg-gradient-to-b from-slate-800 to-slate-900 text-white transition-all duration-300 ease-in-out`}
     >
       <div
-        className={`p-6 flex items-center ${
-          isCollapsed ? "justify-center" : "justify-between"
+        className={`p-6 flex items-center transition-all duration-300 ease-in-out ${
+          shouldShowText ? "justify-between" : "justify-center"
         } border-b border-slate-700`}
       >
-        {!isCollapsed && (
-          <h1 className="text-2xl font-bold bg-gradient-to-r from-blue-400 to-purple-500 bg-clip-text text-transparent">
-            Snapcart
-          </h1>
+        {shouldShowText && (
+          <Link href="/">
+            <h1 className="text-2xl font-bold bg-gradient-to-r from-blue-400 to-purple-500 bg-clip-text text-transparent cursor-pointer hover:opacity-80 transition-all duration-300 ease-in-out opacity-100">
+              Snapcart
+            </h1>
+          </Link>
         )}
         {isMobile ? (
           <button
             onClick={onCloseMobile}
-            className="p-2 rounded-lg hover:bg-slate-700 transition-colors duration-200"
+            className="p-2 rounded-lg hover:bg-slate-700 transition-all duration-300 ease-in-out"
           >
             <XMarkIcon className="h-6 w-6 text-slate-300" />
           </button>
         ) : (
           <button
             onClick={toggleCollapse}
-            className="p-2 rounded-lg hover:bg-slate-700 transition-colors duration-200"
+            className="p-2 rounded-lg hover:bg-slate-700 transition-all duration-300 ease-in-out"
           >
             <ChevronDoubleLeftIcon
-              className={`h-6 w-6 text-slate-300 transition-transform duration-300 ${
+              className={`h-6 w-6 text-slate-300 transition-transform duration-300 ease-in-out ${
                 isCollapsed ? "rotate-180" : ""
               }`}
             />
@@ -68,11 +73,11 @@ const Sidebar = ({
             <Link
               href="/admin"
               className={`flex items-center p-3 text-slate-300 hover:bg-slate-700 hover:text-white rounded-lg transition-all duration-200 mx-2 ${
-                isCollapsed ? "justify-center" : ""
+                shouldShowText ? "" : "justify-center"
               }`}
             >
               <HomeIcon className="h-6 w-6" />
-              {!isCollapsed && (
+              {shouldShowText && (
                 <span className="ml-3 font-medium">Dashboard</span>
               )}
             </Link>
@@ -81,11 +86,11 @@ const Sidebar = ({
             <Link
               href="/admin/add-grocery"
               className={`flex items-center p-3 text-slate-300 hover:bg-slate-700 hover:text-white rounded-lg transition-all duration-200 mx-2 ${
-                isCollapsed ? "justify-center" : ""
+                shouldShowText ? "" : "justify-center"
               }`}
             >
               <PlusIcon className="h-6 w-6" />
-              {!isCollapsed && (
+              {shouldShowText && (
                 <span className="ml-3 font-medium">Add Grocery</span>
               )}
             </Link>
@@ -94,11 +99,11 @@ const Sidebar = ({
             <Link
               href="/admin/groceries"
               className={`flex items-center p-3 text-slate-300 hover:bg-slate-700 hover:text-white rounded-lg transition-all duration-200 mx-2 ${
-                isCollapsed ? "justify-center" : ""
+                shouldShowText ? "" : "justify-center"
               }`}
             >
               <ShoppingBagIcon className="h-6 w-6" />
-              {!isCollapsed && (
+              {shouldShowText && (
                 <span className="ml-3 font-medium">Groceries</span>
               )}
             </Link>
@@ -107,11 +112,11 @@ const Sidebar = ({
             <Link
               href="/admin/categories"
               className={`flex items-center p-3 text-slate-300 hover:bg-slate-700 hover:text-white rounded-lg transition-all duration-200 mx-2 ${
-                isCollapsed ? "justify-center" : ""
+                shouldShowText ? "" : "justify-center"
               }`}
             >
               <TagIcon className="h-6 w-6" />
-              {!isCollapsed && (
+              {shouldShowText && (
                 <span className="ml-3 font-medium">Categories</span>
               )}
             </Link>
@@ -120,33 +125,33 @@ const Sidebar = ({
             <Link
               href="/admin/orders"
               className={`flex items-center p-3 text-slate-300 hover:bg-slate-700 hover:text-white rounded-lg transition-all duration-200 mx-2 ${
-                isCollapsed ? "justify-center" : ""
+                shouldShowText ? "" : "justify-center"
               }`}
             >
               <ClipboardDocumentListIcon className="h-6 w-6" />
-              {!isCollapsed && <span className="ml-3 font-medium">Orders</span>}
+              {shouldShowText && <span className="ml-3 font-medium">Orders</span>}
             </Link>
           </li>
           <li>
             <Link
               href="/admin/users"
               className={`flex items-center p-3 text-slate-300 hover:bg-slate-700 hover:text-white rounded-lg transition-all duration-200 mx-2 ${
-                isCollapsed ? "justify-center" : ""
+                shouldShowText ? "" : "justify-center"
               }`}
             >
               <UsersIcon className="h-6 w-6" />
-              {!isCollapsed && <span className="ml-3 font-medium">Users</span>}
+              {shouldShowText && <span className="ml-3 font-medium">Users</span>}
             </Link>
           </li>
           <li>
             <Link
               href="/admin/coupons"
               className={`flex items-center p-3 text-slate-300 hover:bg-slate-700 hover:text-white rounded-lg transition-all duration-200 mx-2 ${
-                isCollapsed ? "justify-center" : ""
+                shouldShowText ? "" : "justify-center"
               }`}
             >
               <TicketIcon className="h-6 w-6" />
-              {!isCollapsed && (
+              {shouldShowText && (
                 <span className="ml-3 font-medium">Coupons</span>
               )}
             </Link>
@@ -157,11 +162,11 @@ const Sidebar = ({
         <button
           onClick={() => signOut({ callbackUrl: "/login" })}
           className={`flex items-center p-3 text-red-300 hover:bg-red-600 hover:text-white rounded-lg w-full transition-all duration-200 mx-2 ${
-            isCollapsed ? "justify-center" : ""
+            shouldShowText ? "" : "justify-center"
           }`}
         >
           <ArrowLeftOnRectangleIcon className="h-6 w-6" />
-          {!isCollapsed && <span className="ml-3 font-medium">Logout</span>}
+          {shouldShowText && <span className="ml-3 font-medium">Logout</span>}
         </button>
       </div>
     </div>

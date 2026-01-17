@@ -1,3 +1,51 @@
-// This file is no longer used in the current architecture where Socket.io runs on a separate server.
-// Its previous functionality for managing the Socket.io server instance within the Next.js application
-// has been superseded by the standalone `socket-server.js` and client-side logic in `src/lib/server/socket.ts`.
+import { Server } from "socket.io";
+import type { Server as HTTPServer } from "http";
+
+let io: Server | null = null; // Module-scoped instance
+
+export const initSocket = (httpServer: HTTPServer) => {
+  if (!io) {
+    io = new Server(httpServer, {
+      path: "/api/socket_io",
+      addTrailingSlash: false,
+      cors: {
+        origin: "*",
+        methods: ["GET", "POST"],
+      },
+    });
+
+    // Assign to global for wider accessibility, especially in API routes
+    // Ensure this is done once, and global is checked
+    if (!global.io) {
+      global.io = io;
+    }
+
+    io.on("connection", (socket) => {
+      console.log("A user connected");
+
+      socket.on("join_user_room", (userId) => {
+        socket.join(userId);
+      });
+
+      socket.on("role_change_request", (data) => {
+        global.io?.emit("new_role_request", data); // Use global.io
+      });
+
+      socket.on("disconnect", () => {
+        console.log("A user disconnected");
+      });
+    });
+  }
+};
+
+export const getSocketIo = () => {
+  // Try to get from local first, then global
+  if (io) return io;
+  if (global.io) {
+    io = global.io; // Assign to local for future calls
+    return io;
+  }
+  throw new Error(
+    "Socket.io not initialized. Call initSocket(httpServer) first.",
+  );
+};

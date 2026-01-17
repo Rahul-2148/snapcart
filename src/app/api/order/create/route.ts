@@ -13,6 +13,7 @@ import { User } from "@/models/user.model";
 import { Coupon } from "@/models/coupon.model";
 import Notification from "@/models/notification.model"; // Import Notification model
 import { sendNotification } from "@/lib/server/socket"; // Import sendNotification
+import { sendOrderConfirmationEmail } from "@/lib/server/email"; // Import email service
 import mongoose from "mongoose";
 
 export const POST = async (req: NextRequest) => {
@@ -238,6 +239,47 @@ export const POST = async (req: NextRequest) => {
         notificationError
       );
       // Do not block order creation if notification fails
+    }
+
+    // Send order confirmation email to user
+    try {
+      // Get populated order items for email
+      const populatedOrderItems = await OrderItem.find({ 
+        order: newOrder._id 
+      }).populate({
+        path: 'grocery',
+        select: 'name'
+      });
+
+      const emailItems = populatedOrderItems.map((item: any) => ({
+        name: item.groceryName,
+        quantity: item.quantity,
+        price: item.price.sellingPrice,
+      }));
+
+      await sendOrderConfirmationEmail(
+        user.email,
+        user.name,
+        {
+          orderNumber: newOrder.orderNumber,
+          orderDate: new Date().toLocaleDateString('en-IN', {
+            day: 'numeric',
+            month: 'long',
+            year: 'numeric',
+          }),
+          items: emailItems,
+          subTotal,
+          deliveryFee,
+          couponDiscount,
+          finalTotal,
+          currency: '₹',
+          deliveryAddress,
+          paymentMethod: paymentMethod === 'cod' ? 'cod' : 'online',
+        }
+      );
+    } catch (emailError) {
+      console.error('Error sending order confirmation email:', emailError);
+      // Don't block order creation if email fails
     }
 
     return NextResponse.json(

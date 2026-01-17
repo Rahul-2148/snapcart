@@ -6,6 +6,7 @@ const nextConfig: NextConfig = {
   },
 
   images: {
+    unoptimized: true, // Cloudinary handles optimization, no need for Next.js optimization
     remotePatterns: [
       {
         protocol: "https",

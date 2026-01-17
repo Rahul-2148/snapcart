@@ -1,7 +1,7 @@
 
 "use client";
 
-import { calculateDiscountPercentUI } from "@/lib/client/price";
+import VariantManagement from "@/components/admin/VariantManagement";
 import axios from "axios";
 import { motion } from "framer-motion";
 import {
@@ -46,13 +46,7 @@ const EditGrocery = () => {
   const [brand, setBrand] = useState("Ordinary");
 
   // Variant states
-  const [label, setLabel] = useState("");
-  const [unit, setUnit] = useState("");
-  const [value, setValue] = useState("");
-  const [multiplier, setMultiplier] = useState("1");
-  const [mrp, setMrp] = useState("");
-  const [selling, setSelling] = useState("");
-  const [countInStock, setCountInStock] = useState("0");
+  const [variants, setVariants] = useState<any[]>([]);
 
   // UI states
   const [images, setImages] = useState<ImageFile[]>([]);
@@ -79,43 +73,49 @@ const EditGrocery = () => {
   // Fetch categories and grocery data on mount
   useEffect(() => {
     const fetchData = async () => {
-        setInitialLoading(true);
-        await fetchCategories();
-        if (id) {
-            await fetchGrocery();
+      setInitialLoading(true);
+      await fetchCategories();
+      if (id) {
+        try {
+          const response = await axios.get(`/api/admin/groceries/${id}`);
+          if (response.data.success) {
+            const grocery = response.data.grocery;
+            setName(grocery.name);
+            setDescription(grocery.description);
+            setCategoryId(grocery.category._id);
+            setBrand(grocery.brand);
+
+            if (grocery.variants && grocery.variants.length > 0) {
+              setVariants(grocery.variants);
+            }
+
+            if (grocery.images && grocery.images.length > 0) {
+              setImages(
+                grocery.images.map((img: any) => ({ id: img._id, preview: img.url }))
+              );
+            }
+          }
+        } catch (error) {
+          console.error("Failed to fetch grocery", error);
+          toast.error("Failed to fetch grocery");
         }
-        setInitialLoading(false);
+      }
+      setInitialLoading(false);
     };
+
     fetchData();
   }, [id]);
 
-  // Update units when category changes
-  useEffect(() => {
-    if (categoryId) {
-      const selectedCategory = categories.find((cat) => cat._id === categoryId);
-      if (selectedCategory) {
-        setUnits(selectedCategory.allowedUnits);
-        if (!selectedCategory.allowedUnits.includes(unit)) {
-          setUnit(""); // Reset unit if not allowed for new category
-        }
-      }
-    } else {
-      setUnits([]);
-    }
-  }, [categoryId, categories, unit]);
-
+  // Fetch categories
   const fetchCategories = async () => {
     try {
       setIsLoadingCategories(true);
       setCategoriesError(null);
 
-      // Try to fetch from API
       const response = await axios.get("/api/categories");
-
       if (response.data.success) {
         setCategories(response.data.categories || []);
-
-        if (response.data.categories.length === 0) {
+        if ((response.data.categories || []).length === 0) {
           setCategoriesError("No categories found. Please seed the database.");
           toast.warning("No categories found in database");
         }
@@ -128,45 +128,11 @@ const EditGrocery = () => {
         "Categories not available. Please run the seed script or create categories manually."
       );
       toast.error("Failed to load categories");
-      setCategories([]); // Empty array instead of local fallback
+      setCategories([]);
     } finally {
       setIsLoadingCategories(false);
     }
   };
-
-  const fetchGrocery = async () => {
-    try {
-        const response = await axios.get(`/api/admin/groceries/${id}`);
-        if(response.data.success){
-            const grocery = response.data.grocery;
-            setName(grocery.name);
-            setDescription(grocery.description);
-            setCategoryId(grocery.category._id);
-            setBrand(grocery.brand);
-
-            if(grocery.variants && grocery.variants.length > 0){
-                const variant = grocery.variants[0];
-                setLabel(variant.label);
-                setUnit(variant.unit.unit);
-                setValue(variant.unit.value.toString());
-                setMultiplier(variant.unit.multiplier.toString());
-                setMrp(variant.price.mrp.toString());
-                setSelling(variant.price.selling.toString());
-                setCountInStock(variant.countInStock?.toString() || "0");
-            }
-
-            if(grocery.images && grocery.images.length > 0){
-                setImages(grocery.images.map((img: any) => ({
-                    id: img._id,
-                    preview: img.url
-                })));
-            }
-        }
-    } catch (error) {
-        console.error("Failed to fetch grocery", error);
-        toast.error("Failed to fetch grocery");
-    }
-  }
 
 
   // Handle file selection
@@ -239,70 +205,13 @@ const EditGrocery = () => {
     setImages(newImages);
   };
 
-  // Generate label from unit, value, and multiplier
-  const generateLabel = () => {
-    if (!unit || !value) return "";
-
-    const numValue = parseFloat(value);
-    const numMultiplier = parseInt(multiplier) || 1;
-
-    if (isNaN(numValue)) return "";
-
-    if (numMultiplier > 1) {
-      return `${numMultiplier} × ${numValue} ${unit}`;
-    }
-
-    return `${numValue} ${unit}`;
-  };
-
-  // Update label whenever unit, value, or multiplier changes
-  useEffect(() => {
-    const newLabel = generateLabel();
-    setLabel(newLabel);
-  }, [unit, value, multiplier]);
+  // Variants are managed via VariantManagement; no unit/label generation here.
 
   const validateForm = () => {
     // Required fields
-    if (!name || !categoryId || !unit || !value || !mrp || !selling) {
-      setError("Please fill all required fields (*)");
-      toast.error("Please fill all required fields");
-      return false;
-    }
-
-    // Numeric validation
-    const numValue = parseFloat(value);
-    const numMultiplier = parseInt(multiplier) || 1;
-    const numMrp = parseFloat(mrp);
-    const numSelling = parseFloat(selling);
-    const numStock = parseInt(countInStock) || 0;
-
-    if (isNaN(numValue) || numValue <= 0) {
-      setError("Unit value must be a positive number");
-      toast.error("Unit value must be a positive number");
-      return false;
-    }
-
-    if (numMultiplier < 1) {
-      setError("Multiplier must be at least 1");
-      toast.error("Multiplier must be at least 1");
-      return false;
-    }
-
-    if (isNaN(numMrp) || isNaN(numSelling) || numMrp <= 0 || numSelling <= 0) {
-      setError("Prices must be valid positive numbers");
-      toast.error("Prices must be valid positive numbers");
-      return false;
-    }
-
-    if (numSelling > numMrp) {
-      setError("Selling price cannot be greater than MRP");
-      toast.error("Selling price cannot be greater than MRP");
-      return false;
-    }
-
-    if (numStock < 0) {
-      setError("Stock count cannot be negative");
-      toast.error("Stock count cannot be negative");
+    if (!name || !categoryId) {
+      setError("Please fill product name and category");
+      toast.error("Please fill product name and category");
       return false;
     }
 
@@ -312,15 +221,9 @@ const EditGrocery = () => {
       return false;
     }
 
-    // Check if unit is allowed for selected category
-    const selectedCategory = categories.find((cat) => cat._id === categoryId);
-    if (selectedCategory && !selectedCategory.allowedUnits.includes(unit)) {
-      setError(
-        `Unit '${unit}' is not allowed for the selected category. Allowed units: ${selectedCategory.allowedUnits.join(
-          ", "
-        )}`
-      );
-      toast.error(`Unit '${unit}' is not allowed for selected category`);
+    if (variants.length === 0) {
+      setError("Please add at least one variant");
+      toast.error("Please add at least one variant");
       return false;
     }
 
@@ -346,20 +249,29 @@ const EditGrocery = () => {
       formData.append("category", categoryId);
       formData.append("brand", brand.trim());
 
-      // Variant info
-      formData.append("label", label || generateLabel());
-      formData.append("unit", unit);
-      formData.append("value", value);
-      formData.append("multiplier", multiplier);
-      formData.append("mrp", mrp);
-      formData.append("selling", selling);
-      formData.append("countInStock", countInStock);
+      // Variants
+      formData.append("variants", JSON.stringify(variants));
 
-      // Append new images
+      // Track which existing images are being kept
+      const keepImageIds: string[] = [];
+      const newFiles: File[] = [];
+      
       images.forEach((image) => {
-        if(image.file){
-            formData.append("images", image.file);
+        if (image.file) {
+          // New image
+          newFiles.push(image.file);
+        } else {
+          // Existing image - track that we want to keep it
+          keepImageIds.push(image.id);
         }
+      });
+      
+      // Send list of image IDs to keep (so backend knows which old ones to delete)
+      formData.append("keepImageIds", JSON.stringify(keepImageIds));
+      
+      // Append new image files
+      newFiles.forEach((file) => {
+        formData.append("images", file);
       });
       
       const url = "/api/admin/add-grocery";
@@ -438,37 +350,7 @@ const EditGrocery = () => {
       setDescLoading(false);
     }
   };
-  const discountPercent = calculateDiscountPercentUI(mrp, selling);
-
-  // Unit examples for tooltips
-  const unitExamples: { [key: string]: string } = {
-    kg: "e.g., 1 kg, 2.5 kg",
-    g: "e.g., 100 g, 250 g, 500 g",
-    liter: "e.g., 1 liter, 2 liters",
-    ml: "e.g., 100 ml, 250 ml, 500 ml",
-    piece: "e.g., 1 piece, 12 pieces",
-    dozen: "e.g., 1 dozen (12 pieces)",
-    pack: "e.g., 1 pack, 2 packs",
-    packet: "e.g., 1 packet, 3 packets",
-    pouch: "e.g., 1 pouch, 2 pouches",
-    box: "e.g., 1 box, 5 boxes",
-    bag: "e.g., 1 bag, 3 bags",
-    tray: "e.g., 1 tray, 2 trays",
-    bottle: "e.g., 1 bottle, 6 bottles",
-    jar: "e.g., 1 jar, 2 jars",
-    can: "e.g., 1 can, 4 cans",
-    tin: "e.g., 1 tin, 2 tins",
-    bar: "e.g., 1 bar, 5 bars",
-    loaf: "e.g., 1 loaf, 2 loaves",
-    slice: "e.g., 1 slice, 8 slices",
-    roll: "e.g., 1 roll, 4 rolls",
-    cup: "e.g., 1 cup, 2 cups",
-    cone: "e.g., 1 cone, 6 cones",
-    sachet: "e.g., 1 sachet, 10 sachets",
-    strip: "e.g., 1 strip, 5 strips",
-    tub: "e.g., 1 tub, 3 tubs",
-    sheet: "e.g., 1 sheet, 50 sheets",
-  };
+  
 
   if(initialLoading){
     return <div className="min-h-screen flex items-center justify-center">
@@ -675,220 +557,13 @@ const EditGrocery = () => {
                   )}
                 </div>
 
-                {/* Unit Configuration */}
-                <div
-                  className={`p-6 rounded-2xl ${
-                    !categoryId
-                      ? "bg-gray-50"
-                      : "bg-gradient-to-r from-blue-50 to-indigo-50"
-                  }`}
-                >
-                  <h3 className="text-xl font-bold text-gray-900 mb-4">
-                    Unit Configuration <span className="text-red-500">*</span>
-                  </h3>
-
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                    {/* Unit Type */}
-                    <div>
-                      <label className="block text-gray-800 font-semibold mb-2">
-                        Unit Type
-                      </label>
-                      <select
-                        value={unit}
-                        onChange={(e) => setUnit(e.target.value)}
-                        className={`w-full border rounded-xl px-4 py-3.5 outline-none focus:ring-2 focus:ring-green-400 focus:border-transparent transition-all bg-white text-gray-800 ${
-                          !categoryId
-                            ? "border-gray-200 bg-gray-100"
-                            : "border-gray-300"
-                        }`}
-                        disabled={loading || !categoryId}
-                      >
-                        <option value="">
-                          {!categoryId
-                            ? "Select category first"
-                            : "Select Unit"}
-                        </option>
-                        {units.map((u) => (
-                          <option key={u} value={u}>
-                            {u}
-                          </option>
-                        ))}
-                      </select>
-                      {unit && unitExamples[unit] && (
-                        <p className="text-xs text-gray-500 mt-1">
-                          {unitExamples[unit]}
-                        </p>
-                      )}
-                    </div>
-
-                    {/* Unit Value */}
-                    <div>
-                      <label className="block text-gray-800 font-semibold mb-2">
-                        Unit Value
-                      </label>
-                      <div className="relative">
-                        <input
-                          type="number"
-                          value={value}
-                          onChange={(e) => setValue(e.target.value)}
-                          placeholder="e.g., 50"
-                          min="0.01"
-                          step="0.01"
-                          className={`w-full border rounded-xl px-4 py-3.5 outline-none focus:ring-2 focus:ring-green-400 focus:border-transparent transition-all text-gray-800 [appearance:textfield] noSpin ${
-                            !categoryId
-                              ? "border-gray-200 bg-gray-100"
-                              : "border-gray-300"
-                          }`}
-                          disabled={loading || !categoryId}
-                        />
-                      </div>
-                      <p className="text-xs text-gray-500 mt-1">
-                        Enter value like 50, 100, 250, etc.
-                      </p>
-                    </div>
-
-                    {/* Multiplier */}
-                    <div>
-                      <label className="block text-gray-800 font-semibold mb-2">
-                        Multiplier
-                        <span className="text-xs text-gray-500 ml-1">
-                          (optional)
-                        </span>
-                      </label>
-                      <div className="relative">
-                        <input
-                          type="number"
-                          value={multiplier}
-                          onChange={(e) => setMultiplier(e.target.value)}
-                          placeholder="1"
-                          min="1"
-                          step="1"
-                          className={`w-full border rounded-xl px-4 py-3.5 outline-none focus:ring-2 focus:ring-green-400 focus:border-transparent transition-all text-gray-800 [appearance:textfield] noSpin ${
-                            !categoryId
-                              ? "border-gray-200 bg-gray-100"
-                              : "border-gray-300"
-                          }`}
-                          disabled={loading || !categoryId}
-                        />
-                      </div>
-                      <p className="text-xs text-gray-500 mt-1">
-                        Use for packs (e.g., 2 × 50 ml)
-                      </p>
-                    </div>
-                  </div>
-
-                  {/* Generated Label Preview */}
-                  {(unit || value) && (
-                    <div className="mt-4 p-3 bg-white rounded-lg border border-green-200">
-                      <p className="text-sm text-gray-600">Generated Label:</p>
-                      <p className="text-lg font-bold text-green-700">
-                        {label || "Complete unit configuration"}
-                      </p>
-                      <p className="text-xs text-gray-500 mt-1">
-                        This will appear to customers as "{label || "..."}"
-                      </p>
-                    </div>
-                  )}
-                </div>
-
-                {/* Price Section */}
-                <div className="bg-gradient-to-r from-green-50 to-emerald-50 p-6 rounded-2xl">
-                  <h3 className="text-xl font-bold text-gray-900 mb-4">
-                    Pricing Details <span className="text-red-500">*</span>
-                  </h3>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <div>
-                      <label className="block text-gray-800 font-semibold mb-2">
-                        MRP (Maximum Retail Price)
-                      </label>
-                      <div className="relative">
-                        <span className="absolute left-4 top-3.5 text-gray-700 font-bold">
-                          ₹
-                        </span>
-                        <input
-                          type="number"
-                          value={mrp}
-                          onChange={(e) => setMrp(e.target.value)}
-                          placeholder="0.00"
-                          min="0"
-                          step="0.01"
-                          className="w-full border border-gray-300 rounded-xl pl-10 pr-4 py-3.5 outline-none focus:ring-2 focus:ring-green-400 focus:border-transparent transition-all text-gray-800 bg-white noSpin"
-                          disabled={loading}
-                        />
-                      </div>
-                    </div>
-
-                    <div>
-                      <label className="block text-gray-800 font-semibold mb-2">
-                        Selling Price
-                      </label>
-                      <div className="relative">
-                        <span className="absolute left-4 top-3.5 text-gray-700 font-bold">
-                          ₹
-                        </span>
-                        <input
-                          type="number"
-                          value={selling}
-                          onChange={(e) => setSelling(e.target.value)}
-                          placeholder="0.00"
-                          min="0"
-                          step="0.01"
-                          className="w-full border border-gray-300 rounded-xl pl-10 pr-4 py-3.5 outline-none focus:ring-2 focus:ring-green-400 focus:border-transparent transition-all text-gray-800 bg-white noSpin"
-                          disabled={loading}
-                        />
-                      </div>
-                      {discountPercent > 0 && (
-                        <div className="mt-3 inline-flex items-center gap-2 bg-green-100 text-green-800 px-3 py-1.5 rounded-full">
-                          <span className="text-sm font-bold">
-                            🎉 {discountPercent}% OFF
-                          </span>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                </div>
-
-                {/* Stock and Brand */}
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  <div>
-                    <label className="block text-gray-800 font-semibold mb-2">
-                      Stock Quantity
-                    </label>
-                    <div className="relative">
-                      <input
-                        type="number"
-                        value={countInStock}
-                        onChange={(e) => setCountInStock(e.target.value)}
-                        placeholder="0"
-                        min="0"
-                        className="w-full border border-gray-300 rounded-xl px-4 py-3.5 outline-none focus:ring-2 focus:ring-green-400 focus:border-transparent transition-all text-gray-800 [appearance:textfield] noSpin"
-                        disabled={loading}
-                      />
-                      <span className="absolute right-4 top-3.5 text-gray-500">
-                        units
-                      </span>
-                    </div>
-                    <p className="text-xs text-gray-500 mt-1">
-                      Leave 0 for out of stock
-                    </p>
-                  </div>
-
-                  <div>
-                    <label className="block text-gray-800 font-semibold mb-2">
-                      Brand Name
-                    </label>
-                    <input
-                      type="text"
-                      value={brand}
-                      onChange={(e) => setBrand(e.target.value)}
-                      placeholder="Enter brand name (e.g., Nestle, Hindustan Unilever)"
-                      className="w-full border border-gray-300 rounded-xl px-4 py-3.5 outline-none focus:ring-2 focus:ring-green-400 focus:border-transparent transition-all text-gray-800 placeholder-gray-400"
-                      disabled={loading}
-                    />
-                    <p className="text-sm text-gray-500 mt-2">
-                      Leave empty for "Ordinary" brand
-                    </p>
-                  </div>
+                {/* Variant Management */}
+                <div className="mt-8 pt-8 border-t border-gray-200">
+                  <VariantManagement 
+                    variants={variants}
+                    onVariantsChange={setVariants}
+                    allowedUnits={(categories.find((c) => c._id === categoryId)?.allowedUnits) || []}
+                  />
                 </div>
 
                 {/* Submit Button */}
@@ -1173,22 +848,13 @@ const EditGrocery = () => {
                         className={`font-medium ${
                           name &&
                           categoryId &&
-                          unit &&
-                          value &&
-                          mrp &&
-                          selling &&
+                          variants.length > 0 &&
                           images.length > 0
                             ? "text-green-600"
                             : "text-yellow-600"
                         }`}
                       >
-                        {name &&
-                        categoryId &&
-                        unit &&
-                        value &&
-                        mrp &&
-                        selling &&
-                        images.length > 0
+                        {name && categoryId && variants.length > 0 && images.length > 0
                           ? "✓ Ready"
                           : "Incomplete"}
                       </span>

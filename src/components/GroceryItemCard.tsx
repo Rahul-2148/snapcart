@@ -3,6 +3,7 @@
 
 import { motion } from "motion/react";
 import Image from "next/image";
+import Link from "next/link";
 import { useKeenSlider } from "keen-slider/react";
 import "keen-slider/keen-slider.min.css";
 import { useEffect, useRef } from "react";
@@ -21,6 +22,13 @@ import {
 } from "@/hooks/cart.api";
 import { useSession } from "next-auth/react";
 import { toast } from "sonner";
+import {
+  getPriceRange,
+  formatPriceDisplay,
+  formatMrpDisplay,
+  getDiscountBadgeText,
+  hasVariablePricing,
+} from "@/lib/utils/priceUtils";
 
 interface IVariant {
   _id: string;
@@ -56,12 +64,19 @@ const GroceryItemCard = ({ grocery }: { grocery: IGrocery }) => {
   );
   const quantity = cartItem?.quantity ?? 0;
 
+  // Calculate dynamic price range for all variants
+  const priceRange = getPriceRange(grocery?.variants || []);
+  const isVariablePricing = hasVariablePricing(grocery?.variants || []);
+
+  // ALWAYS show default variant price on card (not range)
   const sellingPrice = defaultVariant?.price?.selling;
   const mrpPrice = defaultVariant?.price?.mrp;
-  const discountPercent = defaultVariant?.price?.discountPercent;
   const stock = defaultVariant?.countInStock ?? 0;
   const isOutOfStock = stock === 0;
   const isMaxReached = quantity >= stock;
+  
+  // Check if there are multiple variants
+  const hasMultipleVariants = (grocery?.variants?.length || 0) > 1;
 
   const [sliderRef, instanceRef] = useKeenSlider<HTMLDivElement>({
     loop: true,
@@ -253,23 +268,29 @@ const GroceryItemCard = ({ grocery }: { grocery: IGrocery }) => {
       className="bg-white rounded-2xl shadow-sm hover:shadow-xl transition-all overflow-hidden border border-gray-100 flex flex-col"
     >
       {/* IMAGE */}
-      <div
-        ref={sliderRef}
-        onMouseEnter={handleMouseEnter}
-        onMouseLeave={handleMouseLeave}
-        className="keen-slider relative w-full aspect-4/3 bg-gray-50"
+      <Link
+        href={`/user/product-details/${grocery?._id}`}
+        className="block relative"
+        aria-label={`${grocery?.name} details`}
       >
-        {grocery?.images?.map((img) => (
-          <div key={img.publicId} className="keen-slider__slide relative">
-            <Image
-              src={img.url}
-              alt={grocery?.name}
-              fill
-              className="object-contain p-4"
-            />
-          </div>
-        ))}
-      </div>
+        <div
+          ref={sliderRef}
+          onMouseEnter={handleMouseEnter}
+          onMouseLeave={handleMouseLeave}
+          className="keen-slider relative w-full aspect-4/3 bg-gray-50"
+        >
+          {grocery?.images?.map((img) => (
+            <div key={img.publicId} className="keen-slider__slide relative">
+              <Image
+                src={img.url}
+                alt={grocery?.name}
+                fill
+                className="object-contain p-4"
+              />
+            </div>
+          ))}
+        </div>
+      </Link>
 
       {/* INFO */}
       <div className="p-4 flex flex-col flex-1">
@@ -283,17 +304,24 @@ const GroceryItemCard = ({ grocery }: { grocery: IGrocery }) => {
           {grocery?.name}
         </h3>
 
-        {/* PRICE */}
-        <div className="flex items-center gap-2 mt-2">
-          <span className="text-green-700 font-bold text-lg">
+        {/* PRICE - Show only DEFAULT variant price (not range) */}
+        <div className="flex items-center gap-1 mt-2 flex-wrap">
+          <span className="text-green-700 font-bold text-base">
             ₹{sellingPrice}
           </span>
-          <span className="line-through text-gray-400 text-sm">
-            ₹{mrpPrice}
-          </span>
-          {discountPercent && (
+          {mrpPrice && mrpPrice > sellingPrice && (
+            <span className="line-through text-gray-400 text-xs">
+              ₹{mrpPrice}
+            </span>
+          )}
+          {mrpPrice && mrpPrice > sellingPrice && (
             <span className="text-red-500 text-xs font-medium">
-              {discountPercent}% OFF
+              {Math.round(((mrpPrice - sellingPrice) / mrpPrice) * 100)}% OFF
+            </span>
+          )}
+          {hasMultipleVariants && (
+            <span className="text-blue-600 text-xs font-semibold ml-1">
+              +{(grocery?.variants?.length || 1) - 1} variants
             </span>
           )}
         </div>

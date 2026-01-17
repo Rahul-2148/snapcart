@@ -12,21 +12,12 @@ export async function POST(req: NextRequest) {
 
     const now = new Date();
 
-    // Build base query for active coupons
+    // Build base query for active coupons (do not pre-filter by cart total so we can show coupons even if minCart not reached)
     const query: any = {
       isActive: true,
       startDate: { $lte: now },
       endDate: { $gte: now },
     };
-
-    // Filter by cart total
-    if (cartTotal) {
-      query.$or = [
-        { minCartValue: { $exists: false } },
-        { minCartValue: null },
-        { minCartValue: { $lte: cartTotal } },
-      ];
-    }
 
     // Get all available coupons
     const coupons = await Coupon.find(query)
@@ -34,18 +25,17 @@ export async function POST(req: NextRequest) {
       .populate("applicableCategories", "name")
       .populate("applicableProducts", "name");
 
-    // Filter coupons based on applicability
+    // Filter coupons based on applicability (strict mode)
     const applicableCoupons = coupons.filter((coupon) => {
-      // Check if coupon has specific category restrictions
+      // Category restriction: coupon requires at least one matching category
       if (
         coupon.applicableCategories &&
         coupon.applicableCategories.length > 0
       ) {
         if (!categoryIds || categoryIds.length === 0) {
-          return false; // Coupon requires specific categories but cart doesn't have them
+          return false;
         }
 
-        // Check if cart has at least one item from required categories
         const hasRequiredCategory = categoryIds.some((catId: string) =>
           coupon.applicableCategories.some(
             (cat: any) => cat._id.toString() === catId
@@ -57,7 +47,7 @@ export async function POST(req: NextRequest) {
         }
       }
 
-      // Check if coupon has specific product restrictions
+      // Product restriction: coupon requires at least one matching product
       if (coupon.applicableProducts && coupon.applicableProducts.length > 0) {
         if (!productIds || productIds.length === 0) {
           return false;
@@ -74,6 +64,7 @@ export async function POST(req: NextRequest) {
         }
       }
 
+      // Min cart check stays on client side; still return coupon here
       return true;
     });
 

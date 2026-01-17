@@ -4,6 +4,7 @@ import { auth } from "@/auth";
 import connectDb from "@/lib/server/db";
 import { User } from "@/models/user.model";
 import bcrypt from "bcryptjs";
+import { sendPasswordResetEmail } from "@/lib/server/email";
 
 export async function PATCH(req: NextRequest) {
   try {
@@ -72,6 +73,14 @@ export async function PATCH(req: NextRequest) {
       password: hashedNewPassword,
       isLoginedWithGoogle: false,
     });
+
+    // Send password reset confirmation email
+    try {
+      await sendPasswordResetEmail(user.email, user.name);
+    } catch (emailError) {
+      console.error("Error sending password reset email:", emailError);
+      // Don't block the password change if email fails
+    }
 
     return NextResponse.json(
       { message: "Password changed successfully" },

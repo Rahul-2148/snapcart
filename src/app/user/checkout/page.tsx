@@ -21,6 +21,9 @@ import {
   Wallet,
   Shield,
   Check,
+  BookmarkPlus,
+  ChevronRight,
+  Briefcase,
 } from "lucide-react";
 import { motion } from "motion/react";
 import dynamic from "next/dynamic";
@@ -78,6 +81,9 @@ const Checkout = () => {
   const [hydrated, setHydrated] = useState(false);
   const [loading, setLoading] = useState(false);
   const [addressValidated, setAddressValidated] = useState(false);
+  const [savedAddresses, setSavedAddresses] = useState<any[]>([]);
+  const [selectedSavedAddress, setSelectedSavedAddress] = useState<string | null>(null);
+  const [useManualAddress, setUseManualAddress] = useState(false);
 
   /* ================= REDIRECT IF NOT AUTHENTICATED ================= */
   useEffect(() => {
@@ -108,6 +114,20 @@ const Checkout = () => {
 
     if (!hydrated) loadCart();
   }, [dispatch, hydrated]);
+
+  /* ================= Fetch saved addresses ================= */
+  useEffect(() => {
+    const fetchSavedAddresses = async () => {
+      if (!userData || userData.role !== "user") return;
+      try {
+        const response = await axios.get("/api/user/addresses");
+        setSavedAddresses(response.data.addresses || []);
+      } catch (error) {
+        console.error("Error fetching saved addresses:", error);
+      }
+    };
+    fetchSavedAddresses();
+  }, [userData]);
 
   /* ================= Set user name & mobile ================= */
   useEffect(() => {
@@ -235,6 +255,22 @@ const Checkout = () => {
       },
       { enableHighAccuracy: true, timeout: 15000, maximumAge: 0 }
     );
+  };
+
+  /* ================= Handle Saved Address Selection ================= */
+  const handleSelectSavedAddress = (addressId: string) => {
+    const savedAddr = savedAddresses.find((addr) => addr._id === addressId);
+    if (!savedAddr) return;
+
+    setSelectedSavedAddress(addressId);
+    setAddress((prev) => ({
+      ...prev,
+      city: savedAddr.city,
+      state: savedAddr.state,
+      pincode: savedAddr.zipCode,
+      fullAddress: savedAddr.street,
+    }));
+    toast.success("Address selected");
   };
 
   /* ================= Create Order ================= */
@@ -412,7 +448,93 @@ const Checkout = () => {
               )}
             </div>
 
-            <div className="relative">
+            {/* ================= Saved Addresses Section ================= */}
+            {!isGuest && savedAddresses.length > 0 && !useManualAddress && (
+              <div className="space-y-3">
+                <div className="flex items-center justify-between">
+                  <label className="text-sm font-medium text-gray-700">
+                    Select Saved Address
+                  </label>
+                  <button
+                    type="button"
+                    onClick={() => setUseManualAddress(true)}
+                    className="text-xs text-green-600 hover:text-green-700 flex items-center gap-1"
+                  >
+                    <BookmarkPlus size={14} />
+                    Add New Address
+                  </button>
+                </div>
+                <div className="space-y-2 max-h-60 overflow-y-auto pr-2">
+                  {savedAddresses.map((savedAddr) => (
+                    <button
+                      key={savedAddr._id}
+                      type="button"
+                      onClick={() => handleSelectSavedAddress(savedAddr._id)}
+                      className={`w-full text-left p-3 border rounded-lg transition-all ${
+                        selectedSavedAddress === savedAddr._id
+                          ? "border-green-500 bg-green-50 shadow-sm"
+                          : "border-gray-200 hover:border-green-300 hover:bg-gray-50"
+                      }`}
+                    >
+                      <div className="flex items-start justify-between">
+                        <div className="flex-1">
+                          <div className="flex items-center gap-2 mb-1">
+                            {savedAddr.type === "home" && (
+                              <Home size={14} className="text-blue-500" />
+                            )}
+                            {savedAddr.type === "work" && (
+                              <Briefcase size={14} className="text-green-500" />
+                            )}
+                            {savedAddr.type === "others" && (
+                              <MapPin size={14} className="text-gray-500" />
+                            )}
+                            <span className="text-xs font-semibold text-gray-700 capitalize">
+                              {savedAddr.type}
+                            </span>
+                          </div>
+                          <p className="text-sm text-gray-800 font-medium">
+                            {savedAddr.street}
+                          </p>
+                          <p className="text-xs text-gray-600 mt-1">
+                            {savedAddr.city}, {savedAddr.state} - {savedAddr.zipCode}
+                          </p>
+                        </div>
+                        {selectedSavedAddress === savedAddr._id && (
+                          <div className="w-5 h-5 rounded-full bg-green-600 flex items-center justify-center flex-shrink-0">
+                            <Check className="w-3 h-3 text-white" />
+                          </div>
+                        )}
+                      </div>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Manual Address Entry Toggle */}
+            {!isGuest && savedAddresses.length > 0 && useManualAddress && (
+              <div className="flex items-center justify-between p-2 bg-blue-50 rounded-lg">
+                <span className="text-sm text-blue-700">
+                  Using manual address entry
+                </span>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setUseManualAddress(false);
+                    setSelectedSavedAddress(null);
+                  }}
+                  className="text-xs text-blue-600 hover:text-blue-700 flex items-center gap-1"
+                >
+                  <ChevronRight size={14} />
+                  Use Saved Address
+                </button>
+              </div>
+            )}
+
+            {/* Show manual address fields if using manual mode or no saved addresses */}
+            {(isGuest || savedAddresses.length === 0 || useManualAddress) && (
+              <>
+                <div className="relative">
               <Home
                 size={18}
                 className="absolute left-3 top-3 text-green-600 pointer-events-none"
@@ -511,6 +633,8 @@ const Checkout = () => {
                 handleCurrentLocation={handleCurrentLocation}
               />
             </div>
+              </>
+            )}
           </div>
         </motion.div>
 

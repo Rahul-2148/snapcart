@@ -5,6 +5,7 @@ import { User } from "@/models/user.model";
 import bcrypt from "bcryptjs";
 import Notification from "@/models/notification.model"; // Import Notification model
 import { sendNotification } from "@/lib/server/socket"; // Import sendNotification
+import { sendWelcomeEmail } from "@/lib/server/email"; // Import email service
 
 // Register user API
 export async function POST(req: NextRequest) {
@@ -72,6 +73,14 @@ export async function POST(req: NextRequest) {
         notificationError
       );
       // Do not block user registration if notification fails
+    }
+
+    // Send welcome email to the new user
+    try {
+      await sendWelcomeEmail(user.email, user.name);
+    } catch (emailError) {
+      console.error("Error sending welcome email:", emailError);
+      // Do not block user registration if email fails
     }
 
     return NextResponse.json(

@@ -5,6 +5,7 @@ import { User } from "./models/user.model";
 import connectDb from "./lib/server/db";
 import bcrypt from "bcryptjs";
 import Google from "next-auth/providers/google";
+import { sendWelcomeEmail } from "./lib/server/email";
 
 export const { handlers, signIn, signOut, auth } = NextAuth({
   providers: [
@@ -51,7 +52,10 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
       if (account?.provider === "google") {
         await connectDb();
         let existingUser = await User.findOne({ email: user.email });
+        let isNewUser = false;
+
         if (!existingUser) {
+          isNewUser = true;
           existingUser = await User.create({
             name: user.name,
             email: user.email,
@@ -63,6 +67,17 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
             role: "user",
             isLoginedWithGoogle: true,
           });
+
+          // Send welcome email to new Google user
+          try {
+            await sendWelcomeEmail(existingUser.email, existingUser.name);
+          } catch (emailError) {
+            console.error(
+              "Error sending welcome email to Google user:",
+              emailError,
+            );
+            // Don't block login if email fails
+          }
         }
         user.id = existingUser._id.toString();
         user.role = existingUser.role;

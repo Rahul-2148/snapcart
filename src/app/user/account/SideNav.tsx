@@ -2,6 +2,8 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { User, MapPin, Bell, Package } from "lucide-react";
+import { useSelector } from "react-redux";
+import { RootState } from "@/redux/store";
 
 const links = [
   { href: "/user/account/profile", label: "Profile", icon: User },
@@ -12,6 +14,15 @@ const links = [
 
 export default function SideNav() {
   const pathname = usePathname();
+  const userData = useSelector((state: RootState) => state.user.userData);
+
+  // Filter links based on user role - Orders should only show for regular users
+  const filteredLinks = links.filter((link) => {
+    if (link.href === "/user/account/orders") {
+      return userData?.role === "user";
+    }
+    return true;
+  });
 
   return (
     <nav className="w-80 bg-white rounded-xl shadow-lg border border-gray-100 overflow-hidden h-full">
@@ -22,7 +33,7 @@ export default function SideNav() {
         </p>
       </div>
       <ul className="p-4">
-        {links.map((link) => {
+        {filteredLinks.map((link) => {
           const IconComponent = link.icon;
           const isActive = pathname === link.href;
           return (

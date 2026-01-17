@@ -3,6 +3,9 @@
 import { Package } from "lucide-react";
 import Link from "next/link";
 import { useEffect, useState } from "react";
+import { useSelector } from "react-redux";
+import { RootState } from "@/redux/store";
+import { useRouter } from "next/navigation";
 
 interface OrderItem {
   _id: string;
@@ -27,10 +30,25 @@ export default function OrdersPage() {
   const [orders, setOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const userData = useSelector((state: RootState) => state.user.userData);
+  const router = useRouter();
 
   useEffect(() => {
-    fetchOrders();
-  }, []);
+    // Redirect non-user roles to their respective dashboards
+    if (userData?.role === "admin") {
+      router.push("/admin");
+      return;
+    }
+    if (userData?.role === "deliveryBoy") {
+      router.push("/user/account/profile");
+      return;
+    }
+    
+    // Only fetch orders for regular users
+    if (userData?.role === "user") {
+      fetchOrders();
+    }
+  }, [userData, router]);
 
   const fetchOrders = async () => {
     try {

@@ -27,7 +27,7 @@ const AdminLayout = ({ children }: { children: React.ReactNode }) => {
 
       {/* Sidebar */}
       <div
-        className={`transition-all duration-300 ease-in-out z-50 ${
+        className={`transition-all duration-300 ease-in-out z-50 will-change-[width] ${
           // Mobile: overlay behavior
           isMobileSidebarOpen
             ? "fixed inset-y-0 left-0 w-64 md:hidden"

@@ -47,6 +47,7 @@ const Login = () => {
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [googleLoading, setGoogleLoading] = useState(false);
 
   /* ================= LOGIN HANDLER ================= */
 
@@ -105,7 +106,19 @@ const Login = () => {
   /* ================= GOOGLE LOGIN ================= */
 
   const handleGoogleLogin = async () => {
-    await signIn("google", { callbackUrl: redirectTo });
+    setGoogleLoading(true);
+    try {
+      // First, get the Google provider to get user info
+      // We'll use a popup or redirect to get the email, then check if user exists
+      // For now, we'll just proceed with signIn which will create user if not exists
+      // and send welcome email
+      await signIn("google", { callbackUrl: redirectTo });
+    } catch (error) {
+      console.error("Google login error:", error);
+      setError("Failed to login with Google");
+    } finally {
+      setGoogleLoading(false);
+    }
   };
 
   /* ================= UI ================= */
@@ -193,10 +206,16 @@ const Login = () => {
         {/* GOOGLE */}
         <div
           onClick={handleGoogleLogin}
-          className="w-full flex items-center justify-center gap-3 border hover:bg-gray-50 py-3 rounded-xl cursor-pointer"
+          className="w-full flex items-center justify-center gap-3 border hover:bg-gray-50 py-3 rounded-xl cursor-pointer disabled:opacity-50"
         >
-          <Image src={googleLogo} alt="Google" width={20} height={20} />
-          Continue with Google
+          {googleLoading ? (
+            <Loader2 className="w-5 h-5 animate-spin" />
+          ) : (
+            <>
+              <Image src={googleLogo} alt="Google" width={20} height={20} />
+              Continue with Google
+            </>
+          )}
         </div>
       </motion.form>
 

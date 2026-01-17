@@ -140,6 +140,11 @@ const CartPage = () => {
 
   /* ================= LOAD AVAILABLE COUPONS ================= */
   useEffect(() => {
+    if (cartItems.length === 0) {
+      setAvailableCoupons([]);
+      return;
+    }
+
     const loadAvailableCoupons = async () => {
       try {
         // Collect category and product IDs from cart items
@@ -164,27 +169,38 @@ const CartPage = () => {
         const response = await fetch("/api/coupon/available", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
+          credentials: "include",
+          cache: "no-store",
           body: JSON.stringify({
-            cartTotal: subTotal,
+            cartTotal: Math.max(subTotal, 0),
             categoryIds,
             productIds,
             userId: session?.user?.id,
           }),
         });
 
+        if (!response.ok) {
+          console.error("Failed to load coupons:", await response.text());
+          setAvailableCoupons([]);
+          return;
+        }
+
         const data = await response.json();
         if (data.success) {
           setAvailableCoupons(data.coupons || []);
+        } else {
+          setAvailableCoupons([]);
         }
       } catch (error) {
         console.error("Failed to load coupons:", error);
+        setAvailableCoupons([]);
       }
     };
 
-    if (subTotal > 0 && cartItems.length > 0) {
+    if (showAvailableCoupons || availableCoupons.length === 0) {
       loadAvailableCoupons();
     }
-  }, [subTotal, cartItems, session]);
+  }, [subTotal, cartItems, session?.user?.id, showAvailableCoupons, availableCoupons.length]);
 
   /* ================= HANDLE CLEAR CART ================= */
   const handleClearCart = async () => {
