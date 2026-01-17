@@ -1,0 +1,26 @@
+[
+  {
+    "name": "Ashirwad Atta 5Kg pack",
+    "description": "Premium quality whole wheat flour sourced from select golden grains and ground using traditional chakki methods. Designed to deliver superior hydration for soft, fluffy, and nutritious rotis and chapattis.",
+    "category": "Rice, Atta & Grains",
+    "unit": "kg",
+    "price": { "mrpPrice": 299, "sellingPrice": 249, "discountPercent": 17 },
+    "brand": "Aashirwad",
+    "images": [],
+    "countInStock": 225,
+    "slug": "ashirwad-atta-5kg-pack",
+  },
+  {
+    "name": "Manforce Condoms",
+    "description": "Manforce condoms are designed to enhance intimacy while providing reliable protection. Made from high-quality natural rubber latex, every condom is electronically tested to ensure safety, giving you the confidence to explore your passions.
+    
+    Disclaimer: Condoms are an effective method of birth control if used with care. However, no method of contraception can provide 100% protection against pregnancy, HIV, or sexually transmitted infections (STIs). Read the instructions on the pack carefully before use.",
+    "category": "Pharmacy & Health",
+    "unit": "pack",
+    "price": { "mrpPrice": 249, "sellingPrice": 149, "discountPercent": 40 },
+    "brand": "Manforce",
+    "images": [],
+    "countInStock": 4,
+    "slug": "manforce-condoms",
+  },
+]
