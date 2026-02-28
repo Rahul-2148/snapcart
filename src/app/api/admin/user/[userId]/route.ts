@@ -7,18 +7,17 @@ import { sendNotification } from "@/lib/server/socket"; // Import sendNotificati
 
 export async function PATCH(
   req: NextRequest,
-  { params }: { params: { userId: string } }
+  { params }: { params: Promise<{ userId: string }> }
 ) {
   try {
     const session = await auth();
 
-    if (session?.user?.role !== "admin") {
+    if (!session?.user?.roles?.includes("admin")) {
       return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
     }
 
-    const resolvedParams = await params;
-    const { userId } = resolvedParams;
-    const { role, isBlocked, roleChangeRequest } = await req.json();
+    const { userId } = await params;
+    const { role, removeRole, currentRole, isBlocked, roleChangeRequest } = await req.json();
 
     await connectDb();
 
@@ -32,11 +31,36 @@ export async function PATCH(
     const unsetData: any = {};
     let notificationMessage = ""; // Initialize notification message
 
-    if (role && ["user", "deliveryBoy", "admin"].includes(role)) {
-      updateData.role = role;
-      if (user.role !== role) { // Check if role actually changed
-          notificationMessage = `Your role has been updated to ${role} by an admin.`;
+    // Handle adding a new role (multi-role support)
+    if (role && ["user", "deliveryBoy"].includes(role)) {
+      if (!user.roles?.includes(role)) {
+        // Add role to roles array
+        if (!Array.isArray(user.roles)) {
+          user.roles = [];
+        }
+        user.roles.push(role);
+        updateData.roles = user.roles;
+        notificationMessage = `A ${role === "deliveryBoy" ? "Delivery Partner" : role} role has been added to your account by an admin.`;
       }
+    }
+
+    // Handle removing a role (if more than one role remains)
+    if (removeRole && ["user", "deliveryBoy"].includes(removeRole)) {
+      if (user.roles?.includes(removeRole) && user.roles.length > 1) {
+        user.roles = user.roles.filter((r: string) => r !== removeRole);
+        // If currentRole is being removed, switch to another available role
+        if (user.currentRole === removeRole) {
+          updateData.currentRole = user.roles[0];
+        }
+        updateData.roles = user.roles;
+        notificationMessage = `The ${removeRole === "deliveryBoy" ? "Delivery Partner" : removeRole} role has been removed from your account by an admin.`;
+      }
+    }
+
+    // Handle switching currentRole
+    if (currentRole && user.roles?.includes(currentRole)) {
+      updateData.currentRole = currentRole;
+      notificationMessage = `Your active role has been switched to ${currentRole === "deliveryBoy" ? "Delivery Partner" : currentRole} by an admin.`;
     }
 
     if (typeof isBlocked === "boolean") {
@@ -45,14 +69,21 @@ export async function PATCH(
 
     if (roleChangeRequest) {
       if (roleChangeRequest === "approved" && user.requestedRole) {
-        updateData.role = user.requestedRole;
+        // Add the requested role to roles array
+        if (!Array.isArray(user.roles)) {
+          user.roles = [];
+        }
+        if (!user.roles.includes(user.requestedRole)) {
+          user.roles.push(user.requestedRole);
+        }
+        updateData.roles = user.roles;
         updateData.roleChangeRequest = "none";
         unsetData.requestedRole = ""; // Using unset
-        notificationMessage = `Your request to become a ${user.requestedRole} has been approved.`;
+        notificationMessage = `Your request to become a ${user.requestedRole === "deliveryBoy" ? "Delivery Partner" : user.requestedRole} has been approved.`;
       } else if (roleChangeRequest === "rejected") {
         updateData.roleChangeRequest = "none";
         unsetData.requestedRole = ""; // Using unset
-        notificationMessage = `Your request to become a ${user.requestedRole || 'a different role'} has been rejected.`;
+        notificationMessage = `Your request to become a ${user.requestedRole === "deliveryBoy" ? "Delivery Partner" : user.requestedRole || 'a different role'} has been rejected.`;
       } else if (roleChangeRequest === "pending" || roleChangeRequest === "none") {
         updateData.roleChangeRequest = roleChangeRequest;
       }

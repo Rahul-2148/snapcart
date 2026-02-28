@@ -7,7 +7,9 @@ export interface IUser extends Document {
   email: string;
   password?: string;
   mobileNumber?: string;
-  role?: "user" | "deliveryBoy" | "admin";
+  gender?: "male" | "female" | "other" | "prefer-not-to-say";
+  roles?: ("user" | "deliveryBoy" | "admin")[];
+  currentRole?: "user" | "deliveryBoy" | "admin"; // Active role in current session
   image?: {
     url: string;
     publicId: string;
@@ -21,6 +23,7 @@ export interface IUser extends Document {
   roleChangeRequestTimestamp?: Date;
   hasPassword?: boolean;
   isLoginedWithGoogle?: boolean;
+  profileCompleted?: boolean; // Flag to check if Google user completed profile
 }
 
 const userSchema = new mongoose.Schema<IUser>(
@@ -41,7 +44,17 @@ const userSchema = new mongoose.Schema<IUser>(
       type: String,
       index: true,
     },
-    role: {
+    gender: {
+      type: String,
+      enum: ["male", "female", "other", "prefer-not-to-say"],
+      default: null,
+    },
+    roles: {
+      type: [String],
+      enum: ["user", "deliveryBoy", "admin"],
+      default: ["user"],
+    },
+    currentRole: {
       type: String,
       enum: ["user", "deliveryBoy", "admin"],
       default: "user",
@@ -78,8 +91,12 @@ const userSchema = new mongoose.Schema<IUser>(
       type: Boolean,
       default: false,
     },
+    profileCompleted: {
+      type: Boolean,
+      default: true, // Default true for non-Google users
+    },
   },
-  { timestamps: true }
+  { timestamps: true },
 );
 
 export const User =

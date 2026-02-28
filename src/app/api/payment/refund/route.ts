@@ -46,12 +46,16 @@ export const POST = async (req: NextRequest) => {
     }
 
     /* ================= STRIPE REFUND ================= */
+    const latestPayment = Array.isArray(order.paymentDetails)
+      ? order.paymentDetails[order.paymentDetails.length - 1]
+      : null;
+
     if (
       order.onlinePaymentType === "stripe" &&
-      order.paymentDetails?.transactionId
+      latestPayment?.transactionId
     ) {
       await stripe.refunds.create({
-        payment_intent: order.paymentDetails.transactionId,
+        payment_intent: latestPayment.transactionId,
         amount: Math.round(order.finalTotal * 100), // in paise
       });
     }
@@ -59,9 +63,9 @@ export const POST = async (req: NextRequest) => {
     /* ================= RAZORPAY REFUND ================= */
     if (
       order.onlinePaymentType === "razorpay" &&
-      order.paymentDetails?.transactionId
+      latestPayment?.transactionId
     ) {
-      await razorpay.payments.refund(order.paymentDetails.transactionId, {
+      await razorpay.payments.refund(latestPayment.transactionId, {
         amount: Math.round(order.finalTotal * 100), // in paise
       });
     }

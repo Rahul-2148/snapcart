@@ -6,6 +6,7 @@ import { Star, Edit2, Trash2, MessageSquare, AlertCircle } from "lucide-react";
 import axios from "axios";
 import { toast } from "sonner";
 import { useSession } from "next-auth/react";
+import Swal from "sweetalert2";
 
 interface IReview {
 	_id: string;
@@ -105,16 +106,27 @@ const ReviewSection = ({ groceryId }: ReviewSectionProps) => {
 	};
 
 	const handleDeleteReview = async (reviewId: string) => {
-		if (!confirm("Are you sure you want to delete this review?")) return;
+		const result = await Swal.fire({
+			title: "Delete Review?",
+			text: "This action cannot be undone. Are you sure?",
+			icon: "warning",
+			showCancelButton: true,
+			confirmButtonColor: "#dc2626",
+			cancelButtonColor: "#6b7280",
+			confirmButtonText: "Yes, delete it!",
+			cancelButtonText: "Cancel",
+		});
 
-		try {
-			const { data } = await axios.delete(`/api/reviews/review/${reviewId}`);
-			if (data.success) {
-				toast.success("Review deleted successfully");
-				fetchReviews();
+		if (result.isConfirmed) {
+			try {
+				const { data } = await axios.delete(`/api/reviews/review/${reviewId}`);
+				if (data.success) {
+					toast.success("Review deleted successfully");
+					fetchReviews();
+				}
+			} catch (error: any) {
+				toast.error(error.response?.data?.message || "Failed to delete review");
 			}
-		} catch (error: any) {
-			toast.error(error.response?.data?.message || "Failed to delete review");
 		}
 	};
 
@@ -330,27 +342,35 @@ const ReviewSection = ({ groceryId }: ReviewSectionProps) => {
 
 								<p className="text-gray-700 leading-relaxed">{review.comment}</p>
 
-								{review.updatedAt !== review.createdAt && (
-									<p className="text-xs text-gray-500 italic">
-										Edited on{" "}
-										{new Date(review.updatedAt).toLocaleDateString("en-US", {
-											year: "numeric",
-											month: "long",
-											day: "numeric",
-										})}{" "}
-										at{" "}
-										{new Date(review.updatedAt).toLocaleTimeString("en-US", {
-											hour: "2-digit",
-											minute: "2-digit",
-											hour12: true,
-										})}
-									</p>
-								)}
+								{(() => {
+									// Compare string representations to avoid timezone issues
+									const createdDate = new Date(review.createdAt).toISOString().slice(0, 19);
+									const updatedDate = new Date(review.updatedAt).toISOString().slice(0, 19);
+									// Show "Edited on" if dates are different
+									return createdDate !== updatedDate ? (
+										<p className="text-xs text-gray-500 italic">
+											Edited on{" "}
+											{new Date(review.updatedAt).toLocaleDateString("en-US", {
+												year: "numeric",
+												month: "long",
+												day: "numeric",
+											})}{" "}
+											at{" "}
+											{new Date(review.updatedAt).toLocaleTimeString("en-US", {
+												hour: "2-digit",
+												minute: "2-digit",
+												hour12: true,
+											})}
+										</p>
+									) : null;
+								})()}
 							</motion.div>
 						);
 					})
 				)}
 			</div>
+
+			{/* Confirmation Modal removed - using SweetAlert2 instead */}
 		</div>
 	);
 };

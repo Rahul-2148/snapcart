@@ -10,6 +10,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useState } from "react";
 import { useDispatch } from "react-redux";
 import axios from "axios";
+import { toast } from "sonner";
 
 import {
   clearGuestCart,
@@ -25,9 +26,24 @@ const Login = () => {
   const router = useRouter();
   const searchParams = useSearchParams();
   const redirectTo = searchParams.get("redirect") || "/";
+  const errorParam = searchParams.get("error");
 
   const { status } = useSession();
 
+  // Check for NextAuth error message from redirect
+  useEffect(() => {
+    if (errorParam) {
+      const errorMap: { [key: string]: string } = {
+        CredentialsSignin: "Incorrect password",
+        Callback: "Incorrect password",
+        Default: "Login failed",
+      };
+      const errorMsg = errorMap[errorParam] || errorMap["Default"];
+      toast.error(errorMsg);
+    }
+  }, [errorParam]);
+
+  // Check if already logged in
   useEffect(() => {
     const checkUserAndRedirect = async () => {
       if (status === "authenticated") {
@@ -40,7 +56,7 @@ const Login = () => {
       }
     };
     checkUserAndRedirect();
-  }, [status, router, redirectTo]);
+  }, [status]); // Only depend on status, not router/redirectTo
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -59,45 +75,123 @@ const Login = () => {
     setError(null);
 
     try {
+      // 0️⃣ First check if email exists
+      const emailCheckRes = await axios.post("/api/auth/check-email", { email });
+      if (!emailCheckRes.data.exists) {
+        const errorMsg = "Email not found. Please check your email or sign up.";
+        setError(errorMsg);
+        toast.error(errorMsg);
+        setLoading(false);
+        return;
+      }
+
       // 1️⃣ Get guest cart
       const guestCartRes = await getGuestCart();
-      const guestItems = guestCartRes?.cart?.items || [];
+      const guestItems = guestCartRes?.items || [];
 
-      // 2️⃣ Sign in
+      // 2️⃣ Sign in (use redirect: false to handle cart merge before redirect)
       const res = await signIn("credentials", {
         email,
         password,
         redirect: false,
       });
 
-      if (!res?.ok) throw new Error("Invalid credentials");
+      console.log("SignIn response:", res); // Debug log
 
-      // 3️⃣ Merge guest cart if exists
-      if (guestItems.length) {
-        await mergeGuestCartApi(
-          guestItems.map((i: any) => ({
-            variantId: i.variant._id,
-            quantity: i.quantity,
-            priceAtAdd: i.priceAtAdd,
-          }))
-        );
-        await clearGuestCart();
+      // NextAuth returns { ok: true } or { ok: false, status: 401, error?: string }
+      if (!res?.ok) {
+        // Email exists but password is incorrect
+        const errorMsg = "Incorrect password";
+        setError(errorMsg);
+        toast.error(errorMsg);
+        setLoading(false);
+        return;
       }
 
-      // 4️⃣ Fetch user cart and mark as logged-in (isGuest: false)
-      const userCart = await fetchCartApi();
+      // Verify user is actually authenticated by checking session
+      const session = await axios.get("/api/me").catch(() => null);
+      if (!session) {
+        const errorMsg = "Incorrect password";
+        setError(errorMsg);
+        toast.error(errorMsg);
+        setLoading(false);
+        return;
+      }
+
+      // 3️⃣ Clear guest cart cookie BEFORE merge (while still in login flow)
+      if (guestItems.length > 0) {
+        try {
+          await clearGuestCart();
+        } catch (err) {
+          // Could not clear guest cart cookie
+        }
+      }
+
+      // 4️⃣ Merge guest cart if exists
+      let mergedItems: any[] = [];
+      let cartId: string | null = null;
+
+      if (guestItems.length > 0) {
+        try {
+          const mergeRes = await fetch("/api/cart/merge", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              items: guestItems.map((i: any) => ({
+                variantId: i.variant._id,
+                quantity: i.quantity,
+                priceAtAdd: i.priceAtAdd,
+              })),
+            }),
+          });
+
+          const mergeData = await mergeRes.json();
+
+          if (mergeData.success) {
+            mergedItems = mergeData.items || [];
+            cartId = mergeData.cartId || null;
+
+            await clearGuestCart();
+          } else {
+            // Merge failed
+          }
+        } catch (mergeErr) {
+          // Merge error
+        }
+      }
+
+      // 4️⃣ If merge didn't happen, fetch fresh user cart
+      let cartItems = mergedItems;
+      if (cartItems.length === 0) {
+        try {
+          const userCart = await fetchCartApi();
+          cartItems = userCart.items || [];
+          cartId = userCart.cart?._id || null;
+        } catch (cartErr: any) {
+          // Cart fetch might fail if session isn't actually valid
+          console.error("Cart fetch error:", cartErr);
+          const errorMsg = "Incorrect password";
+          setError(errorMsg);
+          toast.error(errorMsg);
+          setLoading(false);
+          return;
+        }
+      }
 
       dispatch(
         setCart({
-          items: userCart.items || [],
-          cartId: userCart.cart?._id ?? null,
-          isGuest: false, // ✅ mark user as logged in
-        })
+          items: cartItems,
+          cartId,
+          isGuest: false,
+          appliedCoupon: null,
+        }),
       );
 
       router.replace(redirectTo);
     } catch (err: any) {
-      setError(err?.message || "Login failed");
+      const msg = err?.message || "Login failed";
+      setError(msg);
+      toast.error(msg);
     } finally {
       setLoading(false);
     }
@@ -108,13 +202,8 @@ const Login = () => {
   const handleGoogleLogin = async () => {
     setGoogleLoading(true);
     try {
-      // First, get the Google provider to get user info
-      // We'll use a popup or redirect to get the email, then check if user exists
-      // For now, we'll just proceed with signIn which will create user if not exists
-      // and send welcome email
       await signIn("google", { callbackUrl: redirectTo });
     } catch (error) {
-      console.error("Google login error:", error);
       setError("Failed to login with Google");
     } finally {
       setGoogleLoading(false);
@@ -186,6 +275,13 @@ const Login = () => {
 
         {/* ERROR */}
         {error && <p className="text-red-500 text-sm text-center">{error}</p>}
+
+        {/* FORGOT PASSWORD */}
+        <div className="flex justify-end">
+          <a href="/forgot-password" className="text-green-600 text-sm font-semibold hover:underline">
+            Forgot Password?
+          </a>
+        </div>
 
         {/* SUBMIT */}
         <button

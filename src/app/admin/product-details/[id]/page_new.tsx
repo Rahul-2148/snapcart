@@ -25,6 +25,7 @@ import { toast } from "sonner";
 interface Variant {
   _id: string;
   label: string;
+  variantName?: string;
   unit: string;
   value: number;
   multiplier?: number;
@@ -311,6 +312,9 @@ const AdminProductDetails = () => {
                       }`}
                     >
                       <p className="font-semibold text-gray-900">{variant.label}</p>
+                      {variant.variantName && (
+                        <p className="text-blue-500 text-xs font-medium mt-0.5">{variant.variantName}</p>
+                      )}
                       <p className="text-sm text-gray-600 mt-1">₹{Math.round(variant.price.selling)}</p>
                       <p className={`text-xs font-semibold mt-2 ${
                         variant.countInStock > 0 ? "text-green-600" : "text-red-600"
@@ -368,13 +372,22 @@ const AdminProductDetails = () => {
                 <div className="bg-gray-50 rounded-xl p-4">
                   <p className="text-gray-500 mb-2 font-semibold">Last Updated</p>
                   <p className="text-gray-800">
-                    {new Date(product.updatedAt).toLocaleString("en-IN", {
-                      year: "numeric",
-                      month: "short",
-                      day: "numeric",
-                      hour: "2-digit",
-                      minute: "2-digit",
-                    })}
+                    {(() => {
+                      const created = new Date(product.createdAt).getTime();
+                      const updated = new Date(product.updatedAt).getTime();
+                      const diffMs = updated - created;
+                      const thresholdMs = 5 * 60 * 1000; // 5 minutes
+                      if (!product.updatedAt || diffMs <= thresholdMs) {
+                        return "Not updated yet";
+                      }
+                      return new Date(product.updatedAt).toLocaleString("en-IN", {
+                        year: "numeric",
+                        month: "short",
+                        day: "numeric",
+                        hour: "2-digit",
+                        minute: "2-digit",
+                      });
+                    })()}
                   </p>
                 </div>
               </div>

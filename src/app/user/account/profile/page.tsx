@@ -7,7 +7,7 @@ import axios from "axios";
 import { setUserData } from "@/redux/features/userSlice";
 import Image from "next/image";
 import useGetMe from "@/hooks/useGetMe";
-import useSocket from "@/hooks/useSocket";
+import { useSocket } from "@/contexts/SocketContext";
 import { UserIcon, Camera, X, Check, Loader2, Eye, EyeOff } from "lucide-react";
 import { toast } from "sonner"; // Added Sonner toast
 
@@ -15,12 +15,11 @@ export default function ProfilePage() {
   useGetMe();
   const { userData } = useSelector((state: RootState) => state.user);
   const dispatch = useDispatch<AppDispatch>();
-  const socket = useSocket(
-    process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000"
-  );
+  const socket = useSocket();
 
   const [name, setName] = useState("");
   const [mobileNumber, setMobileNumber] = useState("");
+  const [gender, setGender] = useState<string>("");
   const [image, setImage] = useState<File | null>(null);
   const [previewImage, setPreviewImage] = useState<string | null>(null);
   const [isEditingImage, setIsEditingImage] = useState(false);
@@ -48,6 +47,7 @@ export default function ProfilePage() {
     if (userData) {
       setName(userData.name || "");
       setMobileNumber(userData.mobileNumber || "");
+      setGender(userData.gender || "");
       setPreviewImage(userData.image?.url || null);
     }
   }, [userData]);
@@ -55,8 +55,7 @@ export default function ProfilePage() {
   useEffect(() => {
     if (!socket || !userData?._id) return;
 
-    socket.emit("join_user_room", userData._id);
-
+    // Room join is already handled in useGetMe hook
     const handler = (data: any) => {
       if (data.userId === userData._id) {
         dispatch(setUserData(data.user));
@@ -149,27 +148,42 @@ export default function ProfilePage() {
     // Check if there are any changes
     const hasNameChange = name !== userData?.name;
     const hasMobileChange = mobileNumber !== userData?.mobileNumber;
+    const hasGenderChange = gender !== (userData?.gender || "");
 
-    if (!hasNameChange && !hasMobileChange) {
+    if (!hasNameChange && !hasMobileChange && !hasGenderChange) {
       toast.info("No changes detected to update.");
       return;
     }
 
     try {
       setIsProfileLoading(true);
-      const formData = new FormData();
+      const payload: Record<string, string> = {};
 
       if (hasNameChange) {
-        formData.append("name", name);
+        payload.name = name;
       }
       if (hasMobileChange) {
-        formData.append("mobileNumber", mobileNumber);
+        payload.mobileNumber = mobileNumber;
+      }
+      if (hasGenderChange) {
+        payload.gender = gender;
       }
 
       const toastId = toast.loading("Updating profile...");
 
-      const response = await axios.patch("/api/user/edit-profile", formData);
-      dispatch(setUserData(response.data.user));
+      const response = await axios.patch("/api/user/edit-profile", payload, {
+        headers: { "Content-Type": "application/json" },
+      });
+      const mergedUser = {
+        ...(userData || {}),
+        ...(response.data.user || {}),
+        gender:
+          response.data.user?.gender !== undefined
+            ? response.data.user.gender
+            : gender,
+      };
+      dispatch(setUserData(mergedUser));
+      setGender(mergedUser.gender || "");
       toast.success(response.data.message, { id: toastId });
     } catch (error: any) {
       toast.error(
@@ -245,7 +259,9 @@ export default function ProfilePage() {
   };
 
   const renderRoleManagement = () => {
-    if (userData?.role === "admin") {
+    const userRole = userData?.currentRole || userData?.roles?.[0] || "user";
+
+    if (userRole === "admin") {
       return (
         <div className="p-4 bg-blue-100 border-l-4 border-blue-500 text-blue-700 rounded-md">
           <p className="font-bold">Administrator Account</p>
@@ -257,7 +273,7 @@ export default function ProfilePage() {
       );
     }
 
-    if (userData?.role === "deliveryBoy") {
+    if (userRole === "deliveryBoy") {
       return (
         <div className="p-4 bg-green-100 border-l-4 border-green-500 text-green-700 rounded-md">
           <p className="font-bold">You are a Delivery Partner!</p>
@@ -266,8 +282,8 @@ export default function ProfilePage() {
       );
     }
 
-    if (userData?.role === "user") {
-      switch (userData.roleChangeRequest) {
+    if (userRole === "user") {
+      switch (userData?.roleChangeRequest) {
         case "pending":
           return (
             <div className="p-4 bg-yellow-100 border-l-4 border-yellow-500 text-yellow-700 rounded-md">
@@ -495,6 +511,27 @@ export default function ProfilePage() {
                   className="mt-1 block w-full px-4 py-2 bg-gray-50 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 disabled:opacity-50"
                   disabled={isProfileLoading || isImageLoading}
                 />
+              </div>
+              <div>
+                <label
+                  htmlFor="gender"
+                  className="block text-sm font-medium text-gray-600"
+                >
+                  Gender
+                </label>
+                <select
+                  id="gender"
+                  value={gender}
+                  onChange={(e) => setGender(e.target.value)}
+                  className="mt-1 block w-full px-4 py-2 bg-gray-50 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 disabled:opacity-50 appearance-none"
+                  disabled={isProfileLoading || isImageLoading}
+                >
+                  <option value="">Select Gender</option>
+                  <option value="male">Male</option>
+                  <option value="female">Female</option>
+                  <option value="other">Other</option>
+                  <option value="prefer-not-to-say">Prefer not to say</option>
+                </select>
               </div>
             </div>
             <div className="text-right">

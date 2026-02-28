@@ -2,135 +2,223 @@
 import { NextRequest, NextResponse } from "next/server";
 import connectDb from "@/lib/server/db";
 import { Order } from "@/models/order.model";
+import { PaymentSession } from "@/models/paymentSession.model";
 import Stripe from "stripe";
-import { decrementStock } from "@/lib/utils/decrementStock";
 import mongoose from "mongoose";
 
-import { Coupon } from "@/models/coupon.model";
-import { CouponUsage } from "@/models/couponUsage.model";
+import { DeliveryAssignment } from "@/models/deliveryAssignment.model";
+import { OrderItem } from "@/models/orderItem.model";
+import { User } from "@/models/user.model";
+import {
+  broadcastOrderToPartners,
+  calculateDistance,
+  computePayout,
+  estimateDeliveryTime,
+  getOrCreateDeliverySettings,
+} from "@/lib/server/delivery";
+import { sendOrderConfirmationEmail } from "@/lib/server/email";
+import { createOrderFromPaymentSession } from "@/lib/server/createOrderFromPaymentSession";
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!);
 
+const createAssignmentIfNeeded = async (order: any, dbSession?: any) => {
+  if (!order || order.assignment) return null;
+  if (order.orderStatus !== "confirmed") return null;
+  const location = order.deliveryAddress?.location;
+  if (!location?.lat || !location?.lng) return null;
+
+  const settings = await getOrCreateDeliverySettings();
+  const distance = calculateDistance(
+    settings.storeLocation.lat,
+    settings.storeLocation.lng,
+    location.lat,
+    location.lng,
+  );
+  const estimatedTime = estimateDeliveryTime(distance);
+  const rewardAmount = computePayout(distance, settings);
+
+  const assignment = new DeliveryAssignment({
+    order: order._id,
+    orderNumber: order.orderNumber,
+    pickupLocation: {
+      address: settings.storeLocation.address,
+      lat: settings.storeLocation.lat,
+      lng: settings.storeLocation.lng,
+      pincode: settings.storeLocation.pincode,
+    },
+    deliveryLocation: {
+      address: order.deliveryAddress.fullAddress,
+      fullName: order.deliveryAddress.fullName,
+      mobile: order.deliveryAddress.mobile,
+      lat: location.lat,
+      lng: location.lng,
+      pincode: order.deliveryAddress.pincode,
+    },
+    estimatedDistance: distance,
+    estimatedTime,
+    rewardAmount,
+    status: "broadcasted",
+    priority: "normal",
+    timeline: [
+      {
+        status: "broadcasted",
+        timestamp: new Date(),
+        note: "Order confirmed and broadcasted to nearby partners",
+      },
+    ],
+  });
+
+  await assignment.save({ session: dbSession } as any);
+  order.assignment = assignment._id;
+  await order.save({ session: dbSession } as any);
+  return assignment;
+};
+
+const sendConfirmationEmailForOrder = async (orderId: string) => {
+  const order = await Order.findById(orderId).populate({
+    path: "orderItems",
+    model: OrderItem,
+  });
+  if (!order) return;
+
+  const user = await User.findById(order.userId);
+  if (!user) return;
+
+  const populatedOrderItems = await OrderItem.find({ order: order._id }).populate({
+    path: "grocery",
+    select: "name images",
+  });
+
+  const emailItems = populatedOrderItems.map((item: any) => ({
+    name: item.groceryName || item.grocery?.name,
+    quantity: item.quantity,
+    price: item.price.sellingPrice,
+    imageUrl: item.grocery?.images?.[0]?.url,
+  }));
+
+  await sendOrderConfirmationEmail(user.email, user.name, {
+    orderNumber: order.orderNumber,
+    orderDate: new Date(order.createdAt).toLocaleDateString("en-IN", {
+      day: "numeric",
+      month: "long",
+      year: "numeric",
+    }),
+    items: emailItems,
+    subTotal: order.subTotal,
+    deliveryFee: order.deliveryFee,
+    codHandlingCharge: order.codHandlingCharge || 0,
+    couponDiscount: order.couponDiscount || 0,
+    finalTotal: order.finalTotal,
+    currency: "₹",
+    deliveryAddress: order.deliveryAddress,
+    paymentMethod: "online",
+  });
+};
+
 export const POST = async (req: NextRequest) => {
   const dbSession = await mongoose.startSession();
-  dbSession.startTransaction();
-
+  let sessionId: string | undefined;
+  let paymentSessionId: string | undefined;
   try {
-    const { sessionId } = await req.json();
+    dbSession.startTransaction();
 
+    const body = await req.json();
+    sessionId = body?.sessionId;
     if (!sessionId) {
-      await dbSession.abortTransaction();
-      dbSession.endSession();
-      return NextResponse.json(
-        { message: "Session ID is required" },
-        { status: 400 }
-      );
+      return NextResponse.json({ message: "Session ID is required" }, { status: 400 });
     }
+
+    await connectDb();
 
     const session = await stripe.checkout.sessions.retrieve(sessionId as string, {
       expand: ["payment_intent"],
     });
 
-    if (!session || !session.metadata?.orderId) {
-      await dbSession.abortTransaction();
-      dbSession.endSession();
+    if (!session || !session.metadata?.paymentSessionId) {
       return NextResponse.json(
-        { message: "Invalid session or order ID missing" },
+        { message: "Invalid session or payment session ID missing" },
         { status: 400 }
       );
     }
 
-    const orderId = session.metadata.orderId;
+    paymentSessionId = session.metadata.paymentSessionId;
 
-    await connectDb();
-    const order = await Order.findById(orderId).session(dbSession);
-
-    if (!order) {
+    if (session.payment_status !== "paid") {
+      // Nothing to create if payment not completed
       await dbSession.abortTransaction();
-      dbSession.endSession();
-      return NextResponse.json({ message: "Order not found" }, { status: 404 });
+      return NextResponse.json({ success: false, message: "Payment not completed" }, { status: 400 });
     }
 
-    // Idempotency check: If order is already paid, do nothing.
-    if (order.paymentStatus === "paid") {
-      await dbSession.commitTransaction();
-      dbSession.endSession();
-      return NextResponse.json(
-        { success: true, message: "Payment already processed." },
-        { status: 200 }
-      );
-    }
+    const paymentIntent = session.payment_intent as Stripe.PaymentIntent | null;
 
-    if (session.payment_status === "paid") {
-      order.paymentStatus = "paid";
-      order.orderStatus = "confirmed";
-      order.confirmedAt = new Date();
-      
-      const paymentIntent = session.payment_intent as Stripe.PaymentIntent;
-
-      order.paymentDetails.push({
+    const order = await createOrderFromPaymentSession(
+      paymentSessionId,
+      {
         provider: "stripe",
-        transactionId: paymentIntent.id,
+        transactionId: paymentIntent?.id ?? String(session.payment_intent ?? ""),
         paymentMethod: session.payment_method_types?.[0] ?? "card",
-        amount: session.amount_total! / 100,
-        currency: session.currency!,
+        amount: (session.amount_total ?? 0) / 100,
+        currency: session.currency ?? "INR",
         status: "succeeded",
         paidAt: new Date(),
-      });
+      },
+      dbSession
+    );
 
-      await decrementStock(order._id, dbSession);
+    const assignment = await createAssignmentIfNeeded(order, dbSession);
 
-      // Create coupon usage if coupon was applied
-      if (order.coupon?.couponId) {
-        await CouponUsage.create(
-          [
-            {
-              coupon: order.coupon.couponId,
-              user: order.userId,
-              order: order._id,
-              discountAmount: order.couponDiscount || 0,
-            },
-          ],
-          { session: dbSession }
-        );
-        // Increment usage count
-        await Coupon.findByIdAndUpdate(
-          order.coupon.couponId,
-          { $inc: { usageCount: 1 } },
-          { session: dbSession }
-        );
+    await dbSession.commitTransaction();
+
+    // non-transactional post-processing
+    try {
+      await sendConfirmationEmailForOrder(order._id.toString());
+    } catch (emailError) {
+      console.error("Error sending order confirmation email (Stripe verify):", emailError);
+    }
+
+    if (assignment?._id) {
+      try {
+        await broadcastOrderToPartners(assignment._id.toString());
+      } catch (error) {
+        console.error("Broadcast error (Stripe verify):", error);
       }
-
-      await order.save({ session: dbSession });
-
-      await dbSession.commitTransaction();
-      dbSession.endSession();
-
-      return NextResponse.json({
-        success: true,
-        message: "Payment verified and order updated.",
-        order,
-      });
-    } else {
-      await dbSession.abortTransaction();
-      dbSession.endSession();
-      return NextResponse.json(
-        { success: false, message: "Payment not successful" },
-        { status: 400 }
-      );
     }
+
+    return NextResponse.json({
+      success: true,
+      message: "Payment verified and order created.",
+      order,
+    });
   } catch (error) {
-    if (dbSession.inTransaction()) {
-      await dbSession.abortTransaction();
+    if (dbSession.inTransaction()) await dbSession.abortTransaction();
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    if (errorMessage.includes("being processed") || errorMessage.includes("already processed")) {
+      try {
+        await connectDb();
+        if (!paymentSessionId) {
+          throw new Error("Payment session ID missing for fallback");
+        }
+        const paymentSession = await PaymentSession.findById(paymentSessionId).lean();
+        if (paymentSession?.orderId) {
+          const existingOrder = await Order.findById(paymentSession.orderId);
+          if (existingOrder) {
+            return NextResponse.json({
+              success: true,
+              message: "Payment already processed.",
+              order: existingOrder,
+            });
+          }
+        }
+      } catch (fetchError) {
+        console.error("Stripe verification fallback error:", fetchError);
+      }
     }
-    dbSession.endSession();
-
     console.error("Stripe Verification Error:", error);
-    const errorMessage =
-      error instanceof Error ? error.message : String(error);
     return NextResponse.json(
       { success: false, message: `Stripe verification error: ${errorMessage}` },
       { status: 500 }
     );
+  } finally {
+    dbSession.endSession();
   }
 };

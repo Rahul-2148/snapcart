@@ -5,6 +5,13 @@ const nextConfig: NextConfig = {
     proxyClientMaxBodySize: "80mb",
   },
 
+  reactStrictMode: true,
+  
+  // Suppress hydration warnings in development (caused by browser extensions)
+  devIndicators: {
+    buildActivityPosition: 'bottom-right',
+  },
+
   images: {
     unoptimized: true, // Cloudinary handles optimization, no need for Next.js optimization
     remotePatterns: [

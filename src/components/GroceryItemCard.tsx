@@ -1,34 +1,30 @@
 // src/components/GroceryItemCard.tsx
 "use client";
 
+import "keen-slider/keen-slider.min.css";
+import { useKeenSlider } from "keen-slider/react";
+import { Minus, Plus, ShoppingCart, Star, Heart } from "lucide-react";
 import { motion } from "motion/react";
 import Image from "next/image";
 import Link from "next/link";
-import { useKeenSlider } from "keen-slider/react";
-import "keen-slider/keen-slider.min.css";
-import { useEffect, useRef } from "react";
-import { ShoppingCart, Minus, Plus } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
 import { useDispatch, useSelector } from "react-redux";
 
-import { AppDispatch, RootState } from "@/redux/store";
-import { setCart } from "@/redux/features/cartSlice";
 import {
+  addGuestCartApi,
   addToCartApi,
-  updateCartQuantityApi,
   fetchCartApi,
   getGuestCart,
-  addGuestCartApi,
+  updateCartQuantityApi,
   updateGuestCartApi,
 } from "@/hooks/cart.api";
+import { getPriceRange, hasVariablePricing } from "@/lib/utils/priceUtils";
+import { setCart } from "@/redux/features/cartSlice";
+import { AppDispatch, RootState } from "@/redux/store";
+import axios from "axios";
 import { useSession } from "next-auth/react";
 import { toast } from "sonner";
-import {
-  getPriceRange,
-  formatPriceDisplay,
-  formatMrpDisplay,
-  getDiscountBadgeText,
-  hasVariablePricing,
-} from "@/lib/utils/priceUtils";
+import AdvancedWishlistSheet from "./AdvancedWishlistSheet";
 
 interface IVariant {
   _id: string;
@@ -48,33 +44,46 @@ interface IGrocery {
   variants?: IVariant[];
 }
 
-const GroceryItemCard = ({ grocery }: { grocery: IGrocery }) => {
+const GroceryItemCard = ({
+  grocery,
+  rating,
+  viewMode = "grid",
+}: {
+  grocery: IGrocery;
+  rating?: number;
+  viewMode?: "grid" | "list";
+}) => {
   const dispatch = useDispatch<AppDispatch>();
   const hoverInterval = useRef<NodeJS.Timeout | null>(null);
+  const [showVariantBubble, setShowVariantBubble] = useState(false);
+  const variantBubbleRef = useRef<HTMLDivElement | null>(null);
+
+  // Loading states to prevent double clicks
+  const [isAddingToCart, setIsAddingToCart] = useState(false);
+  const [isUpdatingQuantity, setIsUpdatingQuantity] = useState(false);
+  const [isWishlisted, setIsWishlisted] = useState(false);
+  const [wishlistLoading, setWishlistLoading] = useState(false);
+  const [wishlistSheetOpen, setWishlistSheetOpen] = useState(false);
 
   const { cartItems, appliedCoupon } = useSelector(
-    (state: RootState) => state.cart
+    (state: RootState) => state.cart,
   );
 
   const defaultVariant =
     grocery?.variants?.find((v) => v.isDefault) || grocery?.variants?.[0];
 
   const cartItem = cartItems.find(
-    (item) => item.variant?._id === defaultVariant?._id
+    (item) => item.variant?._id === defaultVariant?._id,
   );
   const quantity = cartItem?.quantity ?? 0;
 
-  // Calculate dynamic price range for all variants
-  const priceRange = getPriceRange(grocery?.variants || []);
-  const isVariablePricing = hasVariablePricing(grocery?.variants || []);
-
   // ALWAYS show default variant price on card (not range)
-  const sellingPrice = defaultVariant?.price?.selling;
-  const mrpPrice = defaultVariant?.price?.mrp;
+  const sellingPrice = defaultVariant?.price?.selling ?? 0;
+  const mrpPrice = defaultVariant?.price?.mrp ?? 0;
   const stock = defaultVariant?.countInStock ?? 0;
   const isOutOfStock = stock === 0;
   const isMaxReached = quantity >= stock;
-  
+
   // Check if there are multiple variants
   const hasMultipleVariants = (grocery?.variants?.length || 0) > 1;
 
@@ -89,7 +98,7 @@ const GroceryItemCard = ({ grocery }: { grocery: IGrocery }) => {
     if (!instanceRef.current) return;
     hoverInterval.current = setInterval(
       () => instanceRef.current?.next(),
-      1000
+      1000,
     );
   };
 
@@ -134,20 +143,23 @@ const GroceryItemCard = ({ grocery }: { grocery: IGrocery }) => {
         cartId: cart?._id ?? cart?.cartId ?? null,
         isGuest: cart?.isGuest ?? false,
         appliedCoupon: mappedCoupon,
-      })
+      }),
     );
   };
 
   /* ================= CART ACTIONS ================= */
 
   const handleAddToCart = async () => {
-    if (!defaultVariant?._id) return;
+    if (!defaultVariant?._id || isAddingToCart) return; // Prevent double clicks
+
+    setIsAddingToCart(true);
 
     try {
       if (isGuest) {
+        // OPTIMISTIC UPDATE (instant UI feedback like Flipkart)
         const updatedItems = [...cartItems];
         const existing = updatedItems.find(
-          (i) => i.variant._id === defaultVariant._id
+          (i) => i.variant._id === defaultVariant._id,
         );
 
         if (existing) {
@@ -164,55 +176,107 @@ const GroceryItemCard = ({ grocery }: { grocery: IGrocery }) => {
           });
         }
 
+        // Update UI immediately
         dispatch(setCart({ items: updatedItems, cartId: null, isGuest: true }));
+        toast.success("Item added to cart!");
 
+        // Sync with server in background
         const res = await addGuestCartApi(defaultVariant._id, 1);
-        toast[res.success ? "success" : "error"](res.message);
+        if (!res.success) {
+          // Revert if fails
+          dispatch(setCart({ items: cartItems, cartId: null, isGuest: true }));
+          toast.error(res.message);
+        }
       } else {
+        // OPTIMISTIC UPDATE for logged-in users
+        const updatedItems = [...cartItems];
+        const existing = updatedItems.find(
+          (i) => i.variant._id === defaultVariant._id,
+        );
+
+        if (existing) {
+          if (existing.quantity < stock) existing.quantity += 1;
+        } else {
+          updatedItems.push({
+            _id: "temp-" + crypto.randomUUID(),
+            variant: defaultVariant,
+            quantity: 1,
+            priceAtAdd: {
+              mrp: defaultVariant.price.mrp,
+              selling: defaultVariant.price.selling,
+            },
+          });
+        }
+
+        // Update UI immediately with proper cart state
+        dispatch(setCart({ items: updatedItems, isGuest: false }));
+        toast.success("Item added to cart!");
+
+        // Sync with server in background
         const res = await addToCartApi(defaultVariant._id, 1);
         syncCartToStore(res);
-        toast[res.success ? "success" : "error"](res.message);
+        if (!res.success) {
+          // Show error if sync fails
+          dispatch(setCart({ items: cartItems, isGuest: false }));
+          toast.error(res.message || "Failed to add to cart");
+        }
       }
     } catch (err: any) {
       toast.error(err?.message || "Something went wrong");
+    } finally {
+      setIsAddingToCart(false);
     }
   };
 
   const handleIncrease = async () => {
-    if (!cartItem?._id || !defaultVariant?._id) return;
+    if (!cartItem?._id || !defaultVariant?._id || isUpdatingQuantity) return;
+
+    setIsUpdatingQuantity(true);
 
     try {
       if (isGuest) {
         const updatedItems = cartItems.map((i) =>
           i._id === cartItem._id && i.quantity < stock
             ? { ...i, quantity: i.quantity + 1 }
-            : i
+            : i,
         );
 
         dispatch(setCart({ items: updatedItems, cartId: null, isGuest: true }));
+        toast.success("Quantity updated!");
 
         const newQty =
           updatedItems.find((i) => i._id === cartItem._id)?.quantity || 1;
         const res = await updateGuestCartApi(defaultVariant._id, newQty);
-        toast[res.success ? "success" : "error"](res.message);
+        if (!res.success) {
+          dispatch(setCart({ items: cartItems, cartId: null, isGuest: true }));
+          toast.error(res.message);
+        }
       } else {
         const res = await updateCartQuantityApi(cartItem._id, quantity + 1);
-        syncCartToStore(res);
-        toast[res.success ? "success" : "error"](res.message);
+        if (res.success) {
+          toast.success("Quantity updated!");
+          syncCartToStore(res);
+        } else {
+          toast.error(res.message || "Failed to update quantity");
+        }
       }
     } catch (err: any) {
       toast.error(err?.message || "Something went wrong");
+    } finally {
+      setIsUpdatingQuantity(false);
     }
   };
 
   const handleDecrease = async () => {
-    if (!cartItem?._id || !defaultVariant?._id) return;
+    if (!cartItem?._id || !defaultVariant?._id || isUpdatingQuantity) return;
+
+    setIsUpdatingQuantity(true);
 
     try {
       if (isGuest) {
         const updatedItems = cartItems
           .map((i) =>
-            i._id === cartItem._id ? { ...i, quantity: i.quantity - 1 } : i
+            i._id === cartItem._id ? { ...i, quantity: i.quantity - 1 } : i,
           )
           .filter((i) => i.quantity > 0);
 
@@ -221,14 +285,33 @@ const GroceryItemCard = ({ grocery }: { grocery: IGrocery }) => {
         const newQty =
           updatedItems.find((i) => i._id === cartItem._id)?.quantity || 0;
         const res = await updateGuestCartApi(defaultVariant._id, newQty);
-        toast[res.success ? "success" : "error"](res.message);
+        if (res.success) {
+          if (newQty === 0) {
+            toast.success("Item removed from cart!");
+          } else {
+            toast.success("Quantity updated!");
+          }
+        } else {
+          dispatch(setCart({ items: cartItems, cartId: null, isGuest: true }));
+          toast.error(res.message);
+        }
       } else {
         const res = await updateCartQuantityApi(cartItem._id, quantity - 1);
-        syncCartToStore(res);
-        toast[res.success ? "success" : "error"](res.message);
+        if (res.success) {
+          if (quantity - 1 === 0) {
+            toast.success("Item removed from cart!");
+          } else {
+            toast.success("Quantity updated!");
+          }
+          syncCartToStore(res);
+        } else {
+          toast.error(res.message || "Failed to update quantity");
+        }
       }
     } catch (err: any) {
       toast.error(err?.message || "Something went wrong");
+    } finally {
+      setIsUpdatingQuantity(false);
     }
   };
 
@@ -255,30 +338,165 @@ const GroceryItemCard = ({ grocery }: { grocery: IGrocery }) => {
     loadCart();
   }, [status]);
 
-  const variantLabel =
-    quantity > 1
-      ? `${quantity} × ${defaultVariant?.label}`
-      : defaultVariant?.label;
+  /* ================= CHECK WISHLIST STATUS ================= */
+  useEffect(() => {
+    let isMounted = true;
+
+    if (status !== "authenticated" || !grocery?._id) {
+      setIsWishlisted(false);
+      return;
+    }
+
+    const checkWishlistStatus = async () => {
+      try {
+        const res = await fetch("/api/wishlist", { cache: "no-store" });
+        const data = await res.json();
+        if (data?.success && isMounted) {
+          const saved = (data.collections || []).some((c: any) =>
+            Array.isArray(c?.items) && c.items.some((i: any) => i.grocery === grocery._id)
+          );
+          setIsWishlisted(saved);
+        }
+      } catch {
+        if (isMounted) setIsWishlisted(false);
+      }
+    };
+
+    checkWishlistStatus();
+    return () => {
+      isMounted = false;
+    };
+  }, [status, grocery?._id]);
+
+  const openWishlistSheet = () => {
+    if (status !== "authenticated") {
+      toast.error("Please log in to use wishlist");
+      return;
+    }
+    setWishlistSheetOpen(true);
+  };
+
+  const handleWishlistUpdate = () => {
+    // Refresh wishlist status after adding/removing from sheet
+    const checkStatus = async () => {
+      try {
+        const res = await fetch("/api/wishlist", { cache: "no-store" });
+        const data = await res.json();
+        if (data?.success) {
+          const saved = (data.collections || []).some((c: any) =>
+            Array.isArray(c?.items) && c.items.some((i: any) => i.grocery === grocery._id)
+          );
+          setIsWishlisted(saved);
+        }
+      } catch {
+        // Silent fail
+      }
+    };
+    checkStatus();
+  };
+
+  const variantLabel = defaultVariant?.label;
+
+  // Rating handling for homepage and other views where rating prop isn't passed
+  const [computedRating, setComputedRating] = useState<number | null>(
+    typeof rating === "number" ? rating : null,
+  );
+  const [reviewCount, setReviewCount] = useState<number>(0);
+
+  useEffect(() => {
+    if ((computedRating === null || reviewCount === 0) && grocery?._id) {
+      axios
+        .get(`/api/reviews/${grocery._id}`)
+        .then((res) => {
+          const avg = res?.data?.data?.averageRating ?? 0;
+          const total = res?.data?.data?.totalReviews ?? 0;
+          setReviewCount(total);
+          setComputedRating((prev) => (prev === null ? avg : prev));
+        })
+        .catch(() => {
+          setReviewCount(0);
+          setComputedRating((prev) => (prev === null ? 0 : prev));
+        });
+    }
+  }, [computedRating, reviewCount, grocery?._id]);
+
+  // Rating badge mapping (image ribbon) with tiered colors
+  const trustThreshold = 10;
+  const getRatingBadgeData = (r: number, count: number) => {
+    if (count < trustThreshold) return null;
+    if (r >= 4.5)
+      return { label: "Top Rated", color: "from-yellow-500 to-yellow-600" }; // Gold
+    if (r >= 4.0)
+      return { label: "Highly Rated", color: "from-blue-500 to-blue-600" }; // Blue
+    if (r >= 3.5)
+      return { label: "Well Rated", color: "from-purple-500 to-purple-600" }; // Purple
+    if (r >= 3.0)
+      return { label: "Decent", color: "from-gray-500 to-gray-600" }; // Gray
+    // Hide Mixed and Low Rated to keep cards positive
+    return null;
+  };
+  const badgeData =
+    typeof computedRating === "number"
+      ? getRatingBadgeData(computedRating, reviewCount)
+      : null;
+
+  const isListView = viewMode === "list";
 
   return (
     <motion.div
       initial={{ opacity: 0, y: 40, scale: 0.95 }}
       animate={{ opacity: 1, y: 0, scale: 1 }}
       transition={{ duration: 0.5, ease: "easeOut" }}
-      className="bg-white rounded-2xl shadow-sm hover:shadow-xl transition-all overflow-hidden border border-gray-100 flex flex-col"
+      className={`bg-white rounded-2xl shadow-sm hover:shadow-xl transition-all overflow-hidden border border-gray-100 flex flex-col h-full min-h-[320px] sm:min-h-[340px] ${
+        isListView ? "md:flex-row md:items-stretch md:gap-4" : ""
+      }`}
     >
       {/* IMAGE */}
       <Link
         href={`/user/product-details/${grocery?._id}`}
-        className="block relative"
+        className={`block relative ${isListView ? "md:w-64 md:flex-shrink-0" : ""}`}
         aria-label={`${grocery?.name} details`}
       >
         <div
           ref={sliderRef}
           onMouseEnter={handleMouseEnter}
           onMouseLeave={handleMouseLeave}
-          className="keen-slider relative w-full aspect-4/3 bg-gray-50"
+          className={`keen-slider relative bg-gray-50 h-32 sm:h-36 md:h-40 ${
+            isListView ? "w-full md:w-64" : "w-full"
+          }`}
         >
+          {badgeData && (
+            <div
+              className={`absolute top-2 left-2 z-20 px-2 py-1 rounded-full text-[10px] font-semibold text-white bg-gradient-to-r ${badgeData.color} shadow-sm`}
+            >
+              {badgeData.label}
+            </div>
+          )}
+          
+          {/* WISHLIST HEART BUTTON - Top Right Corner */}
+          <motion.button
+            whileTap={{ scale: 0.9 }}
+            onClick={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              openWishlistSheet();
+            }}
+            disabled={wishlistLoading}
+            className="absolute top-2 right-2 z-20 p-1.5 rounded-full bg-white/90 backdrop-blur-sm shadow-md hover:bg-white transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+            title={isWishlisted ? "Saved in wishlist" : "Add to wishlist"}
+          >
+            {wishlistLoading ? (
+              <div className="w-4 h-4 border-2 border-gray-300 border-t-red-500 rounded-full animate-spin" />
+            ) : (
+              <Heart
+                className={`w-4 h-4 transition-all ${
+                  isWishlisted
+                    ? "fill-red-500 text-red-500 scale-110"
+                    : "text-gray-600 hover:text-red-500 hover:scale-110"
+                }`}
+              />
+            )}
+          </motion.button>
           {grocery?.images?.map((img) => (
             <div key={img.publicId} className="keen-slider__slide relative">
               <Image
@@ -289,45 +507,113 @@ const GroceryItemCard = ({ grocery }: { grocery: IGrocery }) => {
               />
             </div>
           ))}
+          {/* RATING OVERLAY - Flipkart style at bottom of image */}
+          {typeof computedRating === "number" && computedRating > 0 && (
+            <div className="absolute bottom-2 right-2 z-10 bg-white/95 backdrop-blur-sm rounded px-2 py-0.5 flex items-center gap-1 shadow-sm">
+              <div className="flex items-center gap-0.5">
+                <span className="text-xs font-bold text-gray-800">
+                  {computedRating.toFixed(1)}
+                </span>
+                <Star className="w-2.5 h-2.5 fill-yellow-400 text-yellow-400" />
+              </div>
+              <span className="text-gray-300 text-[8px]">|</span>
+              <span className="text-[11px] font-semibold text-gray-800">
+                {reviewCount >= 1000
+                  ? (reviewCount / 1000).toFixed(1) + "k+"
+                  : reviewCount + "+"}
+              </span>
+            </div>
+          )}
         </div>
       </Link>
 
       {/* INFO */}
-      <div className="p-4 flex flex-col flex-1">
+      <div className="p-3 flex flex-col flex-1 md:p-4">
         <p className="text-xs text-gray-500">{grocery?.category?.name}</p>
         {grocery?.brand && (
           <p className="text-xs text-gray-400 font-medium uppercase">
             {grocery?.brand}
           </p>
         )}
-        <h3 className="font-semibold text-gray-800 text-base mt-1">
+        <h3 className="font-semibold text-gray-800 text-sm mt-1 leading-tight line-clamp-2 min-h-[36px]">
           {grocery?.name}
         </h3>
 
-        {/* PRICE - Show only DEFAULT variant price (not range) */}
-        <div className="flex items-center gap-1 mt-2 flex-wrap">
-          <span className="text-green-700 font-bold text-base">
-            ₹{sellingPrice}
-          </span>
-          {mrpPrice && mrpPrice > sellingPrice && (
-            <span className="line-through text-gray-400 text-xs">
-              ₹{mrpPrice}
+        {/* PRICE & VARIANTS - flexible growth */}
+        <div className="flex-grow flex flex-col">
+          <div className="flex items-center gap-1 mt-2 flex-wrap">
+            <span className="text-green-700 font-bold text-base">
+              ₹{sellingPrice}
             </span>
-          )}
-          {mrpPrice && mrpPrice > sellingPrice && (
-            <span className="text-red-500 text-xs font-medium">
-              {Math.round(((mrpPrice - sellingPrice) / mrpPrice) * 100)}% OFF
-            </span>
-          )}
-          {hasMultipleVariants && (
-            <span className="text-blue-600 text-xs font-semibold ml-1">
-              +{(grocery?.variants?.length || 1) - 1} variants
-            </span>
-          )}
+            {mrpPrice && mrpPrice > (sellingPrice as number) && (
+              <span className="line-through text-gray-400 text-xs">
+                ₹{mrpPrice}
+              </span>
+            )}
+            {mrpPrice && mrpPrice > (sellingPrice as number) && (
+              <span className="text-red-500 text-xs font-medium">
+                {Math.round(
+                  ((mrpPrice - (sellingPrice as number)) / mrpPrice) * 100,
+                )}
+                % OFF
+              </span>
+            )}
+            {hasMultipleVariants && (
+              <div className="relative inline-block">
+                <span
+                  className="text-blue-600 text-xs font-semibold ml-1 cursor-pointer hover:text-blue-800 transition-colors"
+                  onMouseEnter={() => setShowVariantBubble(true)}
+                  onMouseLeave={() => setShowVariantBubble(false)}
+                >
+                  +{(grocery?.variants?.length || 1) - 1} variants
+                </span>
+
+                {/* BUBBLE TOOLTIP */}
+                {showVariantBubble && (
+                  <motion.div
+                    ref={variantBubbleRef}
+                    initial={{ opacity: 0, scale: 0.8, y: -10 }}
+                    animate={{ opacity: 1, scale: 1, y: 0 }}
+                    exit={{ opacity: 0, scale: 0.8, y: -10 }}
+                    transition={{ duration: 0.2, ease: "easeOut" }}
+                    className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 z-50 bg-gradient-to-br from-blue-600 to-blue-700 text-white rounded-lg shadow-lg border border-blue-500 max-w-xs"
+                  >
+                    {/* Arrow */}
+                    <div className="absolute top-full left-1/2 transform -translate-x-1/2 border-4 border-transparent border-t-blue-600"></div>
+
+                    <div className="p-2">
+                      <p className="text-[10px] font-semibold mb-1 opacity-90">
+                        Variants:
+                      </p>
+                      <div className="space-y-0.5">
+                        {grocery?.variants?.map((variant) => (
+                          <div
+                            key={variant._id}
+                            className={`flex justify-between items-center text-[9px] p-1 rounded gap-2 ${
+                              variant._id === defaultVariant?._id
+                                ? "bg-blue-500 font-semibold"
+                                : "bg-blue-600/40 hover:bg-blue-500/50"
+                            } transition-colors`}
+                          >
+                            <span className="whitespace-nowrap text-[8px]">
+                              {variant.label}
+                            </span>
+                            <span className="font-bold whitespace-nowrap flex-shrink-0">
+                              ₹{variant.price.selling}
+                            </span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  </motion.div>
+                )}
+              </div>
+            )}
+          </div>
         </div>
 
         {/* UNIT */}
-        <div className="flex justify-between items-center mt-2 text-sm">
+        <div className="flex justify-between items-center mt-auto pt-2 text-sm border-t border-gray-100">
           <span className="bg-gray-100 text-gray-900 font-[500] px-2 py-1 rounded">
             {variantLabel}
           </span>
@@ -343,26 +629,27 @@ const GroceryItemCard = ({ grocery }: { grocery: IGrocery }) => {
         </div>
 
         {/* CART */}
-        <div className="mt-4">
+        <div className="mt-2">
           {quantity === 0 ? (
             <motion.button
               whileTap={{ scale: 0.95 }}
-              disabled={isOutOfStock}
+              disabled={isOutOfStock || isAddingToCart}
               onClick={handleAddToCart}
-              className="w-full flex items-center justify-center gap-2 bg-green-600 hover:bg-green-700 disabled:bg-gray-300 text-white rounded-full py-2 text-sm font-medium transition-all"
+              className="w-full flex items-center justify-center gap-2 bg-green-600 hover:bg-green-700 disabled:bg-gray-300 text-white rounded-full py-1.5 md:py-1.5 text-xs md:text-sm font-medium transition-all disabled:cursor-not-allowed"
             >
-              <ShoppingCart className="w-5 h-5" />
-              Add to cart
+              <ShoppingCart className="w-4 h-4 md:w-5 md:h-5" />
+              {isAddingToCart ? "Adding..." : "Add to cart"}
             </motion.button>
           ) : (
             <motion.div
               initial={{ scale: 0.9, opacity: 0 }}
               animate={{ scale: 1, opacity: 1 }}
-              className="flex items-center justify-between bg-green-50 border border-green-600 rounded-full px-3 py-1"
+              className="flex items-center justify-between bg-green-50 border border-green-600 rounded-full px-2 py-1"
             >
               <button
                 onClick={handleDecrease}
-                className="p-1 rounded-full hover:bg-green-100"
+                disabled={isUpdatingQuantity}
+                className="p-1 rounded-full hover:bg-green-100 disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 <Minus className="w-4 h-4 text-green-700" />
               </button>
@@ -370,9 +657,9 @@ const GroceryItemCard = ({ grocery }: { grocery: IGrocery }) => {
                 {quantity}
               </span>
               <button
-                disabled={isMaxReached}
+                disabled={isMaxReached || isUpdatingQuantity}
                 onClick={handleIncrease}
-                className="p-1 rounded-full hover:bg-green-100 disabled:opacity-40"
+                className="p-1 rounded-full hover:bg-green-100 disabled:opacity-40 disabled:cursor-not-allowed"
               >
                 <Plus className="w-4 h-4 text-green-700" />
               </button>
@@ -380,6 +667,16 @@ const GroceryItemCard = ({ grocery }: { grocery: IGrocery }) => {
           )}
         </div>
       </div>
+      
+      {/* Wishlist Sheet Modal */}
+      <AdvancedWishlistSheet
+        isOpen={wishlistSheetOpen}
+        onClose={() => {
+          setWishlistSheetOpen(false);
+          handleWishlistUpdate();
+        }}
+        productId={grocery._id}
+      />
     </motion.div>
   );
 };

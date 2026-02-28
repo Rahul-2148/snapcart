@@ -1,6 +1,37 @@
 // src/lib/server/email.ts
+
+export async function sendNewsletterVerificationEmail(email: string, verifyUrl: string) {
+  const subject = "Confirm your subscription to Snapcart";
+  const html = `
+    <div style="font-family: Arial, sans-serif; line-height: 1.6">
+      <h2>Confirm your subscription</h2>
+      <p>Thanks for subscribing to Snapcart. Please confirm your email by clicking the button below:</p>
+      <p>
+        <a href="${verifyUrl}" style="display:inline-block;padding:10px 16px;background:#16a34a;color:#fff;text-decoration:none;border-radius:6px">Confirm Subscription</a>
+      </p>
+      <p>If you didn't request this, you can ignore this email.</p>
+    </div>
+  `;
+  await transporter.sendMail({ from: NO_REPLY_ADDRESS, to: email, subject, html });
+}
+
+export async function sendNewsletterUnsubscribeEmail(email: string, unsubscribeUrl: string) {
+  const subject = "Manage your Snapcart subscription";
+  const html = `
+    <div style="font-family: Arial, sans-serif; line-height: 1.6">
+      <h2>Manage subscription</h2>
+      <p>You can unsubscribe any time using the link below:</p>
+      <p>
+        <a href="${unsubscribeUrl}" style="display:inline-block;padding:10px 16px;background:#ef4444;color:#fff;text-decoration:none;border-radius:6px">Unsubscribe</a>
+      </p>
+    </div>
+  `;
+  await transporter.sendMail({ from: NO_REPLY_ADDRESS, to: email, subject, html });
+}
+// src/lib/server/email.ts
 import nodemailer from "nodemailer";
 import type { Transporter } from "nodemailer";
+import { buildAppUrl } from "@/lib/config/urls";
 
 // Create reusable transporter
 const transporter: Transporter = nodemailer.createTransport({
@@ -180,7 +211,7 @@ export async function sendWelcomeEmail(
         </ul>
         
         <div style="text-align: center;">
-            <a href="${process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000"}" class="button">
+            <a href="${buildAppUrl()}" class="button">
                 Start Shopping Now
             </a>
         </div>
@@ -212,7 +243,12 @@ export async function sendOrderConfirmationEmail(
   orderData: {
     orderNumber: string;
     orderDate: string;
-    items: Array<{ name: string; quantity: number; price: number }>;
+    items: Array<{
+      name: string;
+      quantity: number;
+      price: number;
+      imageUrl?: string;
+    }>;
     subTotal: number;
     deliveryFee: number;
     couponDiscount: number;
@@ -230,14 +266,25 @@ export async function sendOrderConfirmationEmail(
   },
 ): Promise<void> {
   const itemsHtml = orderData.items
-    .map(
-      (item) => `
-    <div class="order-item">
-        <span>${item.name} × ${item.quantity}</span>
-        <span>${orderData.currency} ${(item.price * item.quantity).toFixed(2)}</span>
+    .map((item) => {
+      const itemTotal = (item.price * item.quantity).toFixed(2);
+      const imageHtml = item.imageUrl
+        ? `<img src="${item.imageUrl}" alt="${item.name}" style="width:48px;height:48px;border-radius:8px;object-fit:cover;border:1px solid #e5e7eb;" />`
+        : ``;
+
+      return `
+    <div class="order-item" style="align-items:center;">
+        <div style="display:flex;align-items:center;gap:12px;">
+            ${imageHtml}
+            <div>
+                <div style="font-weight:600;color:#111827;">${item.name}</div>
+                <div style="font-size:12px;color:#6b7280;">Qty: ${item.quantity}</div>
+            </div>
+        </div>
+        <span>${orderData.currency} ${itemTotal}</span>
     </div>
-  `,
-    )
+  `;
+    })
     .join("");
 
   const content = `
@@ -291,7 +338,7 @@ export async function sendOrderConfirmationEmail(
         </div>
         
         <div style="text-align: center;">
-            <a href="${process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000"}/user/orders/${orderData.orderNumber}" class="button">
+            <a href="${buildAppUrl(`/user/orders/${orderData.orderNumber}`)}" class="button">
                 Track Your Order
             </a>
         </div>
@@ -345,7 +392,7 @@ export async function sendOrderStatusEmail(
         </div>
         
         <div style="text-align: center;">
-            <a href="${process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000"}/user/orders/${orderNumber}" class="button">
+            <a href="${buildAppUrl(`/user/orders/${orderNumber}`)}" class="button">
                 View Order Details
             </a>
         </div>
@@ -394,7 +441,7 @@ export async function sendPasswordResetEmail(
         </div>
         
         <div style="text-align: center;">
-            <a href="${process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000"}/login" class="button">
+            <a href="${buildAppUrl("/login")}" class="button">
                 Login to Your Account
             </a>
         </div>
@@ -440,6 +487,22 @@ export async function sendEmail(
   });
 }
 
+// Send raw HTML without applying the default Snapcart header/footer wrapper.
+// Use when the caller already provides a full HTML document or custom wrapper.
+export async function sendEmailRaw(
+  to: string,
+  subject: string,
+  htmlContent: string,
+): Promise<void> {
+  await transporter.sendMail({
+    from: `"SnapCart" <${process.env.EMAIL_USER}>`,
+    to,
+    subject,
+    html: htmlContent,
+    replyTo: NO_REPLY_ADDRESS,
+  });
+}
+
 // Strongly-typed default export object
 interface EmailService {
   sendWelcomeEmail(email: string, name: string): Promise<void>;
@@ -475,6 +538,49 @@ interface EmailService {
   ): Promise<void>;
   sendPasswordResetEmail(email: string, name: string): Promise<void>;
   sendEmail(to: string, subject: string, htmlContent: string): Promise<void>;
+}
+
+// Send newsletter campaign to subscribers
+export async function sendNewsletterCampaign(
+  email: string,
+  subject: string,
+  htmlContent: string,
+  unsubscribeUrl: string,
+  metadata?: {
+    fromName?: string;
+    replyTo?: string;
+    previewText?: string;
+  }
+) {
+  const fromName = metadata?.fromName || "Snapcart Newsletter";
+  const fromAddress = `${fromName} <${NO_REPLY_ADDRESS}>`;
+  const replyTo = metadata?.replyTo;
+
+  const fullHtml = `
+    <div style="font-family: Arial, sans-serif; line-height: 1.6; max-width: 600px; margin: 0 auto;">
+      ${htmlContent}
+      <hr style="margin: 30px 0; border: none; border-top: 1px solid #e5e7eb;" />
+      <div style="text-align: center; color: #6b7280; font-size: 12px;">
+        <p>You received this email because you subscribed to Snapcart newsletter.</p>
+        <p>
+          <a href="${unsubscribeUrl}" style="color: #6b7280; text-decoration: underline;">Unsubscribe</a>
+        </p>
+      </div>
+    </div>
+  `;
+
+  const mailOptions: any = {
+    from: fromAddress,
+    to: email,
+    subject,
+    html: fullHtml,
+  };
+
+  if (replyTo) {
+    mailOptions.replyTo = replyTo;
+  }
+
+  await transporter.sendMail(mailOptions);
 }
 
 const emailService = {

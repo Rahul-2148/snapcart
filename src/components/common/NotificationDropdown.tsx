@@ -2,17 +2,17 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { AnimatePresence, motion } from 'motion/react';
 import axios from 'axios';
-import useSocket from '@/hooks/useSocket';
+import { useSocket } from '@/contexts/SocketContext';
 import { Bell } from 'lucide-react';
 import { NotificationClient } from '@/types/custom';
 
-export const NotificationDropdown = ({ userId }: { userId: string }) => {
+export const NotificationDropdown = ({ userId, fullName }: { userId: string; fullName: string }) => {
     const [showNotifications, setShowNotifications] = useState(false);
     const [notifications, setNotifications] = useState<NotificationClient[]>([]);
     const [unreadCount, setUnreadCount] = useState(0);
     const dropdownRef = useRef<HTMLDivElement>(null);
 
-    const socket = useSocket(process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000');
+    const socket = useSocket();
 
 
 
@@ -33,7 +33,7 @@ export const NotificationDropdown = ({ userId }: { userId: string }) => {
 
     useEffect(() => {
         if (socket && userId) {
-            socket.emit('join_user_room', userId);
+            // Listen for new notifications (room join handled in useGetMe hook)
             socket.on('new_notification', (notification: NotificationClient) => {
                 setNotifications((prev) => [notification, ...prev]);
                 if (!notification.read) {

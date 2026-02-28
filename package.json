@@ -7,8 +7,10 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "next lint",
-    "socket": "tsx socket-server.ts"
+    "lint": "eslint .",
+    "socket": "tsx socket-server.ts",
+    "seed:admin": "tsx scripts/seed-admin.ts",
+    "seed:incentives": "tsx scripts/seed-incentives.ts"
   },
   "dependencies": {
     "@heroicons/react": "^2.2.0",
@@ -18,10 +20,14 @@
     "@stripe/stripe-js": "^8.6.1",
     "@types/leaflet": "^1.9.21",
     "@types/nodemailer": "^7.0.5",
+    "@upstash/redis": "^1.36.1",
     "axios": "^1.13.2",
     "bcryptjs": "^3.0.3",
     "cloudinary": "^2.8.0",
+    "crypto": "^1.0.1",
     "dotenv": "^17.2.3",
+    "firebase": "^12.8.0",
+    "firebase-admin": "^13.6.0",
     "keen-slider": "^6.8.6",
     "leaflet": "^1.9.4",
     "leaflet-geosearch": "^4.2.2",
@@ -41,11 +47,15 @@
     "react-icons": "^5.5.0",
     "react-leaflet": "^5.0.0",
     "react-redux": "^9.2.0",
+    "react-syntax-highlighter": "^16.1.0",
     "recharts": "^3.6.0",
+    "redis": "^5.10.0",
     "socket.io": "^4.8.3",
     "socket.io-client": "^4.8.3",
     "sonner": "^2.0.7",
-    "stripe": "^20.1.0"
+    "stripe": "^20.1.0",
+    "sweetalert2": "^11.26.17",
+    "twilio": "^5.8.0"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4",
@@ -53,9 +63,11 @@
     "@types/node": "^20",
     "@types/react": "^19",
     "@types/react-dom": "^19",
-    "baseline-browser-mapping": "^2.9.11",
+    "@types/react-syntax-highlighter": "^15.5.13",
+    "baseline-browser-mapping": "^2.9.15",
     "eslint": "^9",
     "eslint-config-next": "16.0.3",
+    "eslint-plugin-simple-import-sort": "^12.1.1",
     "tailwindcss": "^4",
     "tsx": "^4.21.0",
     "typescript": "^5"

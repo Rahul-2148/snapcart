@@ -1,10 +1,12 @@
 "use client";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import axios from "axios";
+import { toast } from "sonner";
 import { IUser } from "@/models/user.model";
 import Image from "next/image";
-import useSocket from "@/hooks/useSocket";
+import { useSocket } from "@/contexts/SocketContext";
 import { UserIcon } from "lucide-react";
+import AdvancedPagination from "@/components/common/AdvancedPagination";
 
 type User = Omit<IUser, "password">;
 
@@ -12,9 +14,12 @@ export default function UserManagement() {
   const [users, setUsers] = useState<User[]>([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState<"all" | "pending">("all");
-  const socket = useSocket(
-    process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000"
-  );
+  const [openRoleMenuUserId, setOpenRoleMenuUserId] = useState<string | null>(null);
+  const [menuPosition, setMenuPosition] = useState<{ top: number; right: number } | null>(null);
+  const buttonRefs = useRef<{ [key: string]: HTMLButtonElement | null }>({});
+  const [currentPage, setCurrentPage] = useState(1);
+  const [itemsPerPage, setItemsPerPage] = useState(10);
+  const socket = useSocket();
 
   useEffect(() => {
     const fetchUsers = async () => {
@@ -23,7 +28,7 @@ export default function UserManagement() {
         const response = await axios.get("/api/admin/users");
         setUsers(response.data.users);
       } catch (error) {
-        alert("Failed to fetch users.");
+        toast.error("Failed to fetch users.");
       }
       setLoading(false);
     };
@@ -75,10 +80,10 @@ export default function UserManagement() {
           user: response.data.user,
         });
       }
-      alert("User updated successfully!");
+      toast.success("User updated successfully!");
     } catch (error) {
       console.error("Error updating user:", error);
-      alert("Failed to update user.");
+      toast.error("Failed to update user.");
     }
   };
 
@@ -88,6 +93,18 @@ export default function UserManagement() {
     }
     return true;
   });
+
+  // Pagination calculations
+  const totalItems = filteredUsers.length;
+  const totalPages = Math.ceil(totalItems / itemsPerPage);
+  const startIndex = (currentPage - 1) * itemsPerPage;
+  const endIndex = startIndex + itemsPerPage;
+  const paginatedUsers = filteredUsers.slice(startIndex, endIndex);
+
+  // Reset to page 1 when filter changes
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [filter]);
 
   if (loading) {
     return <div>Loading users...</div>;
@@ -118,7 +135,7 @@ export default function UserManagement() {
         </button>
       </div>
 
-      <div className="overflow-x-auto">
+      <div className="overflow-x-auto relative">
         <table className="min-w-full divide-y divide-gray-200">
           <thead className="bg-gray-50">
             <tr>
@@ -127,6 +144,18 @@ export default function UserManagement() {
                 className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
               >
                 User
+              </th>
+              <th
+                scope="col"
+                className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
+              >
+                Mobile Number
+              </th>
+              <th
+                scope="col"
+                className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
+              >
+                Gender
               </th>
               <th
                 scope="col"
@@ -149,15 +178,15 @@ export default function UserManagement() {
             </tr>
           </thead>
           <tbody className="bg-white divide-y divide-gray-200">
-            {filteredUsers.map((user) => (
+            {paginatedUsers.map((user) => (
               <tr key={user._id?.toString()}>
                 <td className="px-6 py-4 whitespace-nowrap">
                   <div className="flex items-center">
                     <div className="flex-shrink-0 h-10 w-10">
                       <div className="h-10 w-10 rounded-full border border-gray-200 bg-gray-100 flex items-center justify-center overflow-hidden">
-                        {user.image?.url ? (
-                          <Image
-                            src={user.image.url}
+                        {user.image && (typeof user.image === "string" || user.image.url) ? (
+                          <img
+                            src={typeof user.image === "string" ? user.image : user.image.url}
                             alt={user.name}
                             width={40}
                             height={40}
@@ -177,10 +206,50 @@ export default function UserManagement() {
                   </div>
                 </td>
                 <td className="px-6 py-4 whitespace-nowrap">
-                  <div className="text-sm text-gray-900">{user.role}</div>
+                  <div className="text-sm text-gray-700">
+                    {user.mobileNumber || <span className="text-gray-400 italic">Not provided</span>}
+                  </div>
+                </td>
+                <td className="px-6 py-4 whitespace-nowrap">
+                  <div className="text-sm text-gray-700 capitalize">
+                    {user.gender ? (
+                      <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800">
+                        {user.gender === "prefer-not-to-say" ? "N/A" : user.gender}
+                      </span>
+                    ) : (
+                      <span className="text-gray-400 italic">Not specified</span>
+                    )}
+                  </div>
+                </td>
+                <td className="px-6 py-4 whitespace-nowrap">
+                  <div className="text-sm text-gray-900">
+                    {/* Show all roles for multi-role support */}
+                    {user.roles && user.roles.length > 0 ? (
+                      <div className="flex flex-wrap gap-2">
+                        {user.roles.map((role: string) => (
+                          <div key={role} className="flex items-center gap-1">
+                            <span className={`inline-block px-2 py-1 text-xs rounded-full ${user.currentRole === role ? 'bg-green-200 text-green-900 font-bold' : 'bg-blue-100 text-blue-800'}`}>
+                              {role === "deliveryBoy" ? "Delivery Partner" : role.charAt(0).toUpperCase() + role.slice(1)}
+                              {user.currentRole === role && <span className="ml-1">(Current)</span>}
+                            </span>
+                            {user.roles.length > 1 && (
+                              <button
+                                className="text-xs px-1 py-0.5 bg-red-200 text-red-900 rounded hover:bg-red-300 ml-1"
+                                onClick={() => handleUpdateUser(user._id!.toString(), { removeRole: role })}
+                              >
+                                Remove
+                              </button>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      "No roles"
+                    )}
+                  </div>
                   {user.roleChangeRequest === "pending" && (
-                    <div className="text-xs text-yellow-600">
-                      Wants to be {user.requestedRole}
+                    <div className="text-xs text-yellow-600 mt-1">
+                      📝 Requested: {user.requestedRole}
                     </div>
                   )}
                 </td>
@@ -196,7 +265,8 @@ export default function UserManagement() {
                   )}
                 </td>
                 <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                  <div className="flex items-center space-x-4">
+                  <div className="flex items-center space-x-2 flex-wrap gap-2">
+                    {/* Approve/Reject role change requests */}
                     {user.roleChangeRequest === "pending" && (
                       <>
                         <button
@@ -205,9 +275,9 @@ export default function UserManagement() {
                               roleChangeRequest: "approved",
                             })
                           }
-                          className="text-indigo-600 hover:text-indigo-900"
+                          className="text-xs px-2 py-1 bg-green-500 text-white rounded hover:bg-green-600"
                         >
-                          Approve
+                          ✓ Approve
                         </button>
                         <button
                           onClick={() =>
@@ -215,37 +285,61 @@ export default function UserManagement() {
                               roleChangeRequest: "rejected",
                             })
                           }
-                          className="text-red-600 hover:text-red-900"
+                          className="text-xs px-2 py-1 bg-red-500 text-white rounded hover:bg-red-600"
                         >
-                          Reject
+                          ✕ Reject
                         </button>
                       </>
                     )}
+
+                    {/* Add/Remove roles - Admin can add roles - Only show if roles can be added */}
+                    {(user.roles?.length || 0) < 2 && (
+                      <div className="relative">
+                        <button
+                          ref={(el) => {
+                            if (user._id) buttonRefs.current[user._id.toString()] = el;
+                          }}
+                          onClick={() => {
+                            const userId = user._id?.toString();
+                            if (!userId) return;
+                            
+                            if (openRoleMenuUserId === userId) {
+                              setOpenRoleMenuUserId(null);
+                              setMenuPosition(null);
+                            } else {
+                              const button = buttonRefs.current[userId];
+                              if (button) {
+                                const rect = button.getBoundingClientRect();
+                                setMenuPosition({
+                                  top: rect.bottom + window.scrollY + 4,
+                                  right: window.innerWidth - rect.right + window.scrollX
+                                });
+                              }
+                              setOpenRoleMenuUserId(userId);
+                            }
+                          }}
+                          className="text-xs px-2 py-1 bg-indigo-500 text-white rounded hover:bg-indigo-600"
+                        >
+                          + Add Role
+                        </button>
+                      </div>
+                    )}
+
+                    {/* Block/Unblock */}
                     <button
                       onClick={() =>
                         handleUpdateUser(user._id!.toString(), {
                           isBlocked: !user.isBlocked,
                         })
                       }
-                      className="text-gray-600 hover:text-gray-900"
+                      className={`text-xs px-2 py-1 rounded ${
+                        user.isBlocked
+                          ? "bg-orange-500 text-white hover:bg-orange-600"
+                          : "bg-gray-500 text-white hover:bg-gray-600"
+                      }`}
                     >
-                      {user.isBlocked ? "Unblock" : "Block"}
+                      {user.isBlocked ? "🔓 Unblock" : "🔒 Block"}
                     </button>
-
-                    {/* Dropdown to change role directly */}
-                    <select
-                      value={user.role}
-                      onChange={(e) =>
-                        handleUpdateUser(user._id!.toString(), {
-                          role: e.target.value,
-                        })
-                      }
-                      className="text-sm rounded-md border-gray-300 shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50"
-                    >
-                      <option value="user">User</option>
-                      <option value="deliveryBoy">Delivery Boy</option>
-                      <option value="admin">Admin</option>
-                    </select>
                   </div>
                 </td>
               </tr>
@@ -253,6 +347,62 @@ export default function UserManagement() {
           </tbody>
         </table>
       </div>
+
+      {/* Fixed Position Dropdown Menu */}
+      {openRoleMenuUserId && menuPosition && (
+        <>
+          {/* Backdrop to close menu on outside click */}
+          <div 
+            className="fixed inset-0 z-40" 
+            onClick={() => {
+              setOpenRoleMenuUserId(null);
+              setMenuPosition(null);
+            }}
+          />
+          {/* Dropdown Menu */}
+          <div 
+            className="fixed bg-white border border-gray-200 rounded shadow-xl z-50 min-w-[180px]"
+            style={{ top: `${menuPosition.top}px`, right: `${menuPosition.right}px` }}
+          >
+            {["user", "deliveryBoy"].map((role: string) => {
+              const user = users.find(u => u._id?.toString() === openRoleMenuUserId);
+              if (user?.roles?.includes(role)) return null;
+              return (
+                <button
+                  key={role}
+                  onClick={() => {
+                    handleUpdateUser(openRoleMenuUserId, {
+                      role: role,
+                    });
+                    setOpenRoleMenuUserId(null);
+                    setMenuPosition(null);
+                  }}
+                  className="block w-full text-left px-3 py-2 text-sm hover:bg-gray-100 text-gray-700 whitespace-nowrap"
+                >
+                  Add {role === "deliveryBoy" ? "Delivery Partner" : role}
+                </button>
+              );
+            })}
+          </div>
+        </>
+      )}
+
+      {/* Pagination */}
+      {totalItems > 0 && (
+        <div className="mt-6">
+          <AdvancedPagination
+            currentPage={currentPage}
+            totalPages={totalPages}
+            totalItems={totalItems}
+            itemsPerPage={itemsPerPage}
+            onPageChange={setCurrentPage}
+            onItemsPerPageChange={setItemsPerPage}
+            itemsPerPageOptions={[5, 10, 20, 50]}
+            showItemsPerPage={true}
+            showJumpToPage={true}
+          />
+        </div>
+      )}
     </div>
   );
 }

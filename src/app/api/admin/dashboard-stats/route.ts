@@ -3,12 +3,14 @@ import { auth } from "@/auth";
 import connectDb from "@/lib/server/db";
 import { User } from "@/models/user.model";
 import { Order } from "@/models/order.model";
+// Side-effect import to ensure OrderItem model is registered before populate
+import "@/models/orderItem.model";
 
 export async function GET(req: NextRequest) {
   try {
     const session = await auth();
 
-    if (session?.user?.role !== "admin") {
+    if (!session?.user?.roles?.includes("admin")) {
       return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
     }
 
@@ -32,7 +34,14 @@ export async function GET(req: NextRequest) {
       .sort({ createdAt: -1, _id: -1 })
       .skip(skip)
       .limit(limit)
-      .populate("userId", "name email");
+      .populate("userId", "name email")
+      .populate({
+        path: "orderItems",
+        populate: {
+          path: "grocery",
+          select: "images",
+        },
+      });
 
     const totalRecentOrders = await Order.countDocuments();
     const totalPages = Math.ceil(totalRecentOrders / limit);

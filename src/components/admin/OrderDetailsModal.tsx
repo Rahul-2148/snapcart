@@ -111,9 +111,51 @@ const OrderDetailsModal = ({ order, onClose, onUpdate }: any) => {
                       </span>
                     </div>
                   )}
-                  <div className="flex justify-between font-bold text-lg border-t pt-2">
-                    <span>Total</span>
-                    <span>₹{(order.finalTotal || 0).toFixed(2)}</span>
+                  <div className="flex justify-between items-center font-bold text-lg border-t pt-2 pb-0 leading-tight">
+                    <span className="leading-tight">Total</span>
+                    <span className="leading-tight">₹{(order.finalTotal || 0).toFixed(2)}</span>
+                  </div>
+                </div>
+
+                {/* Payment Details */}
+                <div className="bg-gray-50 p-4 rounded-lg space-y-2 text-gray-800">
+                  <h4 className="font-semibold text-gray-700">Payment Details</h4>
+                  <div className="grid grid-cols-2 gap-2 text-sm text-gray-700">
+                    <div className="space-y-1">
+                      <p className="text-gray-500">Method</p>
+                      <p className="font-medium capitalize">
+                        {order.paymentMethod}
+                        {order.paymentMethod === "online" && (order.onlinePaymentType || order.paymentDetails?.[0]?.provider) && (
+                          <span className="text-xs text-gray-500 ml-1">
+                            ({order.onlinePaymentType || order.paymentDetails?.[0]?.provider})
+                          </span>
+                        )}
+                      </p>
+                    </div>
+                    <div className="space-y-1">
+                      <p className="text-gray-500">Status</p>
+                      <p className="font-medium capitalize">{order.paymentStatus}</p>
+                    </div>
+                    {order.paymentDetails?.[0]?.transactionId && (
+                      <div className="space-y-1">
+                        <p className="text-gray-500">Transaction ID</p>
+                        <p className="font-medium break-all text-xs">{order.paymentDetails[0].transactionId}</p>
+                      </div>
+                    )}
+                    {order.paymentDetails?.[0]?.status && (
+                      <div className="space-y-1">
+                        <p className="text-gray-500">Gateway Status</p>
+                        <p className="font-medium capitalize">{order.paymentDetails[0].status}</p>
+                      </div>
+                    )}
+                    {order.paymentDetails?.[0]?.paidAt && (
+                      <div className="space-y-1">
+                        <p className="text-gray-500">Paid At</p>
+                        <p className="font-medium text-sm">
+                          {new Date(order.paymentDetails[0].paidAt).toLocaleString()}
+                        </p>
+                      </div>
+                    )}
                   </div>
                 </div>
               </div>

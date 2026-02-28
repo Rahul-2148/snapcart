@@ -2,18 +2,32 @@
 // src/app/user/payment/cancel/page.tsx
 "use client";
 
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { AlertCircle, ArrowLeft } from "lucide-react";
 import { motion } from "motion/react";
 import { useEffect } from "react";
 import { toast } from "sonner";
+import axios from "axios";
 
 const PaymentCancelPage = () => {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const paymentSessionId =
+    searchParams.get("paymentSessionId") || searchParams.get("orderId");
 
   useEffect(() => {
     toast.error("Payment was cancelled. You can try again from your cart.");
-  }, []);
+    const cancelOrder = async () => {
+      if (!paymentSessionId) return;
+      try {
+        await axios.post("/api/payment/session/cancel", { paymentSessionId });
+      } catch (error) {
+        console.error("Failed to cancel order:", error);
+      }
+    };
+
+    cancelOrder();
+  }, [paymentSessionId]);
 
   return (
     <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">

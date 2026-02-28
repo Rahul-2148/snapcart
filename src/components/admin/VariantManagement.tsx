@@ -15,6 +15,7 @@ interface IVariant {
   id?: string;
   _id?: string;
   label: string;
+  variantName?: string;
   unit: {
     unit: string;
     value: number;
@@ -27,6 +28,9 @@ interface IVariant {
   };
   countInStock: number;
   isDefault?: boolean;
+  cod?: {
+    status: "not-allowed" | "with-charge" | "free";
+  };
 }
 
 interface VariantManagementProps {
@@ -44,15 +48,16 @@ const VariantManagement = ({
   const [formData, setFormData] = useState<IVariant>({
     id: "",
     label: "",
+    variantName: "",
     unit: { unit: "", value: 0, multiplier: 1 },
     price: { mrp: 0, selling: 0 },
     countInStock: 0,
     isDefault: false,
+    cod: { status: "with-charge" },
   });
 
   const [errors, setErrors] = useState<Record<string, string>>({});
 
-  // Add or update variant
   const handleSaveVariant = () => {
     const newErrors: Record<string, string> = {};
 
@@ -74,11 +79,12 @@ const VariantManagement = ({
 
     setErrors({});
 
-    // Generate label if not set
+    // Generate label based on current form data
     const generatedLabel = generateLabel();
     const variantToSave = {
       ...formData,
-      label: formData.label || generatedLabel,
+      // Always regenerate label from unit values unless user explicitly set a custom label
+      label: generatedLabel,
     };
 
     if (editingId) {
@@ -105,8 +111,17 @@ const VariantManagement = ({
   const handleEditVariant = (variant: IVariant) => {
     const variantId = variant._id || variant.id || "";
     setEditingId(variantId);
-    setFormData({ ...variant, id: variantId });
-    console.log("Edit mode activated. Variant ID:", variantId);
+    // Ensure multiplier is properly set when editing
+    const variantData = {
+      ...variant,
+      id: variantId,
+      unit: {
+        ...variant.unit,
+        multiplier: variant.unit.multiplier || 1, // Ensure multiplier has a default
+      },
+    };
+    setFormData(variantData);
+    console.log("Edit mode activated. Variant ID:", variantId, "Data:", variantData);
   };
 
   const handleDeleteVariant = (id: string) => {
@@ -140,10 +155,12 @@ const VariantManagement = ({
     setFormData({
       id: "",
       label: "",
+      variantName: "",
       unit: { unit: "", value: 0, multiplier: 1 },
       price: { mrp: 0, selling: 0 },
       countInStock: 0,
       isDefault: false,
+      cod: { status: "with-charge" },
     });
     setErrors({});
   };
@@ -297,6 +314,27 @@ const VariantManagement = ({
           </div>
         </div>
 
+        {/* Variant Name / Type */}
+        <div className="mb-4">
+          <label className="block text-sm font-medium text-gray-700 mb-2">
+            Variant Name / Type
+            <span className="text-gray-500 text-xs ml-2">(Optional - e.g., "Premium", "Deluxe", "Standard")</span>
+          </label>
+          <input
+            type="text"
+            value={formData.variantName || ""}
+            onChange={(e) => {
+              setFormData({
+                ...formData,
+                variantName: e.target.value,
+              });
+            }}
+            placeholder="e.g., Red, Blue, Small, Medium, Large, Premium, Standard, 500ml, 1L, etc."
+            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500"
+          />
+          <p className="text-xs text-gray-500 mt-1">Describe the specific variant type or flavor</p>
+        </div>
+
         {/* Prices */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-4">
           {/* MRP */}
@@ -395,6 +433,32 @@ const VariantManagement = ({
           </div>
         </div>
 
+        {/* COD Status */}
+        <div className="mb-4">
+          <label className="block text-sm font-medium text-gray-700 mb-2">
+            COD Status
+          </label>
+          <select
+            value={formData.cod?.status || "with-charge"}
+            onChange={(e) => {
+              setFormData({
+                ...formData,
+                cod: { status: e.target.value as "not-allowed" | "with-charge" | "free" },
+              });
+            }}
+            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500"
+          >
+            <option value="with-charge">💰 With Charge (Customer pays COD fee)</option>
+            <option value="free">✓ Free COD (No charge for customer)</option>
+            <option value="not-allowed">❌ Not Allowed (COD disabled)</option>
+          </select>
+          <p className="text-xs text-gray-500 mt-1">
+            {formData.cod?.status === "with-charge" && "COD handling charge will be applied to this product"}
+            {formData.cod?.status === "free" && "No COD charge for this product"}
+            {formData.cod?.status === "not-allowed" && "COD will not be available if this product is in cart"}
+          </p>
+        </div>
+
         {/* Action Buttons */}
         <div className="flex gap-3 justify-end">
           {editingId && (
@@ -446,6 +510,11 @@ const VariantManagement = ({
                         <span className="text-2xl font-bold text-gray-900">
                           {variant.label}
                         </span>
+                        {variant.variantName && (
+                          <span className="bg-blue-100 text-blue-800 px-2 py-1 rounded text-xs font-semibold">
+                            {variant.variantName}
+                          </span>
+                        )}
                         {variant.isDefault && (
                           <span className="bg-emerald-100 text-emerald-800 px-2 py-1 rounded text-xs font-semibold">
                             🏷️ Default
@@ -552,19 +621,7 @@ const VariantManagement = ({
             })}
           </AnimatePresence>
         </motion.div>
-      ) : (
-        <motion.div
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          className="bg-amber-50 border border-amber-200 rounded-xl p-6 text-center"
-        >
-          <AlertCircle className="w-8 h-8 text-amber-600 mx-auto mb-2" />
-          <p className="text-amber-900 font-medium">No variants added yet</p>
-          <p className="text-amber-700 text-sm mt-1">
-            Add at least one variant with size and price to create a product
-          </p>
-        </motion.div>
-      )}
+      ) : null}
 
       {/* Price Range Summary */}
       {variants.length > 1 && (

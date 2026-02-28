@@ -4,7 +4,7 @@ import { AnimatePresence, motion } from 'motion/react';
 import Image from 'next/image';
 import Link from 'next/link';
 import { signOut } from 'next-auth/react';
-import { User, Package, LogOut } from 'lucide-react';
+import { User, Package, LogOut, Settings } from 'lucide-react';
 import { IUser } from '@/models/user.model';
 
 export const ProfileDropdown = ({ user }: { user: IUser }) => {
@@ -26,11 +26,17 @@ export const ProfileDropdown = ({ user }: { user: IUser }) => {
     return (
         <div className="relative" ref={dropdownRef}>
             <div
-                className="bg-white rounded-full w-10 h-10 flex items-center justify-center overflow-hidden shadow-sm cursor-pointer"
+                className="relative bg-white rounded-full w-10 h-10 flex items-center justify-center overflow-hidden shadow-sm cursor-pointer"
                 onClick={() => setOpen((prev) => !prev)}
             >
                 {user.image?.url ? (
-                    <Image src={user.image.url} alt={user.name} fill className="object-cover" />
+                    <Image 
+                        src={user.image.url} 
+                        alt={user.name} 
+                        width={40}
+                        height={40}
+                        className="object-cover rounded-full" 
+                    />
                 ) : (
                     <User className="h-6 w-6 text-gray-500" />
                 )}
@@ -45,16 +51,24 @@ export const ProfileDropdown = ({ user }: { user: IUser }) => {
                         className="absolute right-0 mt-2 w-56 bg-white rounded-lg shadow-xl border z-50 p-2"
                     >
                          <div className="flex items-center gap-3 px-2 py-2 border-b mb-2">
-                            <div className="w-10 h-10 rounded-full bg-gray-100 flex items-center justify-center overflow-hidden relative">
+                            <div className="relative w-10 h-10 rounded-full bg-gray-100 flex items-center justify-center overflow-hidden">
                                  {user.image?.url ? (
-                                    <Image src={user.image.url} alt={user.name} fill className="object-cover" />
+                                    <Image 
+                                        src={user.image.url} 
+                                        alt={user.name} 
+                                        width={40}
+                                        height={40}
+                                        className="object-cover rounded-full" 
+                                    />
                                 ) : (
                                     <User className="h-6 w-6 text-gray-500"/>
                                 )}
                             </div>
                             <div>
                                 <div className="font-semibold text-gray-800">{user.name}</div>
-                                <div className="text-xs text-gray-500 capitalize">{user.role}</div>
+                                <div className="text-xs text-gray-500 capitalize">{user.currentRole || user.roles?.[0] || "user"}</div>
+                                {user.email && <div className="text-xs text-gray-600">{user.email}</div>}
+                                {user.mobileNumber && <div className="text-xs text-gray-600">{user.mobileNumber}</div>}
                             </div>
                         </div>
 
@@ -66,13 +80,13 @@ export const ProfileDropdown = ({ user }: { user: IUser }) => {
                             <User className="w-4 h-4" /> My Account
                         </Link>
 
-                        {user.role === 'user' && (
+                        {(user.currentRole === 'admin' || user.roles?.includes('admin')) && (
                             <Link
-                                href="/user/orders"
+                                href="/admin/settings"
                                 className="flex items-center gap-2 w-full px-3 py-2 text-sm text-gray-700 hover:bg-gray-100 rounded-md"
                                 onClick={() => setOpen(false)}
                             >
-                                <Package className="w-4 h-4" /> My Orders
+                                <Settings className="w-4 h-4" /> Settings
                             </Link>
                         )}
 

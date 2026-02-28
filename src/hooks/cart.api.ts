@@ -42,7 +42,10 @@ export const clearCartApi = async () => {
 
 export const getGuestCart = async () => {
   const { data } = await axios.get("/api/guest-cart");
-  return data;
+  return {
+    ...data,
+    items: data?.cart?.items ?? data?.items ?? [],
+  };
 };
 
 export const addGuestCartApi = async (variantId: string, quantity: number) => {

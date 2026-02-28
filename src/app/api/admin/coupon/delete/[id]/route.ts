@@ -19,7 +19,7 @@ export async function DELETE(req: NextRequest, { params }: { params: Promise<{ i
     }
 
     const user = await User.findOne({ email: session.user.email });
-    if (!user || user.role !== "admin") {
+    if (!user || !user.roles?.includes("admin")) {
       return NextResponse.json(
         { message: "Admin access required" },
         { status: 403 }

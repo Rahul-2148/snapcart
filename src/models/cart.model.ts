@@ -39,7 +39,7 @@ const cartSchema = new mongoose.Schema<ICart>(
 
     isActive: { type: Boolean, default: true, index: true },
   },
-  { timestamps: true }
+  { timestamps: true },
 );
 
 export const Cart =

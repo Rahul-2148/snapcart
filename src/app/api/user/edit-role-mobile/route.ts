@@ -11,11 +11,23 @@ export const POST = async (req: NextRequest) => {
     if (!session?.user?.id) {
       return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
     }
+    if (!role || !["user", "deliveryBoy"].includes(role)) {
+      return NextResponse.json(
+        { message: "Invalid role" },
+        { status: 400 }
+      );
+    }
+
+    const updatedRoles = role === "deliveryBoy" ? ["user", "deliveryBoy"] : ["user"];
+    const updatedCurrentRole = role === "deliveryBoy" ? "deliveryBoy" : "user";
+
     const user = await User.findByIdAndUpdate(
       session.user.id,
       {
-        role,
+        roles: updatedRoles,
+        currentRole: updatedCurrentRole,
         mobileNumber,
+        profileCompleted: true,
       },
       { new: true }
     );

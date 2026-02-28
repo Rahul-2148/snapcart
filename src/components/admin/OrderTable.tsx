@@ -1,7 +1,7 @@
 "use client";
 import React from "react";
 import { EyeIcon } from "@heroicons/react/24/outline";
-import { IndianRupee } from "lucide-react";
+import { IndianRupee, Package } from "lucide-react";
 
 // Define a type for the order for better type safety
 export interface Order {
@@ -19,9 +19,26 @@ export interface Order {
     | "out-for-delivery"
     | "delivered"
     | "cancelled";
-  paymentStatus: "pending" | "paid" | "failed";
+  paymentStatus: "pending" | "paid" | "failed" | "refunded";
   paymentMethod: "cod" | "online";
   onlinePaymentType?: "stripe" | "razorpay";
+  paymentDetails?: Array<{
+    provider?: string;
+    transactionId?: string;
+    paymentMethod?: string;
+    status?: string;
+  }>;
+  orderItems?: Array<{
+    _id: string;
+    groceryName: string;
+    quantity: number;
+    grocery?: {
+      images?: Array<{
+        url: string;
+        publicId: string;
+      }>;
+    };
+  }>;
   createdAt: string;
 }
 
@@ -36,6 +53,9 @@ const OrderTable: React.FC<OrderTableProps> = ({
   onViewOrder,
   variant = "full",
 }) => {
+  const getProvider = (order: Order) =>
+    order.onlinePaymentType || order.paymentDetails?.[0]?.provider || order.paymentDetails?.[0]?.paymentMethod;
+
   const getStatusChipClass = (status: string) => {
     switch (status) {
       case "delivered":
@@ -46,6 +66,8 @@ const OrderTable: React.FC<OrderTableProps> = ({
         return "bg-red-100 text-red-800 border border-red-200";
       case "pending":
         return "bg-yellow-100 text-yellow-800 border border-yellow-200";
+      case "refunded":
+        return "bg-purple-100 text-purple-800 border border-purple-200";
       case "shipped":
       case "out-for-delivery":
       case "confirmed":
@@ -90,6 +112,14 @@ const OrderTable: React.FC<OrderTableProps> = ({
               }`}
             >
               Customer
+            </th>
+            <th
+              scope="col"
+              className={`px-3 md:px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider ${
+                isDashboard ? "font-semibold" : "font-medium"
+              }`}
+            >
+              Products
             </th>
             <th
               scope="col"
@@ -175,7 +205,32 @@ const OrderTable: React.FC<OrderTableProps> = ({
                   isDashboard ? "hidden sm:table-cell" : "text-gray-500"
                 }`}
               >
-                {order.userId.name}
+                {order.userId?.name || "User Deleted"}
+              </td>
+              <td className="px-3 md:px-6 py-4 whitespace-nowrap">
+                <div className="flex items-center space-x-2">
+                  {order.orderItems?.slice(0, 2).map((item, idx) => (
+                    <div
+                      key={`${order._id}-${item._id ?? idx}`}
+                      className="w-10 h-10 bg-gray-200 rounded-lg flex items-center justify-center overflow-hidden flex-shrink-0"
+                    >
+                      {item.grocery?.images && item.grocery.images.length > 0 ? (
+                        <img
+                          src={item.grocery.images[0].url}
+                          alt={item.groceryName}
+                          className="w-10 h-10 object-cover"
+                        />
+                      ) : (
+                        <Package className="w-5 h-5 text-gray-400" />
+                      )}
+                    </div>
+                  ))}
+                  {order.orderItems && order.orderItems.length > 2 && (
+                    <div className="text-xs text-gray-600 font-medium px-2">
+                      +{order.orderItems.length - 2}
+                    </div>
+                  )}
+                </div>
               </td>
               <td
                 className={`px-3 md:px-6 py-4 whitespace-nowrap text-xs md:text-sm text-gray-600 ${
@@ -206,12 +261,14 @@ const OrderTable: React.FC<OrderTableProps> = ({
                 </td>
               )}
               <td
-                className={`px-3 md:px-6 py-4 whitespace-nowrap text-xs md:text-sm font-medium text-gray-900 flex items-center ${
+                className={`px-3 md:px-6 py-4 whitespace-nowrap text-xs md:text-sm font-medium text-gray-900 ${
                   isDashboard ? "" : "text-gray-500"
                 }`}
               >
-                <IndianRupee size={14} />
-                {order.finalTotal.toFixed(2)}
+                <div className="flex items-center gap-1 leading-tight">
+                  <IndianRupee size={14} className="shrink-0" />
+                  <span className="leading-tight">{order.finalTotal.toFixed(2)}</span>
+                </div>
               </td>
               <td className="px-6 py-4 whitespace-nowrap text-sm">
                 <span
@@ -223,11 +280,16 @@ const OrderTable: React.FC<OrderTableProps> = ({
                 >
                   {order.paymentMethod === "cod"
                     ? "COD"
-                    : order.onlinePaymentType
-                    ? order.onlinePaymentType.charAt(0).toUpperCase() +
-                      order.onlinePaymentType.slice(1)
+                    : getProvider(order)
+                    ? getProvider(order)!.charAt(0).toUpperCase() +
+                      getProvider(order)!.slice(1)
                     : "Online"}
                 </span>
+                {order.paymentMethod === "online" && order.paymentDetails?.[0]?.transactionId && (
+                  <div className="text-[11px] text-gray-500 mt-1">
+                    Txn: {order.paymentDetails[0].transactionId}
+                  </div>
+                )}
               </td>
               {!isDashboard && (
                 <td className="px-6 py-4 whitespace-nowrap text-sm">

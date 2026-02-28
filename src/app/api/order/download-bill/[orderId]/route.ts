@@ -2,6 +2,7 @@
 import { auth } from "@/auth";
 import connectDb from "@/lib/server/db";
 import { Order } from "@/models/order.model";
+import { ReturnRequest } from "@/models/returnRequest.model";
 import "@/models/orderItem.model";
 import { NextRequest, NextResponse } from "next/server";
 import puppeteer from "puppeteer";
@@ -41,6 +42,19 @@ export const GET = async (
     if (order.orderStatus !== "delivered") {
       return NextResponse.json(
         { message: "Bill can only be downloaded for delivered orders" },
+        { status: 400 }
+      );
+    }
+
+    // Check if order has completed returns
+    const completedReturn = await ReturnRequest.findOne({
+      order: orderId,
+      status: "completed",
+    });
+
+    if (completedReturn) {
+      return NextResponse.json(
+        { message: "Bill cannot be downloaded for orders with completed returns" },
         { status: 400 }
       );
     }

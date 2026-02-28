@@ -7,7 +7,9 @@ import {
   MagnifyingGlassIcon,
   MoonIcon,
   SunIcon,
+  XMarkIcon,
 } from "@heroicons/react/24/outline";
+import Link from "next/link";
 import axios from "axios";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
@@ -29,8 +31,43 @@ const AdminHeader = ({ onToggleMobileSidebar }: AdminHeaderProps) => {
   const [searchResults, setSearchResults] = useState<any[]>([]);
   const [searchLoading, setSearchLoading] = useState(false);
   const [showResults, setShowResults] = useState(false);
+  const [searchHistory, setSearchHistory] = useState<string[]>([]);
 
   const router = useRouter();
+
+  // Load search history from localStorage on mount
+  useEffect(() => {
+    const savedHistory = localStorage.getItem("adminSearchHistory");
+    if (savedHistory) {
+      setSearchHistory(JSON.parse(savedHistory));
+    }
+  }, []);
+
+  // Save search to history
+  const addToSearchHistory = (query: string) => {
+    if (!query.trim() || query.length < 3) return;
+    
+    const updatedHistory = [
+      query,
+      ...searchHistory.filter((item) => item !== query),
+    ].slice(0, 10); // Keep only last 10 searches
+    
+    setSearchHistory(updatedHistory);
+    localStorage.setItem("adminSearchHistory", JSON.stringify(updatedHistory));
+  };
+
+  // Clear search history
+  const clearSearchHistory = () => {
+    setSearchHistory([]);
+    localStorage.removeItem("adminSearchHistory");
+  };
+
+  // Remove individual search history item
+  const removeFromHistory = (query: string) => {
+    const updatedHistory = searchHistory.filter((item) => item !== query);
+    setSearchHistory(updatedHistory);
+    localStorage.setItem("adminSearchHistory", JSON.stringify(updatedHistory));
+  };
 
   // Debounce search query
   useEffect(() => {
@@ -52,6 +89,7 @@ const AdminHeader = ({ onToggleMobileSidebar }: AdminHeaderProps) => {
 
   const performSearch = async (query: string) => {
     setSearchLoading(true);
+    setShowResults(true); // Always show dropdown when searching
     try {
       const results: any[] = [];
 
@@ -97,18 +135,24 @@ const AdminHeader = ({ onToggleMobileSidebar }: AdminHeaderProps) => {
       }
 
       setSearchResults(results);
-      setShowResults(results.length > 0);
     } catch (error) {
       console.error("Search error:", error);
+      setSearchResults([]);
     } finally {
       setSearchLoading(false);
     }
   };
 
   const handleResultClick = (link: string) => {
+    addToSearchHistory(searchQuery);
     router.push(link);
     setSearchQuery("");
     setShowResults(false);
+  };
+
+  const handleHistoryClick = (query: string) => {
+    setSearchQuery(query);
+    setDebouncedQuery(query);
   };
 
   return (
@@ -129,30 +173,92 @@ const AdminHeader = ({ onToggleMobileSidebar }: AdminHeaderProps) => {
           placeholder="Search products, orders, users, coupons..."
           value={searchQuery}
           onChange={(e) => setSearchQuery(e.target.value)}
-          onFocus={() => setShowResults(searchResults.length > 0)}
+          onFocus={() => {
+            if (searchResults.length > 0 || (!searchQuery && searchHistory.length > 0)) {
+              setShowResults(true);
+            }
+          }}
+          onKeyDown={(e) => {
+            if (e.key === "Enter" && searchResults.length > 0) {
+              handleResultClick(searchResults[0].link);
+            }
+          }}
           className="pl-12 pr-4 py-3 border border-gray-300 rounded-full text-sm w-full text-gray-800 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200"
         />
         {showResults && (
-          <div className="absolute top-full mt-2 w-full bg-white border border-gray-200 rounded-xl shadow-xl z-50 max-h-96 overflow-y-auto">
-            {searchLoading ? (
-              <div className="px-4 py-3 text-gray-500">Searching...</div>
-            ) : searchResults.length > 0 ? (
-              searchResults.map((result, index) => (
-                <button
-                  key={index}
-                  onClick={() => handleResultClick(result.link)}
-                  className="w-full px-4 py-3 text-left hover:bg-gray-50 border-b border-gray-100 last:border-b-0"
-                >
-                  <div className="text-sm font-medium text-gray-900">
-                    {result.name}
+          <>
+            {/* Backdrop to close dropdown */}
+            <div 
+              className="fixed inset-0 z-40" 
+              onClick={() => setShowResults(false)}
+            />
+            <div className="absolute top-full mt-2 w-full bg-white border border-gray-200 rounded-xl shadow-xl z-50 max-h-96 overflow-y-auto">
+              {searchLoading ? (
+                <div className="px-4 py-3 text-gray-500">Searching...</div>
+              ) : searchResults.length > 0 ? (
+                <>
+                  <div className="px-4 py-2 text-xs font-semibold text-gray-500 uppercase border-b">
+                    Search Results
                   </div>
-                  <div className="text-xs text-gray-500">{result.type}</div>
-                </button>
-              ))
-            ) : (
-              <div className="px-4 py-3 text-gray-500">No results found</div>
-            )}
-          </div>
+                  {searchResults.map((result, index) => (
+                    <button
+                      key={index}
+                      onClick={() => handleResultClick(result.link)}
+                      className="w-full px-4 py-3 text-left hover:bg-gray-50 border-b border-gray-100 last:border-b-0"
+                    >
+                      <div className="text-sm font-medium text-gray-900">
+                        {result.name}
+                      </div>
+                      <div className="text-xs text-gray-500">{result.type}</div>
+                    </button>
+                  ))}
+                </>
+              ) : !searchQuery && searchHistory.length > 0 ? (
+                <>
+                  <div className="px-4 py-2 flex items-center justify-between border-b">
+                    <span className="text-xs font-semibold text-gray-500 uppercase">
+                      Recent Searches
+                    </span>
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        clearSearchHistory();
+                      }}
+                      className="text-xs text-red-600 hover:text-red-700 font-medium"
+                    >
+                      Clear All
+                    </button>
+                  </div>
+                  {searchHistory.map((query, index) => (
+                    <div
+                      key={index}
+                      className="w-full px-4 py-3 hover:bg-gray-50 border-b border-gray-100 last:border-b-0 flex items-center gap-3 justify-between group"
+                    >
+                      <button
+                        onClick={() => handleHistoryClick(query)}
+                        className="flex items-center gap-3 flex-1 text-left"
+                      >
+                        <MagnifyingGlassIcon className="h-4 w-4 text-gray-400 flex-shrink-0" />
+                        <span className="text-sm text-gray-700">{query}</span>
+                      </button>
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          removeFromHistory(query);
+                        }}
+                        className="opacity-0 group-hover:opacity-100 transition-opacity p-1 hover:bg-gray-200 rounded"
+                        title="Remove"
+                      >
+                        <XMarkIcon className="h-4 w-4 text-gray-500" />
+                      </button>
+                    </div>
+                  ))}
+                </>
+              ) : searchQuery ? (
+                <div className="px-4 py-3 text-gray-500">No results found</div>
+              ) : null}
+            </div>
+          </>
         )}
       </div>
 
@@ -188,7 +294,7 @@ const AdminHeader = ({ onToggleMobileSidebar }: AdminHeaderProps) => {
             </div>
           )}
         </div>
-        {user && <NotificationDropdown userId={user?._id!.toString()} />}
+        {user && <NotificationDropdown userId={user?._id!.toString()} fullName={user.name} />}
         {user && <ProfileDropdown user={user} />}
       </div>
     </header>

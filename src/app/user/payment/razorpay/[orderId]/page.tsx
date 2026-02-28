@@ -1,17 +1,16 @@
 // src/app/user/payment/[orderId]/page.tsx
 "use client";
 
-import { useEffect, useState, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import axios from "axios";
-import { motion } from "motion/react";
 import { toast } from "sonner";
 import {
-  ArrowLeft,
-  Loader2,
-  CheckCircle,
   AlertCircle,
+  ArrowLeft,
+  CheckCircle,
   IndianRupee,
+  Loader2,
   Package,
 } from "lucide-react";
 import { useDispatch } from "react-redux";
@@ -63,7 +62,7 @@ const RazorpayPaymentPage = () => {
   const params = useParams();
   const router = useRouter();
   const dispatch = useDispatch<AppDispatch>();
-  const orderId = Array.isArray(params.orderId)
+  const paymentSessionId = Array.isArray(params.orderId)
     ? params.orderId[0]
     : params.orderId;
 
@@ -73,19 +72,18 @@ const RazorpayPaymentPage = () => {
   const [paymentStatus, setPaymentStatus] = useState<
     "pending" | "processing" | "success" | "failed"
   >("pending");
+  const [sessionStatus, setSessionStatus] = useState<
+    "pending" | "processing" | "paid" | "cancelled" | "expired" | "failed"
+  >("pending");
 
   const paymentSuccessful = useRef(false);
 
-  // Load Razorpay script
   useEffect(() => {
     const script = document.createElement("script");
     script.src = "https://checkout.razorpay.com/v1/checkout.js";
     script.async = true;
     script.onload = () => console.log("Razorpay script loaded successfully");
-    script.onerror = () => {
-      console.error("Failed to load Razorpay script");
-      toast.error("Failed to load payment gateway");
-    };
+    script.onerror = () => toast.error("Failed to load payment gateway");
     document.body.appendChild(script);
   }, []);
 
@@ -96,45 +94,89 @@ const RazorpayPaymentPage = () => {
     }
 
     try {
-      toast.loading("Cancelling order...");
-      await axios.post("/api/order/cancel", { orderId });
+      toast.loading("Cancelling payment...");
+      await axios.post("/api/payment/session/cancel", { paymentSessionId });
       const cart = await fetchCartApi();
+
+      let appliedCoupon = null;
+      if (cart.coupon) {
+        const couponType = cart.coupon.discountType?.toLowerCase();
+        appliedCoupon = {
+          code: cart.coupon.code || "",
+          discountValue: cart.coupon.discountValue || 0,
+          type: couponType === "percentage" ? "percentage" : "flat",
+          maxDiscount: cart.coupon.maxDiscountAmount,
+          minCartValue: cart.coupon.minCartValue,
+        };
+      }
+
       dispatch(
         setCart({
           items: cart.items,
-          cartId: cart.cartId,
+          cartId: cart.cart?._id,
           isGuest: cart.isGuest ?? false,
+          appliedCoupon,
         })
       );
       toast.dismiss();
-      toast.info("Order cancelled and cart restored.");
+      toast.info("Payment cancelled and cart preserved.");
       router.back();
     } catch (error) {
       toast.dismiss();
-      toast.error("Could not cancel order.");
-      console.error("Failed to cancel order:", error);
+      toast.error("Could not cancel payment.");
+      console.error("Failed to cancel payment:", error);
       router.back();
     }
   };
 
   useEffect(() => {
-    const fetchOrder = async () => {
+    const fetchSession = async () => {
       try {
-        const { data } = await axios.get(
-          `/api/order/fetch-order-details/${orderId}`
-        );
-        setOrderData(data);
-      } catch (err) {
-        console.error("Failed to fetch order data:", err);
+        const { data } = await axios.get(`/api/payment/session/${paymentSessionId}`);
+
+        const session = data.session;
+        setSessionStatus(session.status || "pending");
+        const items = session.items.map((item: any, idx: number) => ({
+          _id: `${session._id}-${idx}`,
+          grocery: {
+            images: item.groceryId?.images || [],
+          },
+          groceryName: item.groceryName,
+          variant: {
+            variantId: item.variantId,
+            label: item.variantLabel,
+            unit: item.unit,
+            value: item.value,
+          },
+          price: {
+            mrpPrice: item.price.mrpPrice,
+            sellingPrice: item.price.sellingPrice,
+          },
+          quantity: item.quantity,
+        }));
+
+        setOrderData({
+          _id: session._id,
+          orderNumber: `PS-${session._id.slice(-6)}`,
+          orderItems: items,
+          subTotal: session.subTotal,
+          deliveryFee: session.deliveryFee,
+          couponDiscount: session.couponDiscount || 0,
+          finalTotal: session.finalTotal,
+          deliveryAddress: session.deliveryAddress,
+        });
+      } catch (error) {
+        console.error("Failed to fetch payment session:", error);
         toast.error("Failed to load order details");
         router.push("/user/cart");
       }
       setLoading(false);
     };
-    if (orderId) {
-      fetchOrder();
+
+    if (paymentSessionId) {
+      fetchSession();
     }
-  }, [orderId, router, dispatch]);
+  }, [paymentSessionId, router]);
 
   const handleRazorpayPayment = async () => {
     if (!orderData || !window.Razorpay) {
@@ -147,20 +189,21 @@ const RazorpayPaymentPage = () => {
 
     try {
       const razorpayRes = await axios.post("/api/payment/razorpay", {
-        orderId,
+        paymentSessionId,
       });
+
       const options = {
         key: process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID,
         amount: razorpayRes.data.amount,
         currency: razorpayRes.data.currency,
         name: "SnapCart Grocery",
-        description: `Order ${orderData.orderNumber}`,
+        description: `Payment ${orderData.orderNumber}`,
         order_id: razorpayRes.data.id,
         handler: async (response: any) => {
           setPaymentStatus("processing");
           try {
             await axios.post("/api/payment/callback", {
-              orderId,
+              paymentSessionId,
               paymentStatus: "success",
               gateway: "razorpay",
               razorpay_order_id: response.razorpay_order_id,
@@ -170,12 +213,31 @@ const RazorpayPaymentPage = () => {
             paymentSuccessful.current = true;
             setPaymentStatus("success");
             dispatch(clearCart());
-            localStorage.removeItem(`order_${orderId}`);
+            localStorage.removeItem(`payment_${paymentSessionId}`);
             toast.success("Payment successful!");
             setTimeout(() => {
-              router.push(`/user/orders/${orderId}`);
+              router.push(`/user/orders`);
             }, 2000);
           } catch (error) {
+            try {
+              const { data } = await axios.get(
+                `/api/payment/session/${paymentSessionId}`
+              );
+              const status = data.session?.status;
+              if (status === "paid") {
+                paymentSuccessful.current = true;
+                setPaymentStatus("success");
+                dispatch(clearCart());
+                localStorage.removeItem(`payment_${paymentSessionId}`);
+                toast.success("Payment successful!");
+                setTimeout(() => {
+                  router.push(`/user/orders`);
+                }, 2000);
+                return;
+              }
+            } catch (statusError) {
+              console.error("Failed to recheck payment session:", statusError);
+            }
             setPaymentStatus("failed");
             toast.error("Payment verification failed. Please contact support.");
             setPaymentProcessing(false);
@@ -222,6 +284,24 @@ const RazorpayPaymentPage = () => {
     );
   }
 
+  if (sessionStatus !== "pending" && sessionStatus !== "processing") {
+    return (
+      <div className="w-[90%] mx-auto mt-20 text-center">
+        <AlertCircle className="w-12 h-12 text-red-500 mx-auto mb-4" />
+        <h2 className="text-xl font-semibold mb-2">Payment Session {sessionStatus}</h2>
+        <p className="text-gray-600 mb-6">
+          This payment session is no longer active. Please return to cart and try again.
+        </p>
+        <button
+          onClick={() => router.push("/user/cart")}
+          className="text-green-600 hover:text-green-700 font-medium"
+        >
+          Return to cart
+        </button>
+      </div>
+    );
+  }
+
   if (!orderData) {
     return (
       <div className="w-[90%] mx-auto mt-20 text-center">
@@ -239,39 +319,27 @@ const RazorpayPaymentPage = () => {
 
   return (
     <div className="w-[95%] sm:w-[90%] md:w-[85%] mx-auto py-10">
-      <motion.button
-        whileTap={{ scale: 0.97 }}
+      <button
         onClick={handleGoBack}
         className="flex items-center gap-2 text-green-700 hover:text-green-800 font-semibold mb-8 cursor-pointer"
       >
         <ArrowLeft size={18} />
         <span>Back</span>
-      </motion.button>
+      </button>
 
-      <motion.h1
-        initial={{ opacity: 0, y: 10 }}
-        animate={{ opacity: 1, y: 0 }}
-        className="text-3xl md:text-4xl font-bold text-green-700 text-center mb-10"
-      >
+      <h1 className="text-3xl md:text-4xl font-bold text-green-700 text-center mb-10">
         Complete Your Payment
-      </motion.h1>
+      </h1>
 
       <div className="grid md:grid-cols-3 gap-8">
-        <motion.div
-          initial={{ opacity: 0, x: -20 }}
-          animate={{ opacity: 1, x: 0 }}
-          className="md:col-span-2 bg-white rounded-2xl shadow-lg p-6 border border-gray-100"
-        >
+        <div className="md:col-span-2 bg-white rounded-2xl shadow-lg p-6 border border-gray-100">
           <h2 className="text-xl font-semibold text-gray-800 mb-6">
             Order Items ({orderData.orderItems.length})
           </h2>
           <div className="space-y-4 max-h-96 overflow-y-auto">
             {orderData.orderItems.map((item, idx) => (
-              <motion.div
+              <div
                 key={idx}
-                initial={{ opacity: 0, y: 10 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: idx * 0.05 }}
                 className="flex items-center gap-4 p-4 bg-gray-50 rounded-lg border border-gray-200 hover:border-green-300 transition-all"
               >
                 <div className="w-20 h-20 flex-shrink-0 bg-gray-200 rounded-lg flex items-center justify-center overflow-hidden">
@@ -300,21 +368,6 @@ const RazorpayPaymentPage = () => {
                     <span className="text-lg font-bold text-green-700">
                       ₹{Math.round(item.price.sellingPrice)}
                     </span>
-                    {item.price.mrpPrice > item.price.sellingPrice && (
-                      <>
-                        <span className="text-sm line-through text-gray-400">
-                          ₹{Math.round(item.price.mrpPrice)}
-                        </span>
-                        <span className="text-xs font-medium text-green-600 bg-green-100 px-2 py-1 rounded">
-                          {Math.round(
-                            ((item.price.mrpPrice - item.price.sellingPrice) /
-                              item.price.mrpPrice) *
-                              100
-                          )}
-                          % OFF
-                        </span>
-                      </>
-                    )}
                   </div>
                 </div>
                 <div className="text-right">
@@ -325,37 +378,23 @@ const RazorpayPaymentPage = () => {
                     ₹{Math.round(item.price.sellingPrice * item.quantity)}
                   </p>
                 </div>
-              </motion.div>
+              </div>
             ))}
           </div>
           <div className="mt-6 pt-6 border-t border-gray-200">
-            <h3 className="font-semibold text-gray-800 mb-3">
-              Delivery Address
-            </h3>
+            <h3 className="font-semibold text-gray-800 mb-3">Delivery Address</h3>
             <div className="bg-blue-50 p-4 rounded-lg text-sm text-gray-700 border border-blue-200">
-              <p className="font-medium">
-                {orderData.deliveryAddress.fullName}
-              </p>
-              <p className="text-gray-600 mt-1">
-                {orderData.deliveryAddress.fullAddress}
-              </p>
+              <p className="font-medium">{orderData.deliveryAddress.fullName}</p>
+              <p className="text-gray-600 mt-1">{orderData.deliveryAddress.fullAddress}</p>
               <p className="text-gray-600">
-                {orderData.deliveryAddress.city},{" "}
-                {orderData.deliveryAddress.state}{" "}
-                {orderData.deliveryAddress.pincode}
+                {orderData.deliveryAddress.city}, {orderData.deliveryAddress.state} {orderData.deliveryAddress.pincode}
               </p>
-              <p className="text-gray-600 mt-1">
-                {orderData.deliveryAddress.mobile}
-              </p>
+              <p className="text-gray-600 mt-1">{orderData.deliveryAddress.mobile}</p>
             </div>
           </div>
-        </motion.div>
+        </div>
 
-        <motion.div
-          initial={{ opacity: 0, x: 20 }}
-          animate={{ opacity: 1, x: 0 }}
-          className="bg-white rounded-2xl shadow-lg p-6 border border-gray-100 h-fit sticky top-24"
-        >
+        <div className="bg-white rounded-2xl shadow-lg p-6 border border-gray-100 h-fit sticky top-24">
           {paymentStatus === "success" ? (
             <div className="text-center py-8">
               <CheckCircle className="w-16 h-16 text-green-600 mx-auto mb-4" />
@@ -374,41 +413,28 @@ const RazorpayPaymentPage = () => {
               <div className="space-y-3 text-sm mb-6">
                 <div className="flex justify-between">
                   <span className="text-gray-600">Subtotal</span>
-                  <span className="font-medium">
-                    ₹{orderData.subTotal.toFixed(2)}
-                  </span>
+                  <span className="font-medium">₹{orderData.subTotal.toFixed(2)}</span>
                 </div>
                 <div className="flex justify-between">
                   <span className="text-gray-600">Delivery Fee</span>
-                  <span
-                    className={
-                      orderData.deliveryFee === 0 ? "text-green-600" : ""
-                    }
-                  >
-                    {orderData.deliveryFee === 0
-                      ? "FREE"
-                      : `₹${orderData.deliveryFee.toFixed(2)}`}
+                  <span className={orderData.deliveryFee === 0 ? "text-green-600" : ""}>
+                    {orderData.deliveryFee === 0 ? "FREE" : `₹${orderData.deliveryFee.toFixed(2)}`}
                   </span>
                 </div>
                 {orderData.couponDiscount > 0 && (
                   <div className="flex justify-between text-green-600">
                     <span>Coupon Discount</span>
-                    <span className="font-medium">
-                      -₹{orderData.couponDiscount.toFixed(2)}
-                    </span>
+                    <span className="font-medium">-₹{orderData.couponDiscount.toFixed(2)}</span>
                   </div>
                 )}
                 <hr className="my-3 border-gray-200" />
                 <div className="flex justify-between font-bold text-lg pt-2">
                   <span>Total Amount</span>
-                  <span className="text-green-700">
-                    ₹{orderData.finalTotal.toFixed(2)}
-                  </span>
+                  <span className="text-green-700">₹{orderData.finalTotal.toFixed(2)}</span>
                 </div>
               </div>
 
-              <motion.button
-                whileTap={{ scale: 0.95 }}
+              <button
                 onClick={handleRazorpayPayment}
                 disabled={paymentProcessing}
                 className="w-full text-white py-3 rounded-full font-semibold flex items-center justify-center gap-2 transition-all bg-green-600 hover:bg-green-700"
@@ -424,7 +450,7 @@ const RazorpayPaymentPage = () => {
                     Pay ₹{orderData.finalTotal.toFixed(2)}
                   </>
                 )}
-              </motion.button>
+              </button>
 
               {paymentStatus === "failed" && (
                 <p className="text-red-500 text-sm mt-3 text-center">
@@ -436,7 +462,7 @@ const RazorpayPaymentPage = () => {
               </p>
             </>
           )}
-        </motion.div>
+        </div>
       </div>
     </div>
   );

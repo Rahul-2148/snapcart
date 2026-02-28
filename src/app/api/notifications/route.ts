@@ -31,7 +31,7 @@ export async function POST(req: NextRequest) {
     const session = await auth();
     // Only allow admin or internal calls to create notifications via POST directly
     // For general use, notifications will be triggered by other events and created internally
-    if (!session || session.user.role !== "admin") {
+    if (!session || !session.user.roles?.includes("admin")) {
         return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
     }
 

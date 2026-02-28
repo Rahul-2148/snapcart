@@ -35,17 +35,17 @@ export default function OrdersPage() {
 
   useEffect(() => {
     // Redirect non-user roles to their respective dashboards
-    if (userData?.role === "admin") {
+    if (userData?.currentRole === "admin") {
       router.push("/admin");
       return;
     }
-    if (userData?.role === "deliveryBoy") {
-      router.push("/user/account/profile");
+    if (userData?.currentRole === "deliveryBoy") {
+      router.push("/delivery-boy");
       return;
     }
     
     // Only fetch orders for regular users
-    if (userData?.role === "user") {
+    if (userData?.currentRole === "user") {
       fetchOrders();
     }
   }, [userData, router]);

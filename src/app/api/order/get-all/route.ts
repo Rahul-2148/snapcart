@@ -21,7 +21,13 @@ export const GET = async (_req: NextRequest) => {
     }
 
     const orders = await Order.find({ userId: user._id })
-      .populate("orderItems")
+      .populate({
+        path: "orderItems",
+        populate: {
+          path: "grocery",
+          select: "images",
+        },
+      })
       .sort({ createdAt: -1 });
 
     return NextResponse.json({ success: true, orders }, { status: 200 });

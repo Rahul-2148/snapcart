@@ -1,13 +1,20 @@
-"use client";
+import Link from "next/link";
 import OrderDetailsModal from "@/components/admin/OrderDetailsModal";
 import OrderTable from "@/components/admin/OrderTable";
+import Loader from "@/components/common/Loader";
+import { useSocket } from "@/contexts/SocketContext";
+import axios from "axios";
+import { toast } from "sonner";
+import { useCallback, useEffect, useState } from "react";
+import { useSelector } from "react-redux";
+import { RootState } from "@/redux/store";
+import { motion } from "framer-motion";
 import {
   CurrencyRupeeIcon,
   ShoppingCartIcon,
   UserGroupIcon,
+  SparklesIcon,
 } from "@heroicons/react/24/outline";
-import axios from "axios";
-import { useCallback, useEffect, useState } from "react";
 import {
   Bar,
   BarChart,
@@ -39,25 +46,44 @@ interface OrderStatusData {
   [key: string]: any;
 }
 
+interface GenderData {
+  name: string;
+  value: number;
+  color: string;
+}
+
 const COLORS = ["#3B82F6", "#10B981", "#F59E0B", "#EF4444"];
 
 const AdminDashboard = () => {
+  // @ts-ignore
+  const { userData } = useSelector((state: RootState) => state.user);
+  const socket = useSocket();
+
   const [stats, setStats] = useState<DashboardStats | null>(null);
   const [salesData, setSalesData] = useState<SalesData[]>([]);
   const [orderStatusData, setOrderStatusData] = useState<OrderStatusData[]>([]);
+  const [genderData, setGenderData] = useState<GenderData[]>([]);
+  const [genderByRole, setGenderByRole] = useState<{
+    userData: GenderData[];
+    deliveryBoyData: GenderData[];
+    adminData: GenderData[];
+  }>({ userData: [], deliveryBoyData: [], adminData: [] });
   const [loading, setLoading] = useState(true);
   const [ordersLoading, setOrdersLoading] = useState(false);
   const [selectedOrder, setSelectedOrder] = useState<any | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [selectedGenderTab, setSelectedGenderTab] = useState<"overall" | "user" | "delivery" | "admin">("overall");
   const [ordersPage, setOrdersPage] = useState(1);
   const [totalOrdersPages, setTotalOrdersPages] = useState(1);
 
   const fetchInitialData = useCallback(async () => {
     try {
       setLoading(true);
-      const [statsRes, salesRes] = await Promise.all([
+      const [statsRes, salesRes, genderRes, genderRoleRes] = await Promise.all([
         axios.get(`/api/admin/dashboard-stats?page=1&limit=5`),
         axios.get("/api/admin/charts/sales-over-time"),
+        axios.get("/api/admin/charts/gender-distribution"),
+        axios.get("/api/admin/charts/gender-by-role"),
       ]);
 
       if (statsRes.data) {
@@ -79,6 +105,16 @@ const AdminDashboard = () => {
       }
       if (salesRes.data.success) {
         setSalesData(salesRes.data.salesData);
+      }
+      if (genderRes.data.success) {
+        setGenderData(genderRes.data.genderData);
+      }
+      if (genderRoleRes.data.success) {
+        setGenderByRole({
+          userData: genderRoleRes.data.userData,
+          deliveryBoyData: genderRoleRes.data.deliveryBoyData,
+          adminData: genderRoleRes.data.adminData,
+        });
       }
     } catch (error) {
       console.error("Error fetching dashboard data:", error);
@@ -111,6 +147,19 @@ const AdminDashboard = () => {
   }, [fetchInitialData]);
 
   useEffect(() => {
+    if (socket && userData?.roles?.includes("admin")) {
+      socket.on("new_role_request", (data: any) => {
+        toast.info(`${data.userName} requested to become ${data.requestedRole}`);
+        // Refresh the dashboard data
+        fetchInitialData();
+      });
+    }
+    return () => {
+      if (socket) socket.off("new_role_request");
+    };
+  }, [socket, userData?.roles, fetchInitialData]);
+
+  useEffect(() => {
     fetchOrdersData();
   }, [ordersPage, fetchOrdersData]);
 
@@ -121,19 +170,66 @@ const AdminDashboard = () => {
         setSelectedOrder(res.data.order);
         setIsModalOpen(true);
       } else {
-        alert("Failed to fetch order details");
+        toast.error("Failed to fetch order details");
       }
     } catch (error) {
-      alert("Failed to fetch order details");
+      toast.error("Failed to fetch order details");
     }
   };
 
   if (loading) {
-    return <div>Loading dashboard...</div>;
+    return <Loader fullscreen size="large" text="Loading Dashboard..." />;
   }
+
+  const getGreeting = () => {
+    const hour = new Date().getHours();
+    if (hour < 12) return "Good Morning";
+    if (hour < 18) return "Good Afternoon";
+    return "Good Evening";
+  };
 
   return (
     <div>
+      {/* Welcome Card */}
+      <div className="mb-6 md:mb-8">
+        <div className="bg-gradient-to-r from-green-500 via-green-600 to-emerald-600 rounded-2xl shadow-xl overflow-hidden">
+          <div className="flex flex-col md:flex-row items-center justify-between p-6 md:p-8">
+            {/* Left Content */}
+            <div className="flex-1 text-white mb-4 md:mb-0">
+              <div className="flex items-center gap-2 mb-2">
+                <SparklesIcon className="h-6 w-6" />
+                <span className="text-sm font-semibold uppercase tracking-wide opacity-90">Welcome Back</span>
+              </div>
+              <h1 className="text-3xl md:text-4xl font-bold mb-2">
+                {getGreeting()}, {userData?.name?.split(" ")[0]}! 
+                <motion.span
+                  initial={{ rotate: 0 }}
+                  animate={{ rotate: [0, 20, -20, 20, 0] }}
+                  transition={{
+                    duration: 0.8,
+                    repeat: Infinity,
+                    repeatDelay: 1.5,
+                  }}
+                  className="inline-block ml-2 origin-[70%_70%]"
+                >
+                  👋
+                </motion.span>
+              </h1>
+              <p className="text-green-100 text-sm md:text-base max-w-2xl">
+                Welcome to SnapCart Grocery Admin Dashboard. Manage your store, monitor orders, and grow your business with ease.
+              </p>
+            </div>
+            
+            {/* Right Image */}
+            <div className="flex-shrink-0 relative w-32 h-32 md:w-40 md:h-40">
+              <div className="absolute inset-0 bg-white/10 rounded-2xl backdrop-blur-sm"></div>
+              <div className="relative w-full h-full flex items-center justify-center">
+                <div className="text-6xl md:text-7xl">🛒</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
       {/* Stats Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6 mb-6 md:mb-8">
         <div className="bg-gradient-to-r from-blue-500 to-blue-600 p-4 md:p-6 rounded-xl shadow-lg hover:shadow-xl transition-shadow duration-300">
@@ -175,6 +271,45 @@ const AdminDashboard = () => {
             </div>
           </div>
         </div>
+      </div>
+
+      {/* Quick Management Links */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6 md:mb-8">
+        <Link
+          href="/admin/users"
+          className="bg-gradient-to-br from-blue-50 to-blue-100 p-4 rounded-lg shadow hover:shadow-lg transition-all duration-300 border border-blue-200 hover:scale-105"
+        >
+          <div className="text-3xl mb-2">👥</div>
+          <h3 className="font-bold text-gray-800">Manage Users</h3>
+          <p className="text-xs text-gray-600 mt-1">View & block users</p>
+        </Link>
+
+        <Link
+          href="/admin/delivery-partners"
+          className="bg-gradient-to-br from-orange-50 to-orange-100 p-4 rounded-lg shadow hover:shadow-lg transition-all duration-300 border border-orange-200 hover:scale-105"
+        >
+          <div className="text-3xl mb-2">🚚</div>
+          <h3 className="font-bold text-gray-800">Delivery Partners</h3>
+          <p className="text-xs text-gray-600 mt-1">Manage delivery fleet</p>
+        </Link>
+
+        <Link
+          href="/admin/orders"
+          className="bg-gradient-to-br from-green-50 to-green-100 p-4 rounded-lg shadow hover:shadow-lg transition-all duration-300 border border-green-200 hover:scale-105"
+        >
+          <div className="text-3xl mb-2">📦</div>
+          <h3 className="font-bold text-gray-800">Orders</h3>
+          <p className="text-xs text-gray-600 mt-1">Track all orders</p>
+        </Link>
+
+        <Link
+          href="/admin/coupons"
+          className="bg-gradient-to-br from-purple-50 to-purple-100 p-4 rounded-lg shadow hover:shadow-lg transition-all duration-300 border border-purple-200 hover:scale-105"
+        >
+          <div className="text-3xl mb-2">🎟️</div>
+          <h3 className="font-bold text-gray-800">Coupons</h3>
+          <p className="text-xs text-gray-600 mt-1">Create promotions</p>
+        </Link>
       </div>
 
       {/* Charts */}
@@ -261,6 +396,158 @@ const AdminDashboard = () => {
             </PieChart>
           </ResponsiveContainer>
         </div>
+
+        {/* Professional Gender Demographics Card */}
+        <div className="bg-white p-6 rounded-xl shadow-lg border border-gray-100 hover:shadow-xl transition-shadow duration-300 col-span-full">
+          <div className="flex flex-col gap-6">
+            {/* Header with Tabs */}
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+              <h2 className="text-xl md:text-2xl font-bold text-gray-800">
+                Gender Demographics
+              </h2>
+              <div className="flex gap-2 flex-wrap">
+                {[
+                  { id: "overall", label: "Overall" },
+                  { id: "user", label: "Users" },
+                  { id: "delivery", label: "Delivery Partners" },
+                  { id: "admin", label: "Admins" },
+                ].map((tab) => (
+                  <button
+                    key={tab.id}
+                    onClick={() => setSelectedGenderTab(tab.id as any)}
+                    className={`px-4 py-2 rounded-lg font-medium transition-all ${
+                      selectedGenderTab === tab.id
+                        ? "bg-green-600 text-white shadow-md"
+                        : "bg-gray-100 text-gray-700 hover:bg-gray-200"
+                    }`}
+                  >
+                    {tab.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Chart Section */}
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+              {/* Pie Chart */}
+              <div className="lg:col-span-2">
+                <ResponsiveContainer width="100%" height={300}>
+                  <PieChart>
+                    <Pie
+                      data={
+                        selectedGenderTab === "overall"
+                          ? genderData
+                          : selectedGenderTab === "user"
+                          ? genderByRole.userData
+                          : selectedGenderTab === "delivery"
+                          ? genderByRole.deliveryBoyData
+                          : genderByRole.adminData
+                      }
+                      cx="50%"
+                      cy="50%"
+                      labelLine={false}
+                      label={({ name, percent }) =>
+                        `${name} ${(percent * 100).toFixed(0)}%`
+                      }
+                      outerRadius={100}
+                      fill="#8884d8"
+                      dataKey="value"
+                    >
+                      {(
+                        selectedGenderTab === "overall"
+                          ? genderData
+                          : selectedGenderTab === "user"
+                          ? genderByRole.userData
+                          : selectedGenderTab === "delivery"
+                          ? genderByRole.deliveryBoyData
+                          : genderByRole.adminData
+                      ).map((entry, index) => (
+                        <Cell key={`cell-${index}`} fill={entry.color} />
+                      ))}
+                    </Pie>
+                    <Tooltip
+                      contentStyle={{
+                        backgroundColor: "#F9FAFB",
+                        border: "1px solid #D1D5DB",
+                        borderRadius: "8px",
+                        padding: "10px",
+                      }}
+                      formatter={(value, name, props) => [
+                        value,
+                        `Count: ${value}`,
+                      ]}
+                    />
+                  </PieChart>
+                </ResponsiveContainer>
+              </div>
+
+              {/* Stats Card */}
+              <div className="flex flex-col gap-3">
+                <h3 className="text-lg font-semibold text-gray-800">
+                  Distribution
+                </h3>
+                <div className="space-y-3">
+                  {(
+                    selectedGenderTab === "overall"
+                      ? genderData
+                      : selectedGenderTab === "user"
+                      ? genderByRole.userData
+                      : selectedGenderTab === "delivery"
+                      ? genderByRole.deliveryBoyData
+                      : genderByRole.adminData
+                  ).map((item, index) => {
+                    const total =
+                      selectedGenderTab === "overall"
+                        ? genderData.reduce((sum, d) => sum + d.value, 0)
+                        : selectedGenderTab === "user"
+                        ? genderByRole.userData.reduce((sum, d) => sum + d.value, 0)
+                        : selectedGenderTab === "delivery"
+                        ? genderByRole.deliveryBoyData.reduce(
+                            (sum, d) => sum + d.value,
+                            0
+                          )
+                        : genderByRole.adminData.reduce((sum, d) => sum + d.value, 0);
+                    const percentage = total > 0 ? ((item.value / total) * 100).toFixed(1) : 0;
+
+                    return (
+                      <div
+                        key={index}
+                        className="p-3 rounded-lg border border-gray-100 hover:border-gray-200 transition-colors"
+                      >
+                        <div className="flex items-center justify-between mb-2">
+                          <div className="flex items-center gap-2">
+                            <div
+                              className="w-3 h-3 rounded-full"
+                              style={{ backgroundColor: item.color }}
+                            />
+                            <span className="text-sm font-medium text-gray-700">
+                              {item.name}
+                            </span>
+                          </div>
+                          <span className="text-xs font-bold text-gray-800">
+                            {item.value}
+                          </span>
+                        </div>
+                        <div className="w-full bg-gray-200 rounded-full h-2 overflow-hidden">
+                          <div
+                            className="h-full transition-all duration-300 rounded-full"
+                            style={{
+                              width: `${percentage}%`,
+                              backgroundColor: item.color,
+                            }}
+                          />
+                        </div>
+                        <div className="text-xs text-gray-500 mt-1">
+                          {percentage}%
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
       </div>
 
       {/* Recent Orders */}
@@ -270,7 +557,7 @@ const AdminDashboard = () => {
         </h2>
         <div className="bg-white shadow-lg overflow-hidden rounded-xl border border-gray-100">
           {ordersLoading ? (
-            <div className="p-6 text-center">Loading orders...</div>
+            <Loader size="medium" text="Loading Orders..." />
           ) : (
             <OrderTable
               orders={stats?.recentOrders || []}

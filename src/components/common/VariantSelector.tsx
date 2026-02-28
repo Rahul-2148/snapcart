@@ -15,6 +15,7 @@ import {
 interface IVariant {
   _id: string;
   label: string;
+  variantName?: string;
   unit: { value: number; unit: string; multiplier?: number };
   price: { mrp: number; selling: number; discountPercent?: number };
   countInStock?: number;
@@ -103,6 +104,13 @@ const VariantSelector = ({
                   {variant.unit.value}
                   {variant.unit.unit}
                 </div>
+
+                {/* Variant Name/Type */}
+                {variant.variantName && (
+                  <div className="text-xs text-blue-600 font-medium">
+                    {variant.variantName}
+                  </div>
+                )}
 
                 {/* Price Display */}
                 {showPrices && (

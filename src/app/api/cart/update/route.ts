@@ -61,15 +61,31 @@ export async function PATCH(req: NextRequest) {
         cartItem.variant._id
       ).populate("grocery");
 
-      if (
-        !variant ||
-        !variant.grocery?.isActive ||
-        quantity > variant.countInStock
-      ) {
+      if (!variant) {
         return NextResponse.json(
           {
             success: false,
-            message: "Stock exceeded or item unavailable",
+            message: "Variant not found",
+          },
+          { status: 404 }
+        );
+      }
+
+      if (!variant.grocery?.isActive) {
+        return NextResponse.json(
+          {
+            success: false,
+            message: "Item is no longer available",
+          },
+          { status: 400 }
+        );
+      }
+
+      if (quantity > variant.countInStock) {
+        return NextResponse.json(
+          {
+            success: false,
+            message: `Only ${variant.countInStock} items available in stock`,
           },
           { status: 400 }
         );
@@ -88,6 +104,10 @@ export async function PATCH(req: NextRequest) {
 
     /* ================= CALCULATE SUBTOTAL ================= */
     const subTotal = updatedItems.reduce((sum, item) => {
+      if (!item?.variant?.price?.selling) {
+        console.warn(`Invalid variant price for item: ${item._id}`);
+        return sum;
+      }
       return sum + item.variant.price.selling * item.quantity;
     }, 0);
 
@@ -147,6 +167,9 @@ export async function PATCH(req: NextRequest) {
     });
   } catch (error: any) {
     console.error("Cart update error:", error);
+    console.error("Error message:", error.message);
+    console.error("Error stack:", error.stack);
+    
     return NextResponse.json(
       {
         success: false,

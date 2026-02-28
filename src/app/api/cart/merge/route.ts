@@ -35,27 +35,25 @@ export async function POST(req: NextRequest) {
         variant: item.variantId,
       });
 
-      const currentQty = existingItem?.quantity ?? 0;
-      const allowedQty = Math.min(
-        item.quantity,
-        variant.countInStock - currentQty
-      );
+      if (existingItem) {
+        // Item already exists in user cart, keep user's quantity (don't merge)
+        continue;
+      } else {
+        // Item doesn't exist, add guest item with guest quantity
+        const allowedQty = Math.min(item.quantity, variant.countInStock);
 
-      if (allowedQty <= 0) continue;
+        if (allowedQty <= 0) continue;
 
-      await CartItem.findOneAndUpdate(
-        { cart: cart._id, variant: item.variantId },
-        {
-          $inc: { quantity: allowedQty },
-          $setOnInsert: {
-            priceAtAdd: {
-              mrp: variant.price.mrp,
-              selling: variant.price.selling,
-            },
+        await CartItem.create({
+          cart: cart._id,
+          variant: item.variantId,
+          quantity: allowedQty,
+          priceAtAdd: {
+            mrp: variant.price.mrp,
+            selling: variant.price.selling,
           },
-        },
-        { upsert: true }
-      );
+        });
+      }
     }
 
     // return updated cart (realtime consistency)

@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getSocketIo } from "@/lib/server/socket-server-utils";
+import { sendNotification } from "@/lib/server/socket";
 
 export async function POST(req: NextRequest) {
   try {
@@ -9,8 +9,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ message: "Missing userId or notification" }, { status: 400 });
     }
 
-    const io = getSocketIo(); // This should now successfully get the io instance
-    io.to(userId).emit("new_notification", notification);
+    await sendNotification(userId, notification);
 
     return NextResponse.json({ message: "Notification sent successfully" }, { status: 200 });
   } catch (error: any) {

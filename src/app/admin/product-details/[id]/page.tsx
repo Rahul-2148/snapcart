@@ -20,12 +20,14 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
+import { ShieldCheck } from "lucide-react";
 
 interface Variant {
   _id: string;
   label: string;
+  variantName?: string;
   unit: string;
   value: number;
   multiplier?: number;
@@ -80,6 +82,8 @@ const AdminProductDetails = () => {
   const [loading, setLoading] = useState(true);
   const [reviewsLoading, setReviewsLoading] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  const [returnPolicy, setReturnPolicy] = useState<{ hasPolicy: boolean; isReturnable?: boolean; returnWindowDays?: number; policyType?: string; description?: string } | null>(null);
+  const reviewSectionRef = useRef<HTMLDivElement>(null);
 
   // Await params
   useEffect(() => {
@@ -104,6 +108,10 @@ const AdminProductDetails = () => {
       const response = await axios.get(`/api/admin/groceries/${id}`);
       if (response.data.success) {
         setProduct(response.data.grocery);
+        try {
+          const polRes = await axios.get(`/api/returns/policy?groceryId=${response.data.grocery._id}`);
+          setReturnPolicy(polRes.data);
+        } catch {}
       } else {
         toast.error("Product not found");
         router.push("/admin/groceries");
@@ -202,7 +210,7 @@ const AdminProductDetails = () => {
           animate={{ opacity: 1, y: 0 }}
           className="flex items-center gap-2 text-sm text-gray-600 mb-6"
         >
-          <Link href="/admin/groceries" className="hover:text-blue-600">Admin</Link>
+          <Link href="/admin" className="hover:text-blue-600">Admin</Link>
           <ChevronRight className="w-4 h-4" />
           <Link href="/admin/groceries" className="hover:text-blue-600">Products</Link>
           <ChevronRight className="w-4 h-4" />
@@ -218,6 +226,23 @@ const AdminProductDetails = () => {
           <div>
             <h1 className="text-3xl sm:text-4xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent mb-2">
               {product.name}
+              {returnPolicy?.hasPolicy && (
+                <div className="mt-2 inline-flex items-center gap-2 rounded-lg border border-green-200 bg-green-50 px-3 py-2 text-sm text-green-700">
+                  <ShieldCheck className="w-4 h-4" />
+                  <span>
+                    {returnPolicy.returnWindowDays && returnPolicy.isReturnable
+                      ? `${returnPolicy.returnWindowDays} days returns`
+                      : returnPolicy.policyType === "both"
+                      ? "Return or Replacement"
+                      : returnPolicy.policyType === "return-only"
+                      ? `${returnPolicy.returnWindowDays || "X"} days returns`
+                      : returnPolicy.policyType === "replacement-only"
+                      ? "Replacement only"
+                      : "Not returnable"}
+                  </span>
+                  <Link href={`/admin/groceries/${product._id}/return-policy`} className="ml-2 text-emerald-700 underline">Edit policy</Link>
+                </div>
+              )}
             </h1>
             <p className="text-gray-600">by <span className="font-semibold text-gray-900">{product.brand || "Unbranded"}</span></p>
           </div>
@@ -289,7 +314,10 @@ const AdminProductDetails = () => {
               </div>
 
               {/* Rating */}
-              <div className="flex items-center gap-3 pt-4 border-t border-gray-200">
+              <button
+                onClick={() => reviewSectionRef.current?.scrollIntoView({ behavior: "smooth", block: "start" })}
+                className="flex items-center gap-3 pt-4 border-t border-gray-200 w-full hover:opacity-80 transition-opacity cursor-pointer group"
+              >
                 <div className="flex gap-1">
                   {[...Array(5)].map((_, i) => (
                     <Star
@@ -304,7 +332,8 @@ const AdminProductDetails = () => {
                 </div>
                 <span className="font-semibold text-gray-900">{avgRating.toFixed(1)}</span>
                 <span className="text-gray-500 text-sm">({reviews.length} reviews)</span>
-              </div>
+                <span className="text-blue-600 text-xs group-hover:underline ml-auto">See reviews ↓</span>
+              </button>
             </div>
 
             {/* Variants */}
@@ -327,6 +356,9 @@ const AdminProductDetails = () => {
                       }`}
                     >
                       <p className="font-semibold text-gray-900 text-sm">{variant.label}</p>
+                      {variant.variantName && (
+                        <p className="text-blue-500 text-xs font-medium mt-0.5">{variant.variantName}</p>
+                      )}
                       <p className="text-blue-600 font-bold text-sm mt-1">₹{Math.round(variant.price.selling)}</p>
                       <p className={`text-xs font-semibold mt-1 ${
                         variant.countInStock > 0 ? "text-green-600" : "text-red-600"
@@ -381,7 +413,17 @@ const AdminProductDetails = () => {
                 <div className="flex justify-between items-center">
                   <span className="text-sm font-semibold text-gray-600">Last Updated</span>
                   <span className="text-sm text-gray-900">
-                    {new Date(product.updatedAt).toLocaleDateString("en-IN")}
+                    {(() => {
+                      const created = new Date(product.createdAt).getTime();
+                      const updated = new Date(product.updatedAt).getTime();
+                      // Treat tiny diffs (e.g., image/variant saves during creation) as not updated yet
+                      const diffMs = updated - created;
+                      const thresholdMs = 5 * 60 * 1000; // 5 minutes
+                      if (!product.updatedAt || diffMs <= thresholdMs) {
+                        return "Not updated yet";
+                      }
+                      return new Date(product.updatedAt).toLocaleDateString("en-IN");
+                    })()}
                   </span>
                 </div>
               </div>
@@ -391,10 +433,11 @@ const AdminProductDetails = () => {
 
         {/* Reviews Section */}
         <motion.div
+          ref={reviewSectionRef}
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.2 }}
-          className="bg-white rounded-2xl shadow-lg p-6 lg:p-8"
+          className="bg-white rounded-2xl shadow-lg p-6 lg:p-8 scroll-mt-24"
         >
           <div className="flex items-center justify-between mb-6">
             <h2 className="text-2xl font-bold text-gray-900 flex items-center gap-3">

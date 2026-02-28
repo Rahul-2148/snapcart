@@ -27,7 +27,7 @@ const AdminLayout = ({ children }: { children: React.ReactNode }) => {
 
       {/* Sidebar */}
       <div
-        className={`transition-all duration-300 ease-in-out z-50 will-change-[width] ${
+        className={`transition-all duration-300 ease-in-out z-50 ${
           // Mobile: overlay behavior
           isMobileSidebarOpen
             ? "fixed inset-y-0 left-0 w-64 md:hidden"
@@ -36,6 +36,7 @@ const AdminLayout = ({ children }: { children: React.ReactNode }) => {
           // Desktop: fixed width
           !isMobileSidebarOpen && isCollapsed ? "w-20" : "w-64"
         }`}
+        style={{ willChange: 'width' }}
       >
         <Sidebar
           isCollapsed={isCollapsed}

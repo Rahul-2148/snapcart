@@ -1,5 +1,13 @@
 @import "tailwindcss";
 
+/* Prevent Leaflet map from overlaying fixed/sticky UI like Navbar */
+.leaflet-container,
+.leaflet-pane,
+.leaflet-top,
+.leaflet-bottom {
+  z-index: 0 !important;
+}
+
 .noSpin::-webkit-outer-spin-button,
 .noSpin::-webkit-inner-spin-button {
   -webkit-appearance: none;
@@ -17,4 +25,41 @@
 .scrollbar-hide {
   -ms-overflow-style: none; /* IE and Edge */
   scrollbar-width: none; /* Firefox */
+}
+
+.sidebar-scrollable::-webkit-scrollbar {
+  width: 3px;
+}
+
+.sidebar-scrollable::-webkit-scrollbar-thumb {
+  background-color: rgba(120, 113, 108, 0.3);
+  border-radius: 3px;
+}
+
+.sidebar-scrollable::-webkit-scrollbar-thumb:hover {
+  background-color: rgba(255, 255, 255, 1) !important;
+}
+
+.sidebar-scrollable::-webkit-scrollbar-track {
+  background-color: transparent;
+}
+
+/* Collapsed/Icon-only mode - hide scrollbar completely */
+.sidebar-collapsed::-webkit-scrollbar {
+  width: 0 !important;
+  height: 0 !important;
+  display: none;
+}
+
+.sidebar-collapsed::-webkit-scrollbar-thumb {
+  display: none;
+}
+
+.sidebar-collapsed::-webkit-scrollbar-track {
+  display: none;
+}
+
+.sidebar-collapsed {
+  scrollbar-width: none !important;
+  -ms-overflow-style: none !important;
 }

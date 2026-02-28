@@ -11,9 +11,18 @@ import { Order } from "@/models/order.model";
 import { OrderItem } from "@/models/orderItem.model";
 import { User } from "@/models/user.model";
 import { Coupon } from "@/models/coupon.model";
-import Notification from "@/models/notification.model"; // Import Notification model
-import { sendNotification } from "@/lib/server/socket"; // Import sendNotification
-import { sendOrderConfirmationEmail } from "@/lib/server/email"; // Import email service
+import { CodSettings } from "@/models/codSettings.model";
+import Notification from "@/models/notification.model";
+import { DeliveryAssignment } from "@/models/deliveryAssignment.model";
+import { DeliverySettings } from "@/models/deliverySettings.model";
+import { sendNotification } from "@/lib/server/socket";
+import { sendOrderConfirmationEmail } from "@/lib/server/email";
+import {
+  calculateDistance,
+  estimateDeliveryTime,
+  broadcastOrderToPartners,
+  computePayout,
+} from "@/lib/server/delivery";
 import mongoose from "mongoose";
 
 export const POST = async (req: NextRequest) => {
@@ -45,6 +54,13 @@ export const POST = async (req: NextRequest) => {
       );
     }
 
+    if (paymentMethod === "online") {
+      return NextResponse.json(
+        { message: "Online orders must be created after payment success." },
+        { status: 400 }
+      );
+    }
+
     const cart = await Cart.findOne({ user: user._id }).session(dbSession);
     if (!cart) {
       return NextResponse.json({ message: "Cart not found" }, { status: 400 });
@@ -66,6 +82,7 @@ export const POST = async (req: NextRequest) => {
 
     let subTotal = 0;
     let totalMRP = 0;
+    const chargedProducts = new Set<string>(); // Track unique products for COD charge
 
     for (const item of cartItems) {
       const variant: any = item.variant;
@@ -73,7 +90,7 @@ export const POST = async (req: NextRequest) => {
       // Critical: Re-validate stock within the transaction
       const freshVariant = await GroceryVariant.findById(
         variant._id,
-        "countInStock"
+        "countInStock cod"
       ).session(dbSession);
 
       if (
@@ -94,10 +111,40 @@ export const POST = async (req: NextRequest) => {
       }
       subTotal += item.priceAtAdd.selling * item.quantity;
       totalMRP += item.priceAtAdd.mrp * item.quantity;
+
+      // Check COD status
+      const codStatus = freshVariant.cod?.status || "with-charge";
+      
+      if (codStatus === "not-allowed") {
+        if (paymentMethod === "cod") {
+          await dbSession.abortTransaction();
+          return NextResponse.json(
+            {
+              message: `COD is not allowed for ${variant.grocery.name}`,
+            },
+            { status: 400 }
+          );
+        }
+      } else if (codStatus === "with-charge") {
+        // Track product for COD charge (one charge per unique product)
+        chargedProducts.add(freshVariant._id.toString());
+      }
+      // If "free", no charge is added
     }
 
     const savings = totalMRP - subTotal;
     const deliveryFee = subTotal >= 500 ? 0 : 40;
+
+    // Calculate COD charge based on product status and global settings
+    let totalCodCharge = 0;
+    if (paymentMethod === "cod") {
+      // Fetch COD settings for flat fee
+      const codSettings = await CodSettings.findOne().session(dbSession);
+      const flatCharge = codSettings?.flatCharge || 10;
+
+      // Apply flat charge for each unique "with-charge" product
+      totalCodCharge = chargedProducts.size * flatCharge;
+    }
 
     /* ===== COUPON RE-CALCULATION (CRITICAL) ===== */
     let couponDiscount = 0;
@@ -135,7 +182,7 @@ export const POST = async (req: NextRequest) => {
       }
     }
 
-    const finalTotal = Math.max(subTotal + deliveryFee - couponDiscount, 0);
+    const finalTotal = Math.max(subTotal + deliveryFee + totalCodCharge - couponDiscount, 0);
 
     const orderPayload = {
       userId: user._id,
@@ -143,6 +190,7 @@ export const POST = async (req: NextRequest) => {
       totalMRP,
       savings,
       deliveryFee,
+      codHandlingCharge: totalCodCharge,
       finalTotal,
       coupon: couponSnapshot,
       couponDiscount,
@@ -210,28 +258,131 @@ export const POST = async (req: NextRequest) => {
     // For online payment, stock will be decremented via webhook after successful payment
     // Coupon usage will be created in payment callback
 
-    // Clear the user's cart
-    await CartItem.deleteMany({ cart: cart._id }).session(dbSession);
-    cart.coupon = undefined;
-    await cart.save({ session: dbSession });
+    if (paymentMethod === "cod") {
+      // Clear the user's cart only for COD orders
+      await CartItem.deleteMany({ cart: cart._id }).session(dbSession);
+      cart.coupon = undefined;
+      await cart.save({ session: dbSession });
+    }
 
     await newOrder.save({ session: dbSession });
+
+    // ===== CREATE DELIVERY ASSIGNMENT =====
+    let deliveryAssignment: any = null;
+    try {
+      let deliverySettings = await DeliverySettings.findOne().session(dbSession);
+      if (!deliverySettings) {
+        deliverySettings = await DeliverySettings.create(
+          [
+            {
+              storeLocation: {
+                address: "Default store",
+                lat: 28.6139,
+                lng: 77.209,
+                pincode: "000000",
+              },
+            },
+          ],
+          { session: dbSession },
+        ).then((docs) => docs[0]);
+      }
+      
+      if (deliverySettings && newOrder.orderStatus === "confirmed") {
+        // Calculate distance from store to delivery location
+        const storeLocation = deliverySettings.storeLocation;
+        const distance = calculateDistance(
+          storeLocation.lat,
+          storeLocation.lng,
+          deliveryAddress.location?.lat || 0,
+          deliveryAddress.location?.lng || 0
+        );
+
+        const estimatedTime = estimateDeliveryTime(distance);
+        const rewardAmount = computePayout(distance, deliverySettings);
+
+        // Create delivery assignment
+        deliveryAssignment = new DeliveryAssignment({
+          order: newOrder._id,
+          orderNumber: newOrder.orderNumber,
+          pickupLocation: {
+            address: storeLocation.address,
+            lat: storeLocation.lat,
+            lng: storeLocation.lng,
+            pincode: storeLocation.pincode,
+          },
+          deliveryLocation: {
+            address: deliveryAddress.fullAddress,
+            fullName: deliveryAddress.fullName,
+            mobile: deliveryAddress.mobile,
+            lat: deliveryAddress.location?.lat || 0,
+            lng: deliveryAddress.location?.lng || 0,
+            pincode: deliveryAddress.pincode,
+          },
+          estimatedDistance: distance,
+          estimatedTime: estimatedTime,
+          rewardAmount,
+          status: "broadcasted",
+          priority: "normal",
+          timeline: [
+            {
+              status: "broadcasted",
+              timestamp: new Date(),
+              note: "Order confirmed and broadcasted to nearby partners",
+            },
+          ],
+        });
+
+        await deliveryAssignment.save({ session: dbSession });
+        newOrder.assignment = deliveryAssignment._id;
+        await newOrder.save({ session: dbSession });
+      }
+    } catch (assignmentError) {
+      console.error("Error creating delivery assignment:", assignmentError);
+      // Don't block order creation if assignment creation fails
+    }
 
     await dbSession.commitTransaction();
 
     // Notify all admins about the new order
     try {
-      const admins = await User.find({ role: "admin" });
+      const admins = await User.find({ roles: "admin" });
       for (const admin of admins) {
         const newNotification = await Notification.create({
           recipient: admin._id,
+          recipientRole: "admin",
           type: "order",
+          title: "New Order",
           message: `New order #${newOrder.orderNumber} placed by ${user.name}.`,
-          link: `/admin/orders?orderId=${newOrder._id}`, // Optional: Link to the new order in admin panel
+          link: `/admin/orders?orderId=${newOrder._id}`,
           read: false,
+          priority: "high",
           createdAt: new Date(),
         });
         await sendNotification(admin._id, newNotification);
+      }
+
+      // If delivery assignment created, start broadcast process
+      if (deliveryAssignment) {
+        try {
+          await broadcastOrderToPartners(deliveryAssignment._id.toString());
+        } catch (broadcastError) {
+          console.error("Error broadcasting order to delivery partners:", broadcastError);
+          // Notify admins that order needs manual delivery assignment
+          for (const admin of admins) {
+            const notification = await Notification.create({
+              recipient: admin._id,
+              recipientRole: "admin",
+              type: "system",
+              title: "Delivery Assignment Issue",
+              message: `Order #${newOrder.orderNumber} needs manual delivery assignment - no delivery partners available.`,
+              link: `/admin/orders?orderId=${newOrder._id}`,
+              read: false,
+              priority: "high",
+              createdAt: new Date(),
+            });
+            await sendNotification(admin._id, notification);
+          }
+        }
       }
     } catch (notificationError) {
       console.error(
@@ -241,45 +392,45 @@ export const POST = async (req: NextRequest) => {
       // Do not block order creation if notification fails
     }
 
-    // Send order confirmation email to user
-    try {
-      // Get populated order items for email
-      const populatedOrderItems = await OrderItem.find({ 
-        order: newOrder._id 
-      }).populate({
-        path: 'grocery',
-        select: 'name'
-      });
+    // Send order confirmation email only for COD (online will send after payment success)
+    if (paymentMethod === "cod") {
+      try {
+        // Get populated order items for email
+        const populatedOrderItems = await OrderItem.find({
+          order: newOrder._id,
+        }).populate({
+          path: "grocery",
+          select: "name images",
+        });
 
-      const emailItems = populatedOrderItems.map((item: any) => ({
-        name: item.groceryName,
-        quantity: item.quantity,
-        price: item.price.sellingPrice,
-      }));
+        const emailItems = populatedOrderItems.map((item: any) => ({
+          name: item.groceryName || item.grocery?.name,
+          quantity: item.quantity,
+          price: item.price.sellingPrice,
+          imageUrl: item.grocery?.images?.[0]?.url,
+        }));
 
-      await sendOrderConfirmationEmail(
-        user.email,
-        user.name,
-        {
+        await sendOrderConfirmationEmail(user.email, user.name, {
           orderNumber: newOrder.orderNumber,
-          orderDate: new Date().toLocaleDateString('en-IN', {
-            day: 'numeric',
-            month: 'long',
-            year: 'numeric',
+          orderDate: new Date().toLocaleDateString("en-IN", {
+            day: "numeric",
+            month: "long",
+            year: "numeric",
           }),
           items: emailItems,
           subTotal,
           deliveryFee,
+          codHandlingCharge: totalCodCharge,
           couponDiscount,
           finalTotal,
-          currency: '₹',
+          currency: "₹",
           deliveryAddress,
-          paymentMethod: paymentMethod === 'cod' ? 'cod' : 'online',
-        }
-      );
-    } catch (emailError) {
-      console.error('Error sending order confirmation email:', emailError);
-      // Don't block order creation if email fails
+          paymentMethod: "cod",
+        });
+      } catch (emailError) {
+        console.error("Error sending order confirmation email:", emailError);
+        // Don't block order creation if email fails
+      }
     }
 
     return NextResponse.json(
@@ -292,6 +443,7 @@ export const POST = async (req: NextRequest) => {
         orderDetails: {
           subTotal,
           deliveryFee,
+          codHandlingCharge: totalCodCharge,
           couponDiscount,
           finalTotal,
           deliveryAddress,

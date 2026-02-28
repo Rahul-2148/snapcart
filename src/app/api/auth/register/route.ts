@@ -12,7 +12,15 @@ export async function POST(req: NextRequest) {
   try {
     await connectDb();
 
-    const { name, email, password } = await req.json();
+    const { name, email, password, role, mobileNumber, gender } = await req.json();
+
+    console.log("📝 Registration Request:", { 
+      name, 
+      email, 
+      role, 
+      roleType: typeof role,
+      mobileNumber 
+    });
 
     // Basic validation
     if (!name || !email || !password) {
@@ -44,18 +52,42 @@ export async function POST(req: NextRequest) {
     // Hash password
     const hashedPassword = await bcrypt.hash(password, 10);
 
-    // Create user (no image at registration)
+    // Determine initial roles based on user selection
+    let initialRoles = ["user"]; // Default role
+    let initialCurrentRole = "user"; // Default current role
+    
+    console.log("🔍 Checking role:", { role, isDeliveryBoy: role === "deliveryBoy" });
+    
+    if (role === "deliveryBoy") {
+      initialRoles = ["user", "deliveryBoy"]; // Both user and delivery boy
+      initialCurrentRole = "deliveryBoy"; // Set current role to deliveryBoy
+    }
+    
+    console.log("🎯 Final roles:", { initialRoles, initialCurrentRole });
+
+    // Create user with selected role and mobile
     const user = await User.create({
       name,
       email,
       password: hashedPassword,
-      role: "user",
+      mobileNumber: mobileNumber || undefined,
+      gender: gender || null,
+      roles: initialRoles,
+      currentRole: initialCurrentRole,
       isLoginedWithGoogle: false,
+      profileCompleted: true,
+    });
+
+    console.log("✅ User created:", { 
+      id: user._id, 
+      roles: user.roles, 
+      currentRole: user.currentRole, 
+      mobileNumber: user.mobileNumber 
     });
 
     // Notify all admins about the new user registration
     try {
-      const admins = await User.find({ role: "admin" });
+      const admins = await User.find({ roles: "admin" });
       for (const admin of admins) {
         const newNotification = await Notification.create({
           recipient: admin._id,
@@ -91,7 +123,9 @@ export async function POST(req: NextRequest) {
           id: user._id,
           name: user.name,
           email: user.email,
-          role: user.role,
+          roles: user.roles,
+          currentRole: user.currentRole,
+          mobileNumber: user.mobileNumber,
         },
       },
       { status: 201 }

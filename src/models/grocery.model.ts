@@ -16,6 +16,7 @@ export interface IGrocery {
   badges?: {
     isBestSeller?: boolean;
     isNew?: boolean;
+    isFeatured?: boolean;
   };
   isActive?: boolean;
   createdBy: mongoose.Types.ObjectId;
@@ -50,6 +51,7 @@ const grocerySchema = new mongoose.Schema<IGrocery>(
     badges: {
       isBestSeller: { type: Boolean, default: false },
       isNew: { type: Boolean, default: false },
+      isFeatured: { type: Boolean, default: false },
     },
 
     isActive: { type: Boolean, default: true },

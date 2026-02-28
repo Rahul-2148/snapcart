@@ -16,10 +16,10 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en">
+    <html lang="en" suppressHydrationWarning>
       <body
         className="w-full min-h-screen bg-white"
-        suppressHydrationWarning={true}
+        suppressHydrationWarning
       >
         <ClientLayout>{children}</ClientLayout>
         {/* Global Toast */}

@@ -23,7 +23,7 @@ export async function GET(
     }
 
     const admin = await User.findOne({ email: session.user.email });
-    if (!admin || admin.role !== "admin") {
+    if (!admin || !admin.roles?.includes("admin")) {
       return NextResponse.json(
         { message: "Admin access required" },
         { status: 403 }

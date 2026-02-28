@@ -67,25 +67,36 @@ export const POST = async (req: NextRequest) => {
     }
 
     for (const item of orderItems) {
-        const variant = await GroceryVariant.findById(item.variant.variantId).session(sessionWithDb);
-        if (variant) {
-            const existingCartItem = await CartItem.findOne({ cart: cart._id, variant: variant._id }).session(sessionWithDb);
-            if (existingCartItem) {
-                existingCartItem.quantity += item.quantity;
-                await existingCartItem.save({ session: sessionWithDb });
-            } else {
-                const cartItem = new CartItem({
-                    cart: cart._id,
-                    variant: variant._id,
-                    quantity: item.quantity,
-                    priceAtAdd: {
-                        mrp: variant.price.mrp,
-                        selling: variant.price.selling,
-                    }
-                });
-                await cartItem.save({ session: sessionWithDb });
+      const variant = await GroceryVariant.findById(item.variant.variantId).session(sessionWithDb);
+      if (variant) {
+        const existingCartItem = await CartItem.findOne({ cart: cart._id, variant: variant._id }).session(sessionWithDb);
+        if (!existingCartItem) {
+          const cartItem = new CartItem({
+            cart: cart._id,
+            variant: variant._id,
+            quantity: item.quantity,
+            priceAtAdd: {
+              mrp: variant.price.mrp,
+              selling: variant.price.selling,
             }
+          });
+          await cartItem.save({ session: sessionWithDb });
         }
+      }
+    }
+    
+    // Restore coupon to cart if order had a coupon
+    if (order.coupon && !cart.coupon) {
+      // Normalize discountType to match Cart schema enum (FLAT | PERCENTAGE)
+      cart.coupon = {
+        couponId: order.coupon.couponId,
+        code: order.coupon.code,
+        discountType: order.coupon.discountType?.toUpperCase() as "FLAT" | "PERCENTAGE" || undefined,
+        discountValue: order.coupon.discountValue,
+        maxDiscountAmount: undefined, // Not stored in order
+        minCartValue: undefined, // Not stored in order
+      };
+      await cart.save({ session: sessionWithDb });
     }
     
     await OrderItem.deleteMany({ order: order._id }).session(sessionWithDb);

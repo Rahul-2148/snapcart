@@ -15,6 +15,7 @@ import {
   Zap,
   Percent,
   IndianRupee,
+  Info as InfoIcon,
 } from "lucide-react";
 import { useSession } from "next-auth/react";
 import Image from "next/image";
@@ -23,6 +24,7 @@ import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import { toast } from "sonner";
+import { useConfirmation } from "@/components/common/ConfirmationModal";
 import { setCart, applyCoupon, removeCoupon } from "@/redux/features/cartSlice";
 import { AppDispatch, RootState } from "@/redux/store";
 import type { AppliedCoupon } from "@/redux/features/cartSlice";
@@ -41,6 +43,7 @@ const CartPage = () => {
   const dispatch = useDispatch<AppDispatch>();
   const router = useRouter();
   const { data: session, status } = useSession();
+  const { confirm, Modal: ConfirmationModal } = useConfirmation();
 
   const {
     cartItems,
@@ -61,12 +64,152 @@ const CartPage = () => {
   const [showCouponInput, setShowCouponInput] = useState(false);
   const [availableCoupons, setAvailableCoupons] = useState<any[]>([]);
   const [showAvailableCoupons, setShowAvailableCoupons] = useState(false);
+  const [isInitialLoad, setIsInitialLoad] = useState(true);
+  const [prevUserId, setPrevUserId] = useState<string | null>(null);
+  const [isMergingGuest, setIsMergingGuest] = useState(false);
+  const [mergeCompleted, setMergeCompleted] = useState(false);
+
+  const extractGuestItems = (guestCart: any) =>
+    guestCart?.cart?.items ?? guestCart?.items ?? [];
+
+  const normalizeGuestCoupon = (raw: any): AppliedCoupon | null => {
+    if (!raw) return null;
+    const discountValue = raw.discountValue ?? raw.discount ?? 0;
+    if (!discountValue) return null;
+    return {
+      code: raw.code,
+      discountValue,
+      type:
+        (raw.discountType || "").toLowerCase() === "percentage"
+          ? "percentage"
+          : "flat",
+      maxDiscount: raw.maxDiscountAmount ?? raw.maxDiscount,
+      minCartValue: raw.minCartValue,
+    };
+  };
+
+  /* ================= DETECT LOGIN TRANSITION & MERGE ================= */
+  useEffect(() => {
+    const handleLoginTransition = async () => {
+      const currentUserId = session?.user?.id;
+      const wasGuest = prevUserId === null;
+      const isNowLoggedIn = currentUserId !== null && currentUserId !== undefined;
+
+      if (wasGuest && isNowLoggedIn) {
+        setIsMergingGuest(true); // ✅ Block loadCart from running
+        setLoading(true); // ✅ Show loading during merge
+
+        try {
+          // ✅ Read from localStorage (guest cart API will return 403 now)
+          let guestItems: any[] = [];
+          let guestCoupon: AppliedCoupon | null = null;
+          
+          try {
+            const stored = localStorage.getItem("guest_cart_for_merge");
+            if (stored) {
+              const parsed = JSON.parse(stored);
+              guestItems = parsed.items || [];
+              guestCoupon = parsed.coupon || null;
+            }
+          } catch (err) {
+            // Failed to read localStorage
+          }
+
+          if (guestItems.length > 0) {
+            const mergeRes = await fetch("/api/cart/merge", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                items: guestItems.map((i: any) => ({
+                  variantId: i.variant._id,
+                  quantity: i.quantity,
+                  priceAtAdd: i.priceAtAdd,
+                })),
+              }),
+            });
+
+            const mergeData = await mergeRes.json();
+
+            if (mergeData.success && mergeData.items) {
+              dispatch(
+                setCart({
+                  items: mergeData.items,
+                  cartId: mergeData.cartId,
+                  isGuest: false,
+                  appliedCoupon: guestCoupon, // ✅ Preserve guest coupon
+                })
+              );
+              setMergeCompleted(true); // ✅ Mark merge as done
+
+              // ✅ Clear guest cart cookie from server (DELETE now allows logged-in users)
+              try {
+                await fetch("/api/guest-cart", { method: "DELETE" });
+              } catch (err) {
+                // Failed to clear guest cart cookie
+              }
+            }
+
+            // Clear localStorage
+            localStorage.removeItem("guest_cart_for_merge");
+            localStorage.removeItem("guest_coupon"); // ✅ Clear guest coupon too
+          }
+        } catch (err) {
+          // Error during merge
+        } finally {
+          setIsMergingGuest(false); // ✅ Allow loadCart to run now
+          setLoading(false); // ✅ Stop loading
+        }
+      }
+
+      // Update previous user ID for next comparison
+      setPrevUserId(currentUserId || null);
+    };
+
+    if (status !== "loading") {
+      handleLoginTransition();
+    }
+  }, [session?.user?.id, status, dispatch]);
+
+  /* ================= SAVE GUEST CART TO LOCALSTORAGE ================= */
+  useEffect(() => {
+    // When guest cart loads, save it to localStorage for post-login merge
+    if (!session?.user && cartItems.length > 0 && isGuest) {
+      try {
+        localStorage.setItem(
+          "guest_cart_for_merge",
+          JSON.stringify({ 
+            items: cartItems,
+            coupon: appliedCoupon // ✅ Save coupon too
+          })
+        );
+      } catch (err) {
+        // Failed to save guest cart to localStorage
+      }
+    }
+  }, [cartItems, isGuest, session?.user, appliedCoupon]);
 
   /* ================= LOAD CART ================= */
   useEffect(() => {
     const loadCart = async () => {
+      // ✅ CRITICAL: Skip if merge is in progress
+      if (isMergingGuest) {
+        return;
+      }
+
+      // ✅ CRITICAL: Skip if merge just completed
+      if (mergeCompleted && cartItems.length > 0) {
+        setLoading(false);
+        return;
+      }
+
       setLoading(true);
       try {
+        // If not initial load and Redux already has items, skip re-fetch
+        if (!isInitialLoad && cartItems.length > 0) {
+          setLoading(false);
+          return;
+        }
+
         if (session?.user) {
           const userCart = await fetchCartApi();
 
@@ -85,43 +228,36 @@ const CartPage = () => {
           dispatch(
             setCart({
               items: userCart.items || [],
-              cartId: userCart.cartId,
+              cartId: userCart.cart?._id,
               isGuest: false,
               appliedCoupon: appliedCouponData,
             })
           );
         } else {
           const guestCart = await getGuestCart();
+          const guestItems = extractGuestItems(guestCart);
 
-          let guestCoupon: AppliedCoupon | null = null;
-          let guestDiscount = 0;
-          try {
-            const savedCoupon = localStorage.getItem("guest_coupon");
-            if (savedCoupon) {
-              const parsed = JSON.parse(savedCoupon);
-              if (
-                parsed.code &&
-                (parsed.discountValue || parsed.discount) &&
-                parsed.type
-              ) {
-                const dv = parsed.discountValue ?? parsed.discount;
-                guestCoupon = {
-                  code: parsed.code,
-                  discountValue: dv,
-                  type: parsed.type,
-                  maxDiscount: parsed.maxDiscount,
-                  minCartValue: parsed.minCartValue,
-                };
-                guestDiscount = dv || 0;
+          let guestCoupon: AppliedCoupon | null = normalizeGuestCoupon(
+            guestCart?.coupon
+          );
+          let guestDiscount = guestCoupon?.discountValue ?? 0;
+
+          if (!guestCoupon) {
+            try {
+              const savedCoupon = localStorage.getItem("guest_coupon");
+              if (savedCoupon) {
+                const parsed = JSON.parse(savedCoupon);
+                guestCoupon = normalizeGuestCoupon(parsed);
+                guestDiscount = guestCoupon?.discountValue ?? 0;
               }
+            } catch (e) {
+              // No valid coupon for guest
             }
-          } catch (e) {
-            console.log("No valid coupon for guest");
           }
 
           dispatch(
             setCart({
-              items: guestCart?.items || [],
+              items: guestItems,
               cartId: undefined,
               isGuest: true,
               appliedCoupon: guestCoupon,
@@ -129,14 +265,23 @@ const CartPage = () => {
           );
         }
       } catch (err) {
-        console.error("Cart load failed:", err);
+        // Cart load failed
       }
       setLoading(false);
+      setIsInitialLoad(false);
     };
 
     if (status === "loading") return;
     loadCart();
-  }, [dispatch, session, status]);
+  }, [
+    dispatch,
+    session?.user,
+    status,
+    isInitialLoad,
+    cartItems.length,
+    isMergingGuest,
+    mergeCompleted,
+  ]);
 
   /* ================= LOAD AVAILABLE COUPONS ================= */
   useEffect(() => {
@@ -206,47 +351,44 @@ const CartPage = () => {
   const handleClearCart = async () => {
     if (cartItems.length === 0) return;
 
-    if (!confirm("Are you sure you want to clear your entire cart?")) {
-      return;
-    }
-
-    try {
-      if (isGuest) {
-        await clearGuestCart();
-        dispatch(
-          setCart({
-            items: [],
-            cartId: undefined,
-            isGuest: true,
-            appliedCoupon: null,
-          })
-        );
-        localStorage.removeItem("guest_coupon");
-        toast.success("Cart cleared successfully!");
-      } else {
-        const response = await clearCartApi();
-        if (response.success) {
-          dispatch(
-            setCart({
-              items: [],
-              cartId: response.cartId || undefined,
-              isGuest: false,
-              appliedCoupon: null,
-            })
-          );
-          toast.success("Cart cleared successfully!");
-        } else {
-          toast.error(response.message || "Failed to clear cart");
+    await confirm({
+      title: "Clear Cart",
+      message: "Are you sure you want to clear your entire cart?",
+      confirmText: "Clear",
+      isDangerous: true,
+      onConfirm: async () => {
+        try {
+          if (isGuest) {
+            await clearGuestCart();
+            dispatch(
+              setCart({
+                items: [],
+                cartId: undefined,
+                isGuest: true,
+              })
+            );
+            toast.success("Cart cleared successfully!");
+          } else {
+            await clearCart();
+            dispatch(
+              setCart({
+                items: [],
+                cartId: undefined,
+                isGuest: false,
+              })
+            );
+            toast.success("Cart cleared successfully!");
+          }
+        } catch (error) {
+          console.error("Error clearing cart:", error);
+          toast.error("Failed to clear cart");
         }
-      }
-    } catch (error: any) {
-      toast.error(error?.message || "Something went wrong");
-      console.error("Clear cart error:", error);
-    }
+      },
+    });
   };
 
   /* ================= HANDLE APPLY COUPON ================= */
-  const handleApplyCoupon = async () => {
+  const handleApplyCoupon = async (e: React.FormEvent) => {
     if (!couponCode.trim()) {
       setCouponError("Please enter a coupon code");
       return;
@@ -469,9 +611,10 @@ const CartPage = () => {
       if (isGuest) {
         await updateGuestCartApi(item.variant._id, item.quantity + 1);
         const guestCart = await getGuestCart();
+        const guestItems = extractGuestItems(guestCart);
 
         // If cart became empty, remove coupon and clear guest storage
-        if (!guestCart?.items || guestCart.items.length === 0) {
+        if (!guestItems || guestItems.length === 0) {
           dispatch(
             setCart({
               items: [],
@@ -484,29 +627,13 @@ const CartPage = () => {
             localStorage.removeItem("guest_coupon");
           } catch {}
         } else {
-          let guestApplied: AppliedCoupon | null = null;
-          if (guestCart.coupon) {
-            guestApplied = {
-              code: guestCart.coupon.code,
-              discountValue:
-                guestCart.coupon.discountValue ??
-                guestCart.coupon.discount ??
-                0,
-              type:
-                (guestCart.coupon.discountType || "").toLowerCase() ===
-                "percentage"
-                  ? "percentage"
-                  : "flat",
-              maxDiscount:
-                guestCart.coupon.maxDiscountAmount ??
-                guestCart.coupon.maxDiscount,
-              minCartValue: guestCart.coupon.minCartValue,
-            };
-          }
+          const guestApplied: AppliedCoupon | null = normalizeGuestCoupon(
+            guestCart?.coupon
+          );
 
           dispatch(
             setCart({
-              items: guestCart.items,
+              items: guestItems,
               isGuest: true,
               appliedCoupon: guestApplied,
             })
@@ -581,23 +708,10 @@ const CartPage = () => {
       if (isGuest) {
         await updateGuestCartApi(item.variant._id, item.quantity - 1);
         const guestCart = await getGuestCart();
-        let guestApplied: AppliedCoupon | null = null;
-        if (guestCart?.coupon) {
-          guestApplied = {
-            code: guestCart.coupon.code,
-            discountValue:
-              guestCart.coupon.discountValue ?? guestCart.coupon.discount ?? 0,
-            type:
-              (guestCart.coupon.discountType || "").toLowerCase() ===
-              "percentage"
-                ? "percentage"
-                : "flat",
-            maxDiscount:
-              guestCart.coupon.maxDiscountAmount ??
-              guestCart.coupon.maxDiscount,
-            minCartValue: guestCart.coupon.minCartValue,
-          };
-        }
+        const guestItems = extractGuestItems(guestCart);
+        let guestApplied: AppliedCoupon | null = normalizeGuestCoupon(
+          guestCart?.coupon
+        );
 
         // fallback to localStorage (if coupon applied client-side)
         if (!guestApplied && typeof window !== "undefined") {
@@ -605,21 +719,12 @@ const CartPage = () => {
             const saved = localStorage.getItem("guest_coupon");
             if (saved) {
               const parsed = JSON.parse(saved);
-              const dv = parsed.discountValue ?? parsed.discount;
-              if (parsed.code && dv) {
-                guestApplied = {
-                  code: parsed.code,
-                  discountValue: dv,
-                  type: parsed.type,
-                  maxDiscount: parsed.maxDiscount,
-                  minCartValue: parsed.minCartValue,
-                };
-              }
+              guestApplied = normalizeGuestCoupon(parsed);
             }
           } catch {}
         }
 
-        if (!guestCart?.items || guestCart.items.length === 0) {
+        if (!guestItems || guestItems.length === 0) {
           dispatch(
             setCart({
               items: [],
@@ -634,7 +739,7 @@ const CartPage = () => {
         } else {
           dispatch(
             setCart({
-              items: guestCart.items,
+              items: guestItems,
               isGuest: true,
               appliedCoupon: guestApplied,
             })
@@ -707,26 +812,13 @@ const CartPage = () => {
       if (isGuest) {
         await updateGuestCartApi(item.variant._id, 0);
         const guestCart = await getGuestCart();
-        let guestApplied: AppliedCoupon | null = null;
-        if (guestCart?.coupon) {
-          guestApplied = {
-            code: guestCart.coupon.code,
-            discountValue:
-              guestCart.coupon.discountValue ?? guestCart.coupon.discount ?? 0,
-            type:
-              (guestCart.coupon.discountType || "").toLowerCase() ===
-              "percentage"
-                ? "percentage"
-                : "flat",
-            maxDiscount:
-              guestCart.coupon.maxDiscountAmount ??
-              guestCart.coupon.maxDiscount,
-            minCartValue: guestCart.coupon.minCartValue,
-          };
-        }
+        const guestItems = extractGuestItems(guestCart);
+        let guestApplied: AppliedCoupon | null = normalizeGuestCoupon(
+          guestCart?.coupon
+        );
 
         // If cart became empty, remove coupon and clear guest storage
-        if (!guestCart?.items || guestCart.items.length === 0) {
+        if (!guestItems || guestItems.length === 0) {
           dispatch(
             setCart({
               items: [],
@@ -745,23 +837,14 @@ const CartPage = () => {
               const saved = localStorage.getItem("guest_coupon");
               if (saved) {
                 const parsed = JSON.parse(saved);
-                const dv = parsed.discountValue ?? parsed.discount;
-                if (parsed.code && dv) {
-                  guestApplied = {
-                    code: parsed.code,
-                    discountValue: dv,
-                    type: parsed.type,
-                    maxDiscount: parsed.maxDiscount,
-                    minCartValue: parsed.minCartValue,
-                  };
-                }
+                guestApplied = normalizeGuestCoupon(parsed);
               }
             } catch {}
           }
 
           dispatch(
             setCart({
-              items: guestCart.items,
+              items: guestItems,
               isGuest: true,
               appliedCoupon: guestApplied,
             })
@@ -885,36 +968,67 @@ const CartPage = () => {
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
         {/* CART ITEMS */}
         <div className="lg:col-span-2 space-y-4">
-          <AnimatePresence>
-            {cartItems.map((item) => {
-              const discountPercent = item.variant.price.discountPercent || 0;
-              const itemTotal = item.variant.price.selling * item.quantity;
-              const itemSavings =
-                (item.variant.price.mrp - item.variant.price.selling) *
-                item.quantity;
-              const itemMRP = item.variant.price.mrp * item.quantity;
-
-              return (
-                <motion.div
-                  key={item._id}
-                  initial={{ opacity: 0, y: 20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0 }}
-                  transition={{ duration: 0.25 }}
-                  className="bg-white rounded-xl shadow-sm hover:shadow-md px-4 py-4"
+          {loading ? (
+            <div className="space-y-4">
+              {[1, 2, 3].map((i) => (
+                <div
+                  key={i}
+                  className="bg-white rounded-xl shadow-sm px-4 py-4 animate-pulse"
                 >
                   <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-4 flex-1">
+                      <div className="w-16 h-16 bg-gray-200 rounded" />
+                      <div className="flex-1">
+                        <div className="h-4 bg-gray-200 rounded mb-2 w-3/4" />
+                        <div className="h-3 bg-gray-200 rounded mb-2 w-1/2" />
+                        <div className="h-3 bg-gray-200 rounded w-2/3" />
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : cartItems.length === 0 ? (
+            <div className="bg-white rounded-xl shadow-sm p-8 text-center">
+              <ShoppingBasket className="w-12 h-12 mx-auto text-gray-400 mb-4" />
+              <p className="text-gray-600">No items in your cart</p>
+            </div>
+          ) : (
+            <AnimatePresence>
+              {cartItems.map((item) => {
+                // Defensive checks for null/undefined variant
+                if (!item?.variant) return null;
+
+                const discountPercent = item.variant.price?.discountPercent || 0;
+                const itemTotal = (item.variant.price?.selling || 0) * item.quantity;
+                const itemSavings =
+                  ((item.variant.price?.mrp || 0) - (item.variant.price?.selling || 0)) *
+                  item.quantity;
+                const itemMRP = (item.variant.price?.mrp || 0) * item.quantity;
+
+                return (
+                  <motion.div
+                    key={item._id}
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0 }}
+                    transition={{ duration: 0.25 }}
+                    className="bg-white rounded-xl shadow-sm hover:shadow-md px-4 py-4"
+                  >
+                  <div className="flex items-center justify-between">
                     <div className="flex items-center gap-4">
-                      <Image
-                        src={
-                          item.variant.grocery?.images?.[0]?.url ||
-                          "/placeholder.png"
-                        }
-                        alt={item.variant.grocery?.name || "Grocery item"}
-                        width={64}
-                        height={64}
-                        className="object-contain"
-                      />
+                      <Link href={`/user/product-details/${item.variant.grocery?._id}`}>
+                        <Image
+                          src={
+                            item.variant.grocery?.images?.[0]?.url ||
+                            "/placeholder.png"
+                          }
+                          alt={item.variant.grocery?.name || "Grocery item"}
+                          width={64}
+                          height={64}
+                          className="object-contain cursor-pointer hover:scale-110 transition-transform"
+                        />
+                      </Link>
 
                       <div>
                         <h4 className="font-semibold text-gray-800">
@@ -926,10 +1040,10 @@ const CartPage = () => {
 
                         <div className="flex items-center gap-2 mt-1">
                           <span className="text-xs line-through text-gray-400">
-                            ₹{item.variant.price.mrp}
+                            ₹{item.variant.price?.mrp || 0}
                           </span>
                           <span className="text-green-700 font-bold">
-                            ₹{item.variant.price.selling}
+                            ₹{item.variant.price?.selling || 0}
                           </span>
                           {discountPercent > 0 && (
                             <span className="bg-green-100 text-green-700 text-xs px-2 py-0.5 rounded">
@@ -939,7 +1053,7 @@ const CartPage = () => {
                         </div>
 
                         <p className="text-sm text-gray-700 mt-1">
-                          ₹{item.variant.price.selling} × {item.quantity} ={" "}
+                          ₹{item.variant.price?.selling || 0} × {item.quantity} ={" "}
                           <span className="font-semibold">
                             ₹{itemTotal.toFixed(2)}
                           </span>
@@ -994,9 +1108,10 @@ const CartPage = () => {
                     </div>
                   </div>
                 </motion.div>
-              );
-            })}
-          </AnimatePresence>
+                );
+              })}
+            </AnimatePresence>
+          )}
         </div>
 
         {/* ORDER SUMMARY WITH COUPON SECTION */}
@@ -1217,6 +1332,21 @@ const CartPage = () => {
                 <span>Final Total</span>
                 <span className="text-green-700">₹{finalTotal.toFixed(2)}</span>
               </div>
+
+              {/* COD Info Card */}
+              <div className="mt-4 p-3 bg-blue-50 rounded-lg border border-blue-200">
+                <div className="flex items-start gap-2">
+                  <InfoIcon className="w-4 h-4 text-blue-600 mt-0.5 flex-shrink-0" />
+                  <div>
+                    <p className="text-xs font-medium text-blue-900 mb-1">
+                      💡 COD Tip
+                    </p>
+                    <p className="text-xs text-blue-700">
+                      Pay on delivery option available at checkout. Some items may have delivery charges.
+                    </p>
+                  </div>
+                </div>
+              </div>
             </div>
 
             <motion.button
@@ -1224,13 +1354,13 @@ const CartPage = () => {
               className="mt-5 w-full bg-green-600 hover:bg-green-700 text-white py-3 rounded-full font-semibold"
               onClick={() => {
                 if (isGuest) {
-                  router.push("/login?redirect=/user/checkout");
+                  router.push("/login?redirect=/user/cart");
                 } else {
                   router.push("/user/checkout");
                 }
               }}
             >
-              Proceed to Checkout
+              {isGuest ? "Login to Proceed" : "Proceed to Checkout"}
             </motion.button>
 
             <div className="mt-4 text-xs text-gray-500 space-y-1">
@@ -1241,6 +1371,9 @@ const CartPage = () => {
           </motion.div>
         </div>
       </div>
+      
+      {/* Confirmation Modal */}
+      {ConfirmationModal}
     </div>
   );
 };

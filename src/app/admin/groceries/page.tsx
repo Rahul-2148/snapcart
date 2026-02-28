@@ -7,18 +7,24 @@ import {
   TrashIcon,
   PlusIcon,
   MagnifyingGlassIcon,
+  ArrowPathIcon,
 } from "@heroicons/react/24/outline";
 import axios from "axios";
-
 import { toast } from "sonner";
+import AdvancedPagination from "@/components/common/AdvancedPagination";
 
 // Corrected interface based on the models
 interface IGroceryVariant {
+  _id: string;
+  label: string;
   price: {
     mrp: number;
     selling: number;
   };
   countInStock?: number;
+  cod?: {
+    status: "not-allowed" | "with-charge" | "free";
+  };
 }
 interface IGrocery {
   _id: string;
@@ -32,13 +38,60 @@ interface IGrocery {
   variants: IGroceryVariant[];
 }
 
+interface IPolicyStatus {
+  _id: string;
+  hasPolicy: boolean;
+  isReturnable?: boolean;
+  returnWindowDays?: number;
+  policyType?: string;
+}
+
 const GroceriesPage = () => {
   const [groceries, setGroceries] = useState<IGrocery[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
+  const [policiesByGrocery, setPoliciesByGrocery] = useState<{
+    [key: string]: IPolicyStatus;
+  }>({});
   const searchInputRef = useRef<HTMLInputElement>(null);
   const wasFocusedRef = useRef(false);
+  
+  // Pagination states
+  const [currentPage, setCurrentPage] = useState(1);
+  const [itemsPerPage, setItemsPerPage] = useState(10);
+
+  const fetchPolicies = useCallback(async (groceryIds: string[]) => {
+    try {
+      const policies: { [key: string]: IPolicyStatus } = {};
+      await Promise.all(
+        groceryIds.map(async (id) => {
+          try {
+            const res = await axios.get(
+              `/api/returns/policy?groceryId=${id}`
+            );
+            if (res.data.hasPolicy) {
+              policies[id] = {
+                _id: id,
+                hasPolicy: true,
+                isReturnable: res.data.isReturnable,
+                returnWindowDays: res.data.returnWindowDays,
+                policyType: res.data.policyType,
+              };
+            } else {
+              policies[id] = { _id: id, hasPolicy: false };
+            }
+          } catch (error) {
+            console.error(`Failed to fetch policy for ${id}`, error);
+            policies[id] = { _id: id, hasPolicy: false };
+          }
+        })
+      );
+      setPoliciesByGrocery(policies);
+    } catch (error) {
+      console.error("Failed to fetch policies", error);
+    }
+  }, []);
 
   const fetchGroceries = useCallback(async () => {
     try {
@@ -48,6 +101,8 @@ const GroceriesPage = () => {
       );
       if (res.data.success) {
         setGroceries(res.data.groceries);
+        // Fetch policies for all groceries
+        await fetchPolicies(res.data.groceries.map((g: IGrocery) => g._id));
       }
     } catch (error) {
       console.error("Failed to fetch groceries", error);
@@ -55,7 +110,7 @@ const GroceriesPage = () => {
     } finally {
       setLoading(false);
     }
-  }, [debouncedSearch]);
+  }, [debouncedSearch, fetchPolicies]);
 
   useEffect(() => {
     const timer = setTimeout(() => {
@@ -67,6 +122,11 @@ const GroceriesPage = () => {
   useEffect(() => {
     fetchGroceries();
   }, [debouncedSearch, fetchGroceries]);
+
+  // Reset to first page when search changes
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [debouncedSearch]);
 
   useEffect(() => {
     if (!loading && wasFocusedRef.current && searchInputRef.current) {
@@ -90,6 +150,13 @@ const GroceriesPage = () => {
       }
     }
   };
+
+  // Pagination calculations
+  const totalPages = Math.ceil(groceries.length / itemsPerPage);
+  const paginatedGroceries = groceries.slice(
+    (currentPage - 1) * itemsPerPage,
+    currentPage * itemsPerPage
+  );
 
   return (
     <div>
@@ -166,25 +233,50 @@ const GroceriesPage = () => {
                   </th>
                   <th
                     scope="col"
+                    className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
+                  >
+                    COD Status
+                  </th>
+                  <th
+                    scope="col"
                     className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider"
                   >
                     Actions
                   </th>
+                  <th
+                    scope="col"
+                    className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider"
+                  >
+                    Policy Status
+                  </th>
+                  <th
+                    scope="col"
+                    className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider"
+                  >
+                    Return Policy
+                  </th>
                 </tr>
               </thead>
               <tbody className="bg-white divide-y divide-gray-200">
-                {groceries.map((item) => (
+                {paginatedGroceries.map((item) => (
                   <tr key={item._id}>
                     <td className="px-6 py-4 whitespace-nowrap">
                       <Link href={`/admin/product-details/${item._id}`}>
-                        <Image
-                          src={item.images[0]?.url || "/placeholder.png"}
-                          alt={item.name}
-                          width={40}
-                          height={40}
-                          className="rounded-full cursor-pointer hover:scale-110 transition-transform duration-200"
-                          title="Click to view details"
-                        />
+                        <div className="relative inline-block">
+                          <Image
+                            src={item.images[0]?.url || "/placeholder.png"}
+                            alt={item.name}
+                            width={40}
+                            height={40}
+                            className="rounded-full cursor-pointer hover:scale-110 transition-transform duration-200"
+                            title="Click to view details"
+                          />
+                          {item.images?.length ? (
+                            <span className="absolute top-0 right-0 translate-x-1/2 -translate-y-1/2 w-5 h-5 rounded-full bg-emerald-600 text-white text-[10px] font-bold flex items-center justify-center shadow-sm">
+                              {item.images.length}
+                            </span>
+                          ) : null}
+                        </div>
                       </Link>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
@@ -205,19 +297,85 @@ const GroceriesPage = () => {
                         0
                       )}
                     </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm">
+                      {item.variants.length === 1 && item.variants[0] ? (
+                        <>
+                          {item.variants[0]?.cod?.status === "not-allowed" ? (
+                            <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800">
+                              ❌ Not Allowed
+                            </span>
+                          ) : item.variants[0]?.cod?.status === "free" ? (
+                            <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                              ✓ Free COD
+                            </span>
+                          ) : (
+                            <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-amber-100 text-amber-800">
+                              💰 With Charge
+                            </span>
+                          )}
+                        </>
+                      ) : (
+                        // Multiple variants - show compact view
+                        <div className="flex flex-col gap-1">
+                          {item.variants.map((v) => (
+                            <div key={v._id} className="text-xs">
+                              <span className="text-gray-700 font-medium">{v.label}:</span>{" "}
+                              {v.cod?.status === "not-allowed" ? (
+                                <span className="text-red-600">❌ Not Allowed</span>
+                              ) : v.cod?.status === "free" ? (
+                                <span className="text-green-600">✓ Free</span>
+                              ) : (
+                                <span className="text-amber-600">💰 Charged</span>
+                              )}
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                      <div className="inline-flex items-center gap-1">
+                        <Link
+                          href={`/admin/add-grocery/${item._id}`}
+                          className="text-indigo-600 hover:text-indigo-900"
+                          title="Edit"
+                        >
+                          <PencilIcon className="h-5 w-5" />
+                        </Link>
+                        <button
+                          onClick={() => handleDelete(item._id)}
+                          className="text-red-600 hover:text-red-900"
+                          title="Delete"
+                        >
+                          <TrashIcon className="h-5 w-5" />
+                        </button>
+                      </div>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                      {policiesByGrocery[item._id]?.hasPolicy &&
+                      policiesByGrocery[item._id]?.isReturnable ? (
+                        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                          ✓ {policiesByGrocery[item._id]?.returnWindowDays} days -{" "}
+                          {policiesByGrocery[item._id]?.policyType === "both"
+                            ? "Return or Replacement"
+                            : policiesByGrocery[item._id]?.policyType ===
+                                "return-only"
+                              ? "Return"
+                              : "Replacement"}
+                        </span>
+                      ) : (
+                        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800">
+                          ⚠ Returns Not Allowed
+                        </span>
+                      )}
+                    </td>
                     <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                       <Link
-                        href={`/admin/add-grocery/${item._id}`}
-                        className="inline-flex items-center text-indigo-600 hover:text-indigo-900 mr-4"
+                        href={`/admin/groceries/${item._id}/return-policy`}
+                        className="inline-flex items-center text-green-600 hover:text-green-900"
+                        title="Set return policy for this product"
                       >
-                        <PencilIcon className="h-5 w-5" />
+                        <ArrowPathIcon className="h-5 w-5" />
                       </Link>
-                      <button
-                        onClick={() => handleDelete(item._id)}
-                        className="inline-flex items-center text-red-600 hover:text-red-900"
-                      >
-                        <TrashIcon className="h-5 w-5" />
-                      </button>
                     </td>
                   </tr>
                 ))}
@@ -225,6 +383,23 @@ const GroceriesPage = () => {
             </table>
           )}
         </div>
+        
+        {/* Advanced Pagination */}
+        {!loading && groceries.length > 0 && (
+          <div className="p-4">
+            <AdvancedPagination
+              currentPage={currentPage}
+              totalPages={totalPages}
+              totalItems={groceries.length}
+              itemsPerPage={itemsPerPage}
+              onPageChange={setCurrentPage}
+              onItemsPerPageChange={setItemsPerPage}
+              itemsPerPageOptions={[5, 10, 20, 50, 100]}
+              showItemsPerPage={true}
+              showJumpToPage={true}
+            />
+          </div>
+        )}
       </div>
     </div>
   );

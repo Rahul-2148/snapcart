@@ -1,3 +1,4 @@
+// src/app/api/admin/order/[id]/route.ts (update order status and get order details)
 import { NextRequest, NextResponse } from "next/server";
 import connectDb from "@/lib/server/db";
 import { Order } from "@/models/order.model";
@@ -9,15 +10,15 @@ import { sendOrderStatusEmail } from "@/lib/server/email";
 
 export async function GET(
   req: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
+  { params }: { params: Promise<{ id: string }> },
 ) {
   let id = "";
   try {
     const session = await auth();
-    if (!session || session.user.role !== "admin") {
+    if (!session || !session.user.roles?.includes("admin")) {
       return NextResponse.json(
         { success: false, message: "Unauthorized" },
-        { status: 401 }
+        { status: 401 },
       );
     }
     const resolvedParams = await params;
@@ -25,7 +26,7 @@ export async function GET(
     if (!mongoose.Types.ObjectId.isValid(id)) {
       return NextResponse.json(
         { success: false, message: "Invalid order ID" },
-        { status: 400 }
+        { status: 400 },
       );
     }
     await connectDb();
@@ -36,19 +37,19 @@ export async function GET(
         populate: [
           {
             path: "variant.variantId",
-            select: "label"
+            select: "label",
           },
           {
             path: "grocery",
-            select: "name images"
-          }
-        ]
+            select: "name images",
+          },
+        ],
       })
       .setOptions({ strictPopulate: false });
     if (!order) {
       return NextResponse.json(
         { success: false, message: "Order not found" },
-        { status: 404 }
+        { status: 404 },
       );
     }
     return NextResponse.json({ success: true, order });
@@ -56,22 +57,22 @@ export async function GET(
     console.error(`GET order ${id} error:`, error);
     return NextResponse.json(
       { success: false, message: `Failed to get order: ${error}` },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }
 
 export async function PATCH(
   req: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
+  { params }: { params: Promise<{ id: string }> },
 ) {
   let id = "";
   try {
     const session = await auth();
-    if (!session || session.user.role !== "admin") {
+    if (!session || !session.user.roles?.includes("admin")) {
       return NextResponse.json(
         { success: false, message: "Unauthorized" },
-        { status: 401 }
+        { status: 401 },
       );
     }
     const resolvedParams = await params;
@@ -79,7 +80,7 @@ export async function PATCH(
     if (!mongoose.Types.ObjectId.isValid(id)) {
       return NextResponse.json(
         { success: false, message: "Invalid order ID" },
-        { status: 400 }
+        { status: 400 },
       );
     }
     await connectDb();
@@ -87,12 +88,12 @@ export async function PATCH(
     const updatedOrder = await Order.findByIdAndUpdate(
       id,
       { orderStatus },
-      { new: true }
+      { new: true },
     );
     if (!updatedOrder) {
       return NextResponse.json(
         { success: false, message: "Order not found" },
-        { status: 404 }
+        { status: 404 },
       );
     }
 
@@ -114,7 +115,8 @@ export async function PATCH(
           user.name,
           updatedOrder.orderNumber,
           orderStatus,
-          statusMessages[orderStatus] || `Your order status has been updated to ${orderStatus}.`
+          statusMessages[orderStatus] ||
+            `Your order status has been updated to ${orderStatus}.`,
         );
       }
     } catch (emailError) {
@@ -127,7 +129,7 @@ export async function PATCH(
     console.error(`PATCH order ${id} error:`, error);
     return NextResponse.json(
       { success: false, message: `Failed to update order status: ${error}` },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }

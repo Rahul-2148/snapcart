@@ -11,18 +11,13 @@ import { useState } from "react";
 const EditRoleMobile = () => {
   const [roles, setRoles] = useState([
     {
-      id: "admin",
-      label: "Admin",
-      icon: UserCog,
-    },
-    {
       id: "user",
-      label: "User",
+      label: "🛒 Customer",
       icon: User,
     },
     {
       id: "deliveryBoy",
-      label: "Delivery Boy",
+      label: "🚴 Delivery Partner",
       icon: Bike,
     },
   ]);
@@ -37,9 +32,22 @@ const EditRoleMobile = () => {
         role: selectedRole,
         mobileNumber,
       });
-      await update({ role: selectedRole }); // Update the role in the session, yaha frontend me likh diya ab ise trigger bhi krwana h backend auth.ts me
-      // console.log(result.data);
-      router.push("/");
+      if (result.data?.success) {
+        const updatedUser = result.data.user || {};
+        // Update session with new role
+        await update({
+          currentRole: updatedUser.currentRole || selectedRole,
+          roles: updatedUser.roles || ["user"],
+          profileCompleted: true,
+          mobileNumber: updatedUser.mobileNumber || mobileNumber,
+        } as any);
+
+        const redirectUrl =
+          (updatedUser.currentRole || selectedRole) === "deliveryBoy"
+            ? "/delivery-boy"
+            : "/";
+        router.push(redirectUrl);
+      }
     } catch (error) {
       console.log(error);
     }

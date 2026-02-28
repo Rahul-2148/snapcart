@@ -11,7 +11,7 @@ export const PATCH = async (req: NextRequest) => {
     await connectDb();
 
     const session = await auth();
-    if (!session || !session.user || session.user.role !== "admin") {
+    if (!session || !session.user || !session.user.roles?.includes("admin")) {
       return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
     }
 
@@ -20,7 +20,7 @@ export const PATCH = async (req: NextRequest) => {
     if (!orderId || !orderStatus) {
       return NextResponse.json(
         { message: "orderId and orderStatus are required" },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
@@ -34,7 +34,7 @@ export const PATCH = async (req: NextRequest) => {
     if (!validStatuses.includes(orderStatus)) {
       return NextResponse.json(
         { message: "Invalid order status" },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
@@ -57,7 +57,7 @@ export const PATCH = async (req: NextRequest) => {
     if (newIndex <= currentIndex) {
       return NextResponse.json(
         { message: "Invalid order status transition" },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
@@ -89,7 +89,8 @@ export const PATCH = async (req: NextRequest) => {
           user.name,
           order.orderNumber,
           orderStatus,
-          statusMessages[orderStatus] || `Your order status has been updated to ${orderStatus}.`
+          statusMessages[orderStatus] ||
+            `Your order status has been updated to ${orderStatus}.`,
         );
       }
     } catch (emailError) {
@@ -99,13 +100,13 @@ export const PATCH = async (req: NextRequest) => {
 
     return NextResponse.json(
       { success: true, message: "Order status updated", order },
-      { status: 200 }
+      { status: 200 },
     );
   } catch (error) {
     console.error("Update Order Status Error:", error);
     return NextResponse.json(
       { success: false, message: `Update status error: ${error}` },
-      { status: 500 }
+      { status: 500 },
     );
   }
 };

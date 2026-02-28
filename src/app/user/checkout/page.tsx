@@ -2,6 +2,7 @@
 "use client";
 
 import { extractCityStateFromLabel } from "@/lib/utils/extractCityStateFromLabel";
+import { checkCodAvailability } from "@/lib/utils/codHelper";
 import { RootState, AppDispatch } from "@/redux/store";
 import { fetchCartApi } from "@/hooks/cart.api";
 import { setCart, clearCart } from "@/redux/features/cartSlice";
@@ -24,6 +25,8 @@ import {
   BookmarkPlus,
   ChevronRight,
   Briefcase,
+  AlertCircle,
+  Info,
 } from "lucide-react";
 import { motion } from "motion/react";
 import dynamic from "next/dynamic";
@@ -84,14 +87,27 @@ const Checkout = () => {
   const [savedAddresses, setSavedAddresses] = useState<any[]>([]);
   const [selectedSavedAddress, setSelectedSavedAddress] = useState<string | null>(null);
   const [useManualAddress, setUseManualAddress] = useState(false);
+  const [codSettings, setCodSettings] = useState<{
+    isEnabled: boolean;
+    flatCharge: number;
+    minOrderValue: number;
+    maxOrderValue: number;
+  } | null>(null);
+  const [codInfo, setCodInfo] = useState<ReturnType<typeof checkCodAvailability> | null>({
+    isCodAvailable: true,
+    totalCodCharge: 0,
+    blockedProducts: [],
+    recommendation: "",
+  });
 
   /* ================= REDIRECT IF NOT AUTHENTICATED ================= */
   useEffect(() => {
     if (status === "loading") return;
-    if (status === "unauthenticated" && !isGuest) {
+    // Require login to proceed to checkout - even guests must login
+    if (status === "unauthenticated") {
       router.replace("/login?redirect=/user/checkout");
     }
-  }, [status, router, isGuest]);
+  }, [status, router]);
 
   /* ================= Hydrate cart on page load ================= */
   useEffect(() => {
@@ -101,7 +117,7 @@ const Checkout = () => {
         dispatch(
           setCart({
             items: cart.items,
-            cartId: cart.cartId,
+            cartId: cart.cart?._id,
             isGuest: cart.isGuest ?? false,
           })
         );
@@ -115,10 +131,53 @@ const Checkout = () => {
     if (!hydrated) loadCart();
   }, [dispatch, hydrated]);
 
+  /* ================= Fetch COD Settings ================= */
+  useEffect(() => {
+    const fetchCodSettings = async () => {
+      try {
+        const response = await axios.get("/api/admin/cod-settings");
+        if (response.data.success) {
+          setCodSettings({
+            isEnabled: response.data.data.isEnabled,
+            flatCharge: response.data.data.flatCharge,
+            minOrderValue: response.data.data.minOrderValue,
+            maxOrderValue: response.data.data.maxOrderValue,
+          });
+        }
+      } catch (error) {
+        console.error("Error fetching COD settings:", error);
+        // Use defaults if fetch fails
+        setCodSettings({
+          isEnabled: true,
+          flatCharge: 10,
+          minOrderValue: 100,
+          maxOrderValue: 1000,
+        });
+      }
+    };
+
+    fetchCodSettings();
+  }, []);
+
+  /* ================= Check COD Availability ================= */
+  useEffect(() => {
+    if (!codSettings) return;
+
+    // Include delivery fee in order value check
+    const totalOrderValue = subTotal + (deliveryFee || 0);
+    const codCheckResult = checkCodAvailability(cartItems, totalOrderValue, codSettings);
+    setCodInfo(codCheckResult);
+
+    // Disable COD if not available - but don't show toast on page load
+    if (!codCheckResult.isCodAvailable && paymentMethod === "cod") {
+      setPaymentMethod("online");
+      setOnlinePaymentType("razorpay");
+    }
+  }, [cartItems, subTotal, deliveryFee, codSettings]);
   /* ================= Fetch saved addresses ================= */
   useEffect(() => {
     const fetchSavedAddresses = async () => {
-      if (!userData || userData.role !== "user") return;
+      if (!userData || userData.currentRole !== "user") return;
       try {
         const response = await axios.get("/api/user/addresses");
         setSavedAddresses(response.data.addresses || []);
@@ -241,15 +300,15 @@ const Checkout = () => {
       return;
     }
 
-    toast.loading("Getting your location...");
+    const toastId = toast.loading("Getting your location...");
     navigator.geolocation.getCurrentPosition(
       (pos) => {
         setPosition([pos.coords.latitude, pos.coords.longitude]);
-        toast.dismiss();
+        toast.dismiss(toastId);
         toast.success("Location updated");
       },
       (err) => {
-        toast.dismiss();
+        toast.dismiss(toastId);
         toast.error("Failed to get location");
         console.error("Error getting location:", err);
       },
@@ -273,7 +332,7 @@ const Checkout = () => {
     toast.success("Address selected");
   };
 
-  /* ================= Create Order ================= */
+  /* ================= Create Order (COD only) ================= */
   const createOrder = async () => {
     try {
       const payload = {
@@ -301,6 +360,26 @@ const Checkout = () => {
     }
   };
 
+  /* ================= Create Payment Session (Online only) ================= */
+  const createPaymentSession = async () => {
+    try {
+      const payload = {
+        deliveryAddress: address,
+        onlinePaymentType,
+      };
+
+      const response = await axios.post("/api/payment/session/create", payload);
+      return response.data;
+    } catch (error: any) {
+      console.error("Create payment session error:", error);
+      return {
+        success: false,
+        message:
+          error.response?.data?.message || "Failed to create payment session",
+      };
+    }
+  };
+
   /* ================= Handle Payment ================= */
   const handlePayment = async () => {
     if (!addressValidated) {
@@ -315,34 +394,44 @@ const Checkout = () => {
 
     setLoading(true);
     try {
-      const orderData = await createOrder();
-
-      if (!orderData || !orderData.success || !orderData.orderId) {
-        throw new Error(
-          orderData?.message ||
-            "Order ID not received from server or order creation failed"
-        );
-      }
-
-      const orderId = orderData.orderId;
-
-      console.log("Order ID before navigation:", orderId);
-
       if (paymentMethod === "cod") {
+        const orderData = await createOrder();
+
+        if (!orderData || !orderData.success || !orderData.orderId) {
+          throw new Error(
+            orderData?.message ||
+              "Order ID not received from server or order creation failed"
+          );
+        }
+
+        const orderId = orderData.orderId;
         dispatch(clearCart());
         toast.success("Order placed successfully!");
         router.push(`/user/orders/${orderId}`);
         return;
       }
 
-      if (paymentMethod === "online" && onlinePaymentType === "razorpay") {
-        router.push(`/user/payment/razorpay/${orderId}`);
-        return;
-      }
+      if (paymentMethod === "online") {
+        const sessionData = await createPaymentSession();
 
-      if (paymentMethod === "online" && onlinePaymentType === "stripe") {
-        router.push(`/user/payment/stripe/${orderId}`);
-        return;
+        if (!sessionData || !sessionData.success || !sessionData.paymentSessionId) {
+          throw new Error(
+            sessionData?.message ||
+              "Payment session ID not received from server"
+          );
+        }
+
+        const paymentSessionId = sessionData.paymentSessionId;
+
+        if (onlinePaymentType === "razorpay") {
+          router.push(`/user/payment/razorpay/${paymentSessionId}`);
+          return;
+        }
+
+        if (onlinePaymentType === "stripe") {
+          router.push(`/user/payment/stripe/${paymentSessionId}`);
+          return;
+        }
       }
     } catch (error: any) {
       console.error("Payment error:", error);
@@ -625,7 +714,7 @@ const Checkout = () => {
               </button>
             </div>
 
-            <div className="relative mt-6 h-[300px] rounded-xl border border-gray-200 overflow-hidden">
+            <div className="relative isolate mt-6 h-[300px] rounded-xl border border-gray-200 overflow-hidden z-0">
               <MapView
                 position={position ?? [28.6139, 77.209]} // Default to Delhi
                 radius={2000}
@@ -651,6 +740,25 @@ const Checkout = () => {
               <CreditCard className="w-6 h-6 text-green-600" />
               Payment Method
             </h2>
+
+            {/* Online Payment Recommendation */}
+            {codInfo?.totalCodCharge > 0 && (
+              <motion.div
+                initial={{ opacity: 0, y: -10 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="mb-4 p-4 bg-gradient-to-r from-green-50 to-blue-50 rounded-lg border border-green-200 flex gap-3"
+              >
+                <Shield className="w-5 h-5 text-green-600 flex-shrink-0 mt-0.5" />
+                <div className="flex-1">
+                  <p className="text-sm font-semibold text-green-900 mb-1">
+                    💡 Save Money with Online Payment
+                  </p>
+                  <p className="text-xs text-green-700">
+                    Pay with Razorpay or Stripe to save <span className="font-semibold text-green-800">₹{codInfo.totalCodCharge.toFixed(2)}</span> in COD handling charges. Your payment is 100% secure and encrypted.
+                  </p>
+                </div>
+              </motion.div>
+            )}
 
             <div className="space-y-3">
               {/* Razorpay Option */}
@@ -717,14 +825,17 @@ const Checkout = () => {
 
               {/* COD Option */}
               <button
+                disabled={codInfo && !codInfo.isCodAvailable}
                 className={`flex items-center gap-4 w-full border rounded-lg p-4 transition-all ${
                   paymentMethod === "cod"
                     ? "border-green-600 bg-green-50 shadow-sm"
                     : "hover:bg-gray-50"
-                }`}
+                } ${codInfo && !codInfo.isCodAvailable ? "opacity-50 cursor-not-allowed" : ""}`}
                 onClick={() => {
-                  setPaymentMethod("cod");
-                  setOnlinePaymentType(null);
+                  if (codInfo?.isCodAvailable) {
+                    setPaymentMethod("cod");
+                    setOnlinePaymentType(null);
+                  }
                 }}
               >
                 <div className="flex items-center justify-center w-10 h-10 bg-orange-50 rounded-lg">
@@ -735,7 +846,9 @@ const Checkout = () => {
                     Cash on Delivery
                   </div>
                   <p className="text-sm text-gray-500">
-                    Pay when you receive your order
+                    {codInfo?.isCodAvailable
+                      ? "Pay when you receive your order"
+                      : "Not available for some items"}
                   </p>
                 </div>
                 {paymentMethod === "cod" && (
@@ -745,6 +858,56 @@ const Checkout = () => {
                 )}
               </button>
             </div>
+
+            {/* COD Warning/Info Section */}
+            {codInfo && (
+              <>
+                {!codInfo.isCodAvailable && (
+                  <div className="mt-4 p-4 bg-red-50 rounded-lg border border-red-200 flex gap-3">
+                    <AlertCircle className="w-5 h-5 text-red-600 flex-shrink-0 mt-0.5" />
+                    <div className="flex-1">
+                      <div className="font-semibold text-red-900 text-sm mb-1">
+                        COD Not Available
+                      </div>
+                      <p className="text-sm text-red-700 mb-2">
+                        The following items in your cart don't accept Cash on Delivery:
+                      </p>
+                      <ul className="text-sm text-red-700 space-y-1">
+                        {codInfo.blockedProducts.map((product) => (
+                          <li key={product} className="flex items-center gap-2">
+                            <span className="w-1 h-1 bg-red-600 rounded-full" />
+                            {product}
+                          </li>
+                        ))}
+                      </ul>
+                      <p className="text-sm text-red-700 mt-2">
+                        Please select an online payment method to proceed.
+                      </p>
+                    </div>
+                  </div>
+                )}
+
+                {codInfo.isCodAvailable && codInfo.totalCodCharge > 0 && (
+                  <div className="mt-4 p-4 bg-amber-50 rounded-lg border border-amber-200 flex gap-3">
+                    <Info className="w-5 h-5 text-amber-600 flex-shrink-0 mt-0.5" />
+                    <div className="flex-1">
+                      <div className="font-semibold text-amber-900 text-sm mb-2">
+                        COD Handling Charge
+                      </div>
+                      <div className="border-t border-amber-200 pt-2 mb-3">
+                        <div className="flex justify-between font-semibold text-amber-900 text-sm">
+                          <span>Flat COD Fee</span>
+                          <span>+₹{codInfo.totalCodCharge.toFixed(2)}</span>
+                        </div>
+                      </div>
+                      <p className="text-sm text-amber-700">
+                        {codInfo.recommendation}
+                      </p>
+                    </div>
+                  </div>
+                )}
+              </>
+            )}
 
             {/* Payment Info Note */}
             <div className="mt-4 p-3 bg-blue-50 rounded-lg border border-blue-200">
@@ -801,11 +964,23 @@ const Checkout = () => {
                 </div>
               )}
 
+              {paymentMethod === "cod" && codInfo?.totalCodCharge > 0 && (
+                <div className="flex justify-between text-orange-600">
+                  <span>COD Handling Charge</span>
+                  <span className="font-medium">+₹{codInfo.totalCodCharge.toFixed(2)}</span>
+                </div>
+              )}
+
               <hr className="my-3 border-gray-200" />
 
               <div className="flex justify-between font-bold text-lg pt-2">
                 <span>Final Total</span>
-                <span className="text-green-700">₹{finalTotal.toFixed(2)}</span>
+                <span className="text-green-700">
+                  ₹{(
+                    finalTotal +
+                    (paymentMethod === "cod" ? codInfo?.totalCodCharge || 0 : 0)
+                  ).toFixed(2)}
+                </span>
               </div>
 
               <div className="mt-4 text-xs text-gray-500 space-y-1">

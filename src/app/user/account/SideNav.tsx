@@ -19,7 +19,7 @@ export default function SideNav() {
   // Filter links based on user role - Orders should only show for regular users
   const filteredLinks = links.filter((link) => {
     if (link.href === "/user/account/orders") {
-      return userData?.role === "user";
+      return userData?.currentRole === "user";
     }
     return true;
   });

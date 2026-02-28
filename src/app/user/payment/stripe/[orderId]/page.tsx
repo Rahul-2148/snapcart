@@ -48,6 +48,7 @@ interface OrderData {
   subTotal: number;
   deliveryFee: number;
   couponDiscount: number;
+  codHandlingCharge?: number;
   finalTotal: number;
   deliveryAddress: any;
 }
@@ -56,11 +57,14 @@ const StripePaymentPage = () => {
   const params = useParams();
   const router = useRouter();
   const dispatch = useDispatch<AppDispatch>();
-  const orderId = params.orderId as string;
+  const paymentSessionId = params.orderId as string;
 
   const [orderData, setOrderData] = useState<OrderData | null>(null);
   const [loading, setLoading] = useState(true);
   const [paymentProcessing, setPaymentProcessing] = useState(false);
+  const [sessionStatus, setSessionStatus] = useState<
+    "pending" | "processing" | "paid" | "cancelled" | "expired" | "failed"
+  >("pending");
 
   const paymentInitiated = useRef(false);
 
@@ -72,17 +76,32 @@ const StripePaymentPage = () => {
 
     try {
       toast.loading("Cancelling order...");
-      await axios.post("/api/order/cancel", { orderId });
+      await axios.post("/api/payment/session/cancel", { paymentSessionId });
       const cart = await fetchCartApi();
+      
+      // Preserve coupon if it exists
+      let appliedCoupon = null;
+      if (cart.coupon) {
+        const couponType = cart.coupon.discountType?.toLowerCase();
+        appliedCoupon = {
+          code: cart.coupon.code || "",
+          discountValue: cart.coupon.discountValue || 0,
+          type: couponType === "percentage" ? "percentage" : "flat",
+          maxDiscount: cart.coupon.maxDiscountAmount,
+          minCartValue: cart.coupon.minCartValue,
+        };
+      }
+      
       dispatch(
         setCart({
           items: cart.items,
-          cartId: cart.cartId,
+          cartId: cart.cart?._id,
           isGuest: cart.isGuest ?? false,
+          appliedCoupon,
         })
       );
       toast.dismiss();
-      toast.info("Order cancelled and cart restored.");
+      toast.info("Payment cancelled and cart preserved.");
       router.back();
     } catch (error) {
       toast.dismiss();
@@ -96,9 +115,41 @@ const StripePaymentPage = () => {
     const fetchOrder = async () => {
       try {
         const { data } = await axios.get(
-          `/api/order/fetch-order-details/${orderId}`
+          `/api/payment/session/${paymentSessionId}`
         );
-        setOrderData(data);
+
+        const session = data.session;
+        setSessionStatus(session.status || "pending");
+        const items = session.items.map((item: any, idx: number) => ({
+          _id: `${session._id}-${idx}`,
+          grocery: {
+            images: item.groceryId?.images || [],
+          },
+          groceryName: item.groceryName,
+          variant: {
+            variantId: item.variantId,
+            label: item.variantLabel,
+            unit: item.unit,
+            value: item.value,
+          },
+          price: {
+            mrpPrice: item.price.mrpPrice,
+            sellingPrice: item.price.sellingPrice,
+          },
+          quantity: item.quantity,
+        }));
+
+        setOrderData({
+          _id: session._id,
+          orderNumber: `PS-${session._id.slice(-6)}`,
+          orderItems: items,
+          subTotal: session.subTotal,
+          deliveryFee: session.deliveryFee,
+          couponDiscount: session.couponDiscount || 0,
+          codHandlingCharge: 0,
+          finalTotal: session.finalTotal,
+          deliveryAddress: session.deliveryAddress,
+        });
       } catch (err) {
         console.error("Failed to fetch order data:", err);
         toast.error("Failed to load order details");
@@ -106,10 +157,10 @@ const StripePaymentPage = () => {
       }
       setLoading(false);
     };
-    if (orderId) {
+    if (paymentSessionId) {
       fetchOrder();
     }
-  }, [orderId, router, dispatch]);
+  }, [paymentSessionId, router, dispatch]);
 
   const handleStripePayment = async () => {
     if (!orderData) {
@@ -122,7 +173,7 @@ const StripePaymentPage = () => {
 
     try {
       const { data } = await axios.post("/api/payment/stripe", {
-        orderId,
+        paymentSessionId,
       });
 
       if (data.session && data.session.url) {
@@ -144,6 +195,24 @@ const StripePaymentPage = () => {
     return (
       <div className="w-full h-screen flex items-center justify-center">
         <Loader2 className="w-8 h-8 animate-spin text-green-600" />
+      </div>
+    );
+  }
+
+  if (sessionStatus !== "pending" && sessionStatus !== "processing") {
+    return (
+      <div className="w-[90%] mx-auto mt-20 text-center">
+        <AlertCircle className="w-12 h-12 text-red-500 mx-auto mb-4" />
+        <h2 className="text-xl font-semibold mb-2">Payment Session {sessionStatus}</h2>
+        <p className="text-gray-600 mb-6">
+          This payment session is no longer active. Please return to cart and try again.
+        </p>
+        <button
+          onClick={() => router.push("/user/cart")}
+          className="text-green-600 hover:text-green-700 font-medium"
+        >
+          Return to cart
+        </button>
       </div>
     );
   }
@@ -310,6 +379,14 @@ const StripePaymentPage = () => {
                   <span>Coupon Discount</span>
                   <span className="font-medium">
                     -₹{orderData.couponDiscount.toFixed(2)}
+                  </span>
+                </div>
+              )}
+              {orderData.codHandlingCharge > 0 && (
+                <div className="flex justify-between">
+                  <span className="text-gray-600">COD Handling Charge</span>
+                  <span className="font-medium">
+                    +₹{orderData.codHandlingCharge.toFixed(2)}
                   </span>
                 </div>
               )}

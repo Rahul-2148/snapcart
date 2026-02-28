@@ -1,8 +1,7 @@
 // src/app/api/payment/stripe/route.ts
 import { NextRequest, NextResponse } from "next/server";
 import connectDb from "@/lib/server/db";
-import { Order } from "@/models/order.model";
-import { OrderItem } from "@/models/orderItem.model";
+import { PaymentSession } from "@/models/paymentSession.model";
 import Stripe from "stripe";
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!);
@@ -10,35 +9,39 @@ const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!);
 export const POST = async (req: NextRequest) => {
   try {
     await connectDb();
-    const { orderId } = await req.json();
+    const { paymentSessionId } = await req.json();
 
-    if (!orderId) {
+    if (!paymentSessionId) {
       return NextResponse.json(
-        { message: "Order ID is required" },
+        { message: "Payment session ID is required" },
         { status: 400 }
       );
     }
 
-    const order = await Order.findById(orderId).populate({
-      path: "orderItems",
-      model: OrderItem,
-    });
+    const paymentSession = await PaymentSession.findById(paymentSessionId);
 
-    if (!order) {
+    if (!paymentSession) {
       return NextResponse.json(
-        { message: "Order not found" },
+        { message: "Payment session not found" },
         { status: 404 }
       );
     }
 
-    const line_items = order.orderItems.map((item: any) => {
+    if (paymentSession.status !== "pending") {
+      return NextResponse.json(
+        { message: "Payment session already processed" },
+        { status: 400 }
+      );
+    }
+
+    const line_items = paymentSession.items.map((item: any) => {
       return {
         price_data: {
-          currency: order.currency.toLowerCase(),
+          currency: paymentSession.currency.toLowerCase(),
           product_data: {
             name: item.groceryName,
             metadata: {
-              variantLabel: item.variant.label,
+              variantLabel: item.variantLabel,
             },
           },
           unit_amount: Math.round(item.price.sellingPrice * 100),
@@ -48,14 +51,14 @@ export const POST = async (req: NextRequest) => {
     });
 
     // Add delivery fee as a line item if it exists
-    if (order.deliveryFee > 0) {
+    if (paymentSession.deliveryFee > 0) {
       line_items.push({
         price_data: {
-          currency: order.currency.toLowerCase(),
+          currency: paymentSession.currency.toLowerCase(),
           product_data: {
             name: "Delivery Fee",
           },
-          unit_amount: Math.round(order.deliveryFee * 100),
+          unit_amount: Math.round(paymentSession.deliveryFee * 100),
         },
         quantity: 1,
       });
@@ -66,24 +69,27 @@ export const POST = async (req: NextRequest) => {
       line_items,
       mode: "payment",
       success_url: `${process.env.NEXTAUTH_URL}/user/payment/success?session_id={CHECKOUT_SESSION_ID}`,
-      cancel_url: `${process.env.NEXTAUTH_URL}/user/payment/cancel`,
+      cancel_url: `${process.env.NEXTAUTH_URL}/user/payment/cancel?paymentSessionId=${paymentSession._id}`,
       metadata: {
-        orderId: order._id.toString(),
+        paymentSessionId: paymentSession._id.toString(),
       },
     };
 
     // Handle coupon discount
-    if (order.couponDiscount && order.couponDiscount > 0) {
+    if (paymentSession.couponDiscount && paymentSession.couponDiscount > 0) {
       const coupon = await stripe.coupons.create({
-        amount_off: Math.round(order.couponDiscount * 100),
-        currency: order.currency.toLowerCase(),
+        amount_off: Math.round(paymentSession.couponDiscount * 100),
+        currency: paymentSession.currency.toLowerCase(),
         duration: "once",
-        name: `Coupon: ${order.coupon?.code}`,
+        name: `Coupon: ${paymentSession.coupon?.code}`,
       });
       sessionConfig.discounts = [{ coupon: coupon.id }];
     }
 
     const session = await stripe.checkout.sessions.create(sessionConfig);
+
+    paymentSession.providerSessionId = session.id;
+    await paymentSession.save();
 
     return NextResponse.json({ session });
   } catch (error: any) {

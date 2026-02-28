@@ -1,18 +1,23 @@
 import { auth } from "@/auth";
 import { User } from "@/models/user.model";
 import { NextRequest, NextResponse } from "next/server";
+import connectDb from "@/lib/server/db";
+
+export const dynamic = "force-dynamic";
 
 export const GET = async (req: NextRequest) => {
   try {
+    await connectDb();
+    
     const session = await auth();
     if (!session || !session.user) {
       return NextResponse.json(
         { success: false, message: "User is not authenticated" },
-        { status: 404 }
+        { status: 401 }
       );
     }
 
-    const user = await User.findOne({ email: session.user.email });
+    const user = await User.findOne({ email: session.user.email }).lean();
 
     if (!user) {
       return NextResponse.json(
@@ -23,12 +28,13 @@ export const GET = async (req: NextRequest) => {
 
     const hasPassword = !!user.password;
 
-    const userWithoutPassword = user.toObject();
+    const userWithoutPassword: any = { ...user };
     delete userWithoutPassword.password;
 
     const userWithHasPassword = {
       ...userWithoutPassword,
       hasPassword,
+      gender: userWithoutPassword.gender ?? user.gender ?? null, // Force include
     };
 
     return NextResponse.json(

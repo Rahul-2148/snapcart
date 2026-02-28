@@ -32,6 +32,7 @@ export interface IOrder extends Document {
   totalMRP: number;
   savings: number;
   deliveryFee: number;
+  codHandlingCharge?: number;
   finalTotal: number;
   coupon?: {
     couponId?: mongoose.Types.ObjectId;
@@ -55,11 +56,14 @@ export interface IOrder extends Document {
   };
   paymentMethod: PaymentMethod;
   paymentStatus: PaymentStatus;
+  refundStatus?: "initiated" | "processing" | "completed" | "failed";
+  refundInitiatedAt?: Date;
   onlinePaymentType?: OnlinePaymentType;
   paymentDetails: IPaymentDetails[];
   orderStatus: OrderStatus;
   currency: string;
-  deliveryPartner?: mongoose.Types.ObjectId;
+  assignment?: mongoose.Types.ObjectId;
+  assignedDeliveryPartner?: mongoose.Types.ObjectId;
   packedAt?: Date;
   confirmedAt?: Date;
   shippedAt?: Date;
@@ -81,7 +85,7 @@ const PaymentDetailsSchema = new Schema<IPaymentDetails>(
     status: String,
     paidAt: Date,
   },
-  { _id: false }
+  { _id: false },
 );
 
 const OrderSchema = new Schema<IOrder>(
@@ -99,6 +103,7 @@ const OrderSchema = new Schema<IOrder>(
     totalMRP: { type: Number, required: true },
     savings: { type: Number, required: true },
     deliveryFee: { type: Number, required: true, default: 0 },
+    codHandlingCharge: { type: Number, default: 0, min: 0 },
     finalTotal: { type: Number, required: true },
     coupon: {
       couponId: { type: Schema.Types.ObjectId, ref: "Coupon" },
@@ -126,6 +131,12 @@ const OrderSchema = new Schema<IOrder>(
       enum: ["pending", "paid", "failed", "refunded"],
       default: "pending",
     },
+    refundStatus: {
+      type: String,
+      enum: ["initiated", "processing", "completed", "failed"],
+      default: null,
+    },
+    refundInitiatedAt: Date,
     onlinePaymentType: {
       type: String,
       enum: ["stripe", "razorpay"],
@@ -150,7 +161,13 @@ const OrderSchema = new Schema<IOrder>(
       default: DEFAULT_CURRENCY,
       required: true,
     },
-    deliveryPartner: {
+    assignment: {
+      type: Schema.Types.ObjectId,
+      ref: "DeliveryAssignment",
+      default: null,
+      index: true,
+    },
+    assignedDeliveryPartner: {
       type: Schema.Types.ObjectId,
       ref: "User",
       default: null,
@@ -164,7 +181,7 @@ const OrderSchema = new Schema<IOrder>(
     cancelledAt: Date,
     orderNumber: { type: String, unique: true, index: true },
   },
-  { timestamps: true }
+  { timestamps: true },
 );
 
 export const Order =

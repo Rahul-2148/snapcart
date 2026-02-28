@@ -43,7 +43,10 @@ const EditGrocery = () => {
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
   const [categoryId, setCategoryId] = useState("");
-  const [brand, setBrand] = useState("Ordinary");
+  const [brand, setBrand] = useState("");
+  const [isBestSeller, setIsBestSeller] = useState(false);
+  const [isNew, setIsNew] = useState(false);
+  const [isFeatured, setIsFeatured] = useState(false);
 
   // Variant states
   const [variants, setVariants] = useState<any[]>([]);
@@ -84,9 +87,16 @@ const EditGrocery = () => {
             setDescription(grocery.description);
             setCategoryId(grocery.category._id);
             setBrand(grocery.brand);
+            setIsBestSeller(grocery.badges?.isBestSeller || false);
+            setIsNew(grocery.badges?.isNew || false);
+            setIsFeatured(grocery.badges?.isFeatured || false);
 
             if (grocery.variants && grocery.variants.length > 0) {
-              setVariants(grocery.variants);
+              const normalized = grocery.variants.map((v: any) => ({
+                ...v,
+                cod: { status: v.cod?.status || "with-charge" },
+              }));
+              setVariants(normalized);
             }
 
             if (grocery.images && grocery.images.length > 0) {
@@ -243,14 +253,26 @@ const EditGrocery = () => {
       setLoading(true);
       const formData = new FormData();
 
+      // Add ID for update operation
+      if (id) {
+        formData.append("id", id);
+      }
+
       // Basic grocery info
       formData.append("name", name.trim());
       formData.append("description", description.trim());
       formData.append("category", categoryId);
       formData.append("brand", brand.trim());
+      formData.append("isBestSeller", String(isBestSeller));
+      formData.append("isNew", String(isNew));
+      formData.append("isFeatured", String(isFeatured));
 
       // Variants
-      formData.append("variants", JSON.stringify(variants));
+      const normalizedVariants = variants.map((v) => ({
+        ...v,
+        cod: { status: v.cod?.status || "with-charge" },
+      }));
+      formData.append("variants", JSON.stringify(normalizedVariants));
 
       // Track which existing images are being kept
       const keepImageIds: string[] = [];
@@ -557,6 +579,91 @@ const EditGrocery = () => {
                   )}
                 </div>
 
+                {/* Brand */}
+                <div>
+                  <label className="block text-gray-800 font-semibold mb-2">
+                    Brand
+                  </label>
+                  <input
+                    type="text"
+                    value={brand}
+                    onChange={(e) => setBrand(e.target.value)}
+                    placeholder="Enter brand name (e.g., Amul, Tata, Patanjali)"
+                    className="w-full border border-gray-300 rounded-xl px-4 py-3.5 outline-none focus:ring-2 focus:ring-green-400 focus:border-transparent transition-all text-gray-800 placeholder-gray-400"
+                    disabled={loading}
+                  />
+                  <p className="text-xs text-gray-500 mt-2">
+                    Leave blank or use "Ordinary" for generic/unbranded products
+                  </p>
+                </div>
+
+                {/* Badges Section */}
+                <div className="bg-gradient-to-r from-green-50 to-emerald-50 border border-green-200 rounded-xl p-4">
+                  <label className="block text-gray-800 font-semibold mb-3">
+                    Product Badges
+                  </label>
+                  <div className="space-y-3">
+                    {/* Best Seller Checkbox */}
+                    <label className="flex items-center gap-3 cursor-pointer group">
+                      <input
+                        type="checkbox"
+                        checked={isBestSeller}
+                        onChange={(e) => setIsBestSeller(e.target.checked)}
+                        className="w-5 h-5 text-green-600 border-gray-300 rounded focus:ring-2 focus:ring-green-400 cursor-pointer"
+                        disabled={loading}
+                      />
+                      <div className="flex items-center gap-2">
+                        <span className="text-gray-700 font-medium group-hover:text-green-700 transition-colors">
+                          Best Seller
+                        </span>
+                        <span className="text-xs bg-yellow-100 text-yellow-800 px-2 py-0.5 rounded-full font-semibold">
+                          ⭐ Popular
+                        </span>
+                      </div>
+                    </label>
+
+                    {/* New Arrival Checkbox */}
+                    <label className="flex items-center gap-3 cursor-pointer group">
+                      <input
+                        type="checkbox"
+                        checked={isNew}
+                        onChange={(e) => setIsNew(e.target.checked)}
+                        className="w-5 h-5 text-green-600 border-gray-300 rounded focus:ring-2 focus:ring-green-400 cursor-pointer"
+                        disabled={loading}
+                      />
+                      <div className="flex items-center gap-2">
+                        <span className="text-gray-700 font-medium group-hover:text-green-700 transition-colors">
+                          New Arrival
+                        </span>
+                        <span className="text-xs bg-blue-100 text-blue-800 px-2 py-0.5 rounded-full font-semibold">
+                          🆕 Fresh
+                        </span>
+                      </div>
+                    </label>
+
+                    {/* Featured Checkbox */}
+                    <label className="flex items-center gap-3 cursor-pointer group">
+                      <input
+                        type="checkbox"
+                        checked={isFeatured}
+                        onChange={(e) => setIsFeatured(e.target.checked)}
+                        className="w-5 h-5 text-green-600 border-gray-300 rounded focus:ring-2 focus:ring-green-400 cursor-pointer"
+                        disabled={loading}
+                      />
+                      <div className="flex items-center gap-2">
+                        <span className="text-gray-700 font-medium group-hover:text-green-700 transition-colors">
+                          Featured Product
+                        </span>
+                        <span className="text-xs bg-purple-100 text-purple-800 px-2 py-0.5 rounded-full font-semibold">
+                          💎 Special
+                        </span>
+                      </div>
+                    </label>
+                  </div>
+                  <p className="text-xs text-gray-600 mt-3">
+                    Selected badges will display on homepage sections and help customers discover products
+                  </p>
+                </div>
                 {/* Variant Management */}
                 <div className="mt-8 pt-8 border-t border-gray-200">
                   <VariantManagement 

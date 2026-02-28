@@ -48,16 +48,19 @@ export async function PUT(
 			);
 		}
 
-		// Update review
-		if (rating) review.rating = Number(rating);
-		if (comment !== undefined) review.comment = comment.trim();
-
-		await review.save();
-
-		const updatedReview = await Review.findById(reviewId).populate(
-			"user",
-			"name email image"
-		);
+		// Update review using findByIdAndUpdate to ensure updatedAt is set
+		const updatedReview = await Review.findByIdAndUpdate(
+			reviewId,
+			{
+				...(rating ? { rating: Number(rating) } : {}),
+				...(comment !== undefined ? { comment: comment.trim() } : {}),
+			},
+			{
+				new: true,
+				runValidators: true,
+				timestamps: true,
+			}
+		).populate("user", "name email image");
 
 		return NextResponse.json({
 			success: true,

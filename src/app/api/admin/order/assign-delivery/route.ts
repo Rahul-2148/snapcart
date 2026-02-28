@@ -12,7 +12,7 @@ export const POST = async (req: NextRequest) => {
     await connectDb();
 
     const session = await auth();
-    if (!session || !session.user || session.user.role !== "admin") {
+    if (!session || !session.user || !session.user.roles?.includes("admin")) {
       return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
     }
 
@@ -37,7 +37,7 @@ export const POST = async (req: NextRequest) => {
     }
 
     const deliveryPartner = await User.findById(deliveryPartnerId);
-    if (!deliveryPartner || deliveryPartner.role !== "delivery") {
+    if (!deliveryPartner || !deliveryPartner.roles?.includes("deliveryBoy")) {
       return NextResponse.json(
         { message: "Invalid delivery partner" },
         { status: 400 }
@@ -45,7 +45,7 @@ export const POST = async (req: NextRequest) => {
     }
 
     /* ================= ASSIGN ================= */
-    order.deliveryPartner = deliveryPartnerId;
+    order.assignedDeliveryPartner = deliveryPartnerId;
 
     // Assigning delivery usually means "out-for-delivery"
     order.orderStatus = "out-for-delivery";

@@ -5,6 +5,7 @@ export interface IGroceryVariant {
   _id?: mongoose.Types.ObjectId;
   grocery: mongoose.Types.ObjectId;
   label: string;
+  variantName?: string;
   unit: {
     unit: string;
     value: number;
@@ -17,6 +18,9 @@ export interface IGroceryVariant {
   };
   countInStock?: number;
   isDefault?: boolean;
+  cod?: {
+    status: "not-allowed" | "with-charge" | "free";
+  };
   createdAt?: Date;
   updatedAt?: Date;
 }
@@ -32,6 +36,8 @@ const groceryVariantSchema = new mongoose.Schema<IGroceryVariant>(
     },
 
     label: { type: String, required: true },
+
+    variantName: { type: String, default: null },
 
     unit: {
       unit: {
@@ -79,6 +85,14 @@ const groceryVariantSchema = new mongoose.Schema<IGroceryVariant>(
     countInStock: { type: Number, default: 0, min: 0 },
 
     isDefault: { type: Boolean, default: false },
+
+    cod: {
+      status: { 
+        type: String, 
+        enum: ["not-allowed", "with-charge", "free"],
+        default: "with-charge" 
+      },
+    },
   },
   { timestamps: true }
 );

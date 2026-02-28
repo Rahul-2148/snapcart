@@ -1,7 +1,10 @@
 import { NextResponse } from "next/server";
-import { auth } from "@/auth";
+import { getToken } from "next-auth/jwt";
+import { NextRequest } from "next/server";
 import connectDb from "@/lib/server/db";
-import uploadOnCloudinary, { deleteFromCloudinary } from "@/lib/server/cloudinary";
+import uploadOnCloudinary, {
+  deleteFromCloudinary,
+} from "@/lib/server/cloudinary";
 
 import { Grocery } from "@/models/grocery.model";
 import { GroceryVariant } from "@/models/groceryVariant.model";
@@ -13,7 +16,7 @@ export async function POST(req: Request) {
   try {
     await connectDb();
 
-    // Read formData FIRST (before any auth calls that might touch the body)
+    // Read formData FIRST (before any auth that might touch the body)
     let formData: FormData;
     try {
       formData = await req.formData();
@@ -21,19 +24,32 @@ export async function POST(req: Request) {
       console.error("Error reading formData:", e);
       return NextResponse.json(
         { success: false, message: "Failed to parse form data" },
-        { status: 400 }
+        { status: 400 },
       );
     }
-    
-    // Auth check AFTER reading body
-    const session = await auth();
-    if (!session || session?.user?.role !== "admin") {
+
+    // Auth check AFTER reading formData using JWT from cookies
+    let token;
+    try {
+      const nextReq = new NextRequest(req.url, { headers: req.headers });
+      token = await getToken({
+        req: nextReq,
+        secret: process.env.NEXTAUTH_SECRET,
+      });
+      if (!token || token.currentRole !== "admin") {
+        return NextResponse.json(
+          { success: false, message: "You are not authorized" },
+          { status: 401 },
+        );
+      }
+    } catch (authError) {
+      console.error("Auth/JWT error:", authError);
       return NextResponse.json(
-        { success: false, message: "You are not authorized" },
-        { status: 401 }
+        { success: false, message: "Authentication failed" },
+        { status: 401 },
       );
     }
-    
+
     const id = formData.get("id") as string;
 
     if (id) {
@@ -42,7 +58,7 @@ export async function POST(req: Request) {
       if (!grocery) {
         return NextResponse.json(
           { success: false, message: "Grocery not found" },
-          { status: 404 }
+          { status: 404 },
         );
       }
 
@@ -50,6 +66,9 @@ export async function POST(req: Request) {
       const description = formData.get("description") as string;
       const categoryId = formData.get("category") as string;
       const brand = (formData.get("brand") as string) || "Ordinary";
+      const isBestSeller = formData.get("isBestSeller") === "true";
+      const isNew = formData.get("isNew") === "true";
+      const isFeatured = formData.get("isFeatured") === "true";
 
       // Parse variants JSON from formData
       const variantsJson = formData.get("variants") as string;
@@ -60,7 +79,7 @@ export async function POST(req: Request) {
         } catch (e) {
           return NextResponse.json(
             { success: false, message: "Invalid variants JSON" },
-            { status: 400 }
+            { status: 400 },
           );
         }
       }
@@ -69,14 +88,14 @@ export async function POST(req: Request) {
       if (!name || !categoryId) {
         return NextResponse.json(
           { success: false, message: "Name and category are required" },
-          { status: 400 }
+          { status: 400 },
         );
       }
 
       if (!variants || variants.length === 0) {
         return NextResponse.json(
           { success: false, message: "At least one variant is required" },
-          { status: 400 }
+          { status: 400 },
         );
       }
 
@@ -85,7 +104,7 @@ export async function POST(req: Request) {
       if (!category) {
         return NextResponse.json(
           { success: false, message: "Invalid category" },
-          { status: 400 }
+          { status: 400 },
         );
       }
 
@@ -93,21 +112,42 @@ export async function POST(req: Request) {
       for (const variant of variants) {
         if (!category.allowedUnits.includes(variant.unit.unit)) {
           return NextResponse.json(
-            { success: false, message: `Unit '${variant.unit.unit}' not allowed for this category` },
-            { status: 400 }
+            {
+              success: false,
+              message: `Unit '${variant.unit.unit}' not allowed for this category`,
+            },
+            { status: 400 },
           );
         }
       }
 
       /* ---------- UPDATE GROCERY ---------- */
-      grocery.name = name;
-      grocery.description = description;
-      grocery.category = categoryId;
-      grocery.brand = brand;
-      grocery.updatedAt = new Date();
+      // Use $set operator to automatically handle new fields
+      await Grocery.findByIdAndUpdate(
+        id,
+        {
+          $set: {
+            name,
+            description,
+            category: categoryId,
+            brand,
+            "badges.isBestSeller": isBestSeller,
+            "badges.isNew": isNew,
+            "badges.isFeatured": isFeatured,
+            updatedAt: new Date(),
+          },
+        },
+        { new: true, runValidators: true },
+      );
+
+      // Reload grocery with updated data
+      const updatedGrocery = await Grocery.findById(id);
+      if (!updatedGrocery) {
+        throw new Error("Failed to reload updated grocery");
+      }
 
       const files = formData.getAll("images") as File[];
-      
+
       // Parse which existing images to keep
       const keepImageIdsJson = formData.get("keepImageIds") as string;
       let keepImageIds: string[] = [];
@@ -118,7 +158,7 @@ export async function POST(req: Request) {
           console.error("Error parsing keepImageIds:", e);
         }
       }
-      
+
       // Always process images - either delete removed ones or add new ones
       if (grocery.images && grocery.images.length > 0) {
         // Delete images that are NOT in the keepImageIds list
@@ -132,7 +172,7 @@ export async function POST(req: Request) {
 
       // Build final images array
       const uploadedImages: { url: string; publicId: string }[] = [];
-      
+
       // First, keep the existing images that weren't removed
       if (grocery.images && grocery.images.length > 0) {
         for (const img of grocery.images) {
@@ -154,25 +194,32 @@ export async function POST(req: Request) {
           if (uploaded) uploadedImages.push(uploaded);
         }
       }
-      
-      grocery.images = uploadedImages;
 
-      await grocery.save();
+      updatedGrocery.images = uploadedImages;
+
+      await updatedGrocery.save();
 
       /* ---------- DELETE OLD VARIANTS & CREATE NEW ONES ---------- */
-      await GroceryVariant.deleteMany({ grocery: grocery._id });
+      await GroceryVariant.deleteMany({ grocery: updatedGrocery._id });
+
+      const resolveCodStatus = (variant: any) => {
+        // Normalize incoming COD shape to our enum
+        return variant?.cod?.status || variant?.codStatus || "with-charge";
+      };
 
       const createdVariants: any[] = [];
       for (let i = 0; i < variants.length; i++) {
         const v = variants[i];
         const discountPercent = calculateDiscountPercent(
           v.price.mrp,
-          v.price.selling
+          v.price.selling,
         );
+        const codStatus = resolveCodStatus(v);
 
         const variant = await GroceryVariant.create({
-          grocery: grocery._id,
+          grocery: updatedGrocery._id,
           label: v.label,
+          variantName: v.variantName || null,
           unit: {
             unit: v.unit.unit,
             value: v.unit.value,
@@ -185,6 +232,9 @@ export async function POST(req: Request) {
           },
           countInStock: v.countInStock || 0,
           isDefault: i === 0,
+          cod: {
+            status: codStatus,
+          },
         });
 
         createdVariants.push(variant);
@@ -194,10 +244,10 @@ export async function POST(req: Request) {
         {
           success: true,
           message: "Grocery updated successfully",
-          grocery,
+          grocery: updatedGrocery,
           variants: createdVariants,
         },
-        { status: 200 }
+        { status: 200 },
       );
     } else {
       // ===== CREATE LOGIC =====
@@ -205,6 +255,9 @@ export async function POST(req: Request) {
       const description = formData.get("description") as string;
       const categoryId = formData.get("category") as string;
       const brand = (formData.get("brand") as string) || "Ordinary";
+      const isBestSeller = formData.get("isBestSeller") === "true";
+      const isNew = formData.get("isNew") === "true";
+      const isFeatured = formData.get("isFeatured") === "true";
 
       // Parse variants JSON from formData
       const variantsJson = formData.get("variants") as string;
@@ -215,7 +268,7 @@ export async function POST(req: Request) {
         } catch (e) {
           return NextResponse.json(
             { success: false, message: "Invalid variants JSON" },
-            { status: 400 }
+            { status: 400 },
           );
         }
       }
@@ -224,14 +277,14 @@ export async function POST(req: Request) {
       if (!name || !categoryId) {
         return NextResponse.json(
           { success: false, message: "Name and category are required" },
-          { status: 400 }
+          { status: 400 },
         );
       }
 
       if (!variants || variants.length === 0) {
         return NextResponse.json(
           { success: false, message: "At least one variant is required" },
-          { status: 400 }
+          { status: 400 },
         );
       }
 
@@ -240,7 +293,7 @@ export async function POST(req: Request) {
       if (!category) {
         return NextResponse.json(
           { success: false, message: "Invalid category" },
-          { status: 400 }
+          { status: 400 },
         );
       }
 
@@ -248,8 +301,11 @@ export async function POST(req: Request) {
       for (const variant of variants) {
         if (!category.allowedUnits.includes(variant.unit.unit)) {
           return NextResponse.json(
-            { success: false, message: `Unit '${variant.unit.unit}' not allowed for this category` },
-            { status: 400 }
+            {
+              success: false,
+              message: `Unit '${variant.unit.unit}' not allowed for this category`,
+            },
+            { status: 400 },
           );
         }
       }
@@ -263,7 +319,12 @@ export async function POST(req: Request) {
         description,
         category: category._id,
         brand,
-        createdBy: session.user.id,
+        badges: {
+          isBestSeller,
+          isNew,
+          isFeatured,
+        },
+        createdBy: token.sub,
         images: [],
       });
 
@@ -281,17 +342,23 @@ export async function POST(req: Request) {
       await grocery.save();
 
       /* ---------- CREATE VARIANTS ---------- */
+      const resolveCodStatus = (variant: any) => {
+        return variant?.cod?.status || variant?.codStatus || "with-charge";
+      };
+
       const createdVariants: any[] = [];
       for (let i = 0; i < variants.length; i++) {
         const v = variants[i];
         const discountPercent = calculateDiscountPercent(
           v.price.mrp,
-          v.price.selling
+          v.price.selling,
         );
+        const codStatus = resolveCodStatus(v);
 
         const variant = await GroceryVariant.create({
           grocery: grocery._id,
           label: v.label,
+          variantName: v.variantName || null,
           unit: {
             unit: v.unit.unit,
             value: v.unit.value,
@@ -304,6 +371,9 @@ export async function POST(req: Request) {
           },
           countInStock: v.countInStock || 0,
           isDefault: i === 0,
+          cod: {
+            status: codStatus,
+          },
         });
 
         createdVariants.push(variant);
@@ -316,14 +386,14 @@ export async function POST(req: Request) {
           grocery,
           variants: createdVariants,
         },
-        { status: 201 }
+        { status: 201 },
       );
     }
   } catch (error: any) {
     console.error("ADD/UPDATE GROCERY ERROR:", error);
     return NextResponse.json(
       { success: false, message: `Error saving grocery: ${error.message}` },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }

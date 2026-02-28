@@ -11,9 +11,12 @@ type CloudinaryResponse = {
   publicId: string;
 };
 
+type CloudinaryResourceType = "image" | "raw" | "auto";
+
 const uploadOnCloudinary = async (
   file: File,
-  folder: string
+  folder: string,
+  resourceType: CloudinaryResourceType = "image",
 ): Promise<CloudinaryResponse | null> => {
   if (!file || file.size === 0) return null;
 
@@ -27,7 +30,7 @@ const uploadOnCloudinary = async (
       .upload_stream(
         {
           folder,
-          resource_type: "image",
+          resource_type: resourceType,
           public_id: `${Date.now()}-${fileNameWithoutExt}`,
         },
         (error, result) => {

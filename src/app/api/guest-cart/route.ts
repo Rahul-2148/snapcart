@@ -235,6 +235,7 @@ export async function POST(req: NextRequest) {
 
   return NextResponse.json({
     success: true,
+    message: "Item added to cart",
     cartCount: guestCart.reduce((s, i) => s + i.quantity, 0),
     coupon: validCoupon,
     totals: calculateGuestCartTotals(guestCart, discount),
@@ -278,6 +279,7 @@ export async function PATCH(req: NextRequest) {
 
   return NextResponse.json({
     success: true,
+    message: quantity === 0 ? "Item removed from cart" : "Quantity updated",
     cartCount: guestCart.reduce((s, i) => s + i.quantity, 0),
     coupon: validCoupon,
     totals: calculateGuestCartTotals(guestCart, discount),
@@ -286,15 +288,14 @@ export async function PATCH(req: NextRequest) {
 
 /* ================= DELETE (CLEAR CART) ================= */
 export async function DELETE() {
-  const blocked = await blockIfLoggedIn();
-  if (blocked) return blocked;
-
+  // ✅ Allow clearing guest cart even when logged in (for post-merge cleanup)
   const cookieStore = await cookies();
   cookieStore.delete("guest_cart");
   cookieStore.delete("guest_coupon");
 
   return NextResponse.json({
     success: true,
+    message: "Cart cleared",
     cartCount: 0,
     coupon: null,
     totals: calculateGuestCartTotals([], 0),

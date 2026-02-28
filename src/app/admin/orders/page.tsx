@@ -15,6 +15,7 @@ const OrdersPage = () => {
   const [debouncedSearch, setDebouncedSearch] = useState("");
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [orderFilter, setOrderFilter] = useState("all");
   const searchInputRef = useRef<HTMLInputElement>(null);
   const wasFocusedRef = useRef(false);
 
@@ -23,8 +24,8 @@ const OrdersPage = () => {
       setLoading(true);
       const res = await axios.get(
         `/api/admin/order?page=${page}&limit=10&search=${encodeURIComponent(
-          debouncedSearch
-        )}`
+          debouncedSearch,
+        )}&filter=${orderFilter}`,
       );
       if (res.data.success) {
         setOrders(res.data.orders);
@@ -36,7 +37,7 @@ const OrdersPage = () => {
     } finally {
       setLoading(false);
     }
-  }, [page, debouncedSearch]);
+  }, [page, debouncedSearch, orderFilter]);
 
   useEffect(() => {
     const timer = setTimeout(() => {
@@ -59,18 +60,25 @@ const OrdersPage = () => {
     }
   }, [loading]);
 
-  const handleViewOrder = async (order: Order) => {
-    try {
-      const res = await axios.get(`/api/admin/order/${order._id}`);
-      if (res.data.success) {
-        setSelectedOrder(res.data.order);
-        setIsModalOpen(true);
-      } else {
+  const handleViewOrder = (order: Order) => {
+    // Open modal immediately with basic order data
+    setSelectedOrder(order);
+    setIsModalOpen(true);
+
+    // Fetch detailed order info in background
+    axios
+      .get(`/api/admin/order/${order._id}`)
+      .then((res) => {
+        if (res.data.success) {
+          setSelectedOrder(res.data.order);
+        } else {
+          toast.error("Failed to fetch order details");
+        }
+      })
+      .catch((error) => {
+        console.error("Failed to fetch order details", error);
         toast.error("Failed to fetch order details");
-      }
-    } catch (error) {
-      toast.error("Failed to fetch order details");
-    }
+      });
   };
 
   const handleStatusChange = async (orderId: string, newStatus: string) => {
@@ -94,25 +102,61 @@ const OrdersPage = () => {
       <div>
         <h1 className="text-2xl font-bold mb-6">Manage Orders</h1>
 
-        <div className="mb-6">
-          <div className="relative">
-            <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-              <MagnifyingGlassIcon className="h-5 w-5 text-gray-400" />
+        <div className="mb-6 space-y-4">
+          {/* Filter Tabs */}
+          <div className="flex gap-2 flex-wrap">
+            <button
+              onClick={() => {
+                setOrderFilter("all");
+                setPage(1);
+              }}
+              className={`px-6 py-2 rounded-lg font-medium transition-all ${
+                orderFilter === "all"
+                  ? "bg-blue-600 text-white shadow-md"
+                  : "bg-gray-100 text-gray-700 hover:bg-gray-200 border border-gray-300"
+              }`}
+            >
+              All Orders
+            </button>
+            <button
+              onClick={() => {
+                setOrderFilter("with-refunds");
+                setPage(1);
+              }}
+              className={`px-6 py-2 rounded-lg font-medium transition-all ${
+                orderFilter === "with-refunds"
+                  ? "bg-blue-600 text-white shadow-md"
+                  : "bg-gray-100 text-gray-700 hover:bg-gray-200 border border-gray-300"
+              }`}
+            >
+              ✓ Refunded Orders
+            </button>
+          </div>
+
+          {/* Search Box */}
+          <div>
+            <label className="block text-sm font-semibold text-gray-700 mb-2">
+              Search by Order ID
+            </label>
+            <div className="relative">
+              <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                <MagnifyingGlassIcon className="h-5 w-5 text-gray-400" />
+              </div>
+              <input
+                ref={searchInputRef}
+                type="text"
+                placeholder="Search orders by order ID..."
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                onFocus={() => {
+                  wasFocusedRef.current = true;
+                }}
+                onBlur={() => {
+                  wasFocusedRef.current = false;
+                }}
+                className="block w-full pl-10 pr-3 py-2 border border-gray-300 rounded-md leading-5 bg-white placeholder-gray-500 focus:outline-none focus:placeholder-gray-400 focus:ring-1 focus:ring-indigo-500 focus:border-indigo-500"
+              />
             </div>
-            <input
-              ref={searchInputRef}
-              type="text"
-              placeholder="Search orders by order ID..."
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              onFocus={() => {
-                wasFocusedRef.current = true;
-              }}
-              onBlur={() => {
-                wasFocusedRef.current = false;
-              }}
-              className="block w-full pl-10 pr-3 py-2 border border-gray-300 rounded-md leading-5 bg-white placeholder-gray-500 focus:outline-none focus:placeholder-gray-400 focus:ring-1 focus:ring-indigo-500 focus:border-indigo-500"
-            />
           </div>
         </div>
 

@@ -1,11 +1,22 @@
 // src/lib/server/db.ts
 import mongoose from "mongoose";
 
+// Import all models to ensure schemas are registered
+import "@/models/grocery.model";
+import "@/models/category.model";
+import "@/models/order.model";
+import "@/models/user.model";
+import "@/models/returnRequest.model";
+import "@/models/adminSettings.model";
+import "@/models/newsletterSubscriber.model";
+import "@/models/wishlist.model";
+import "@/models/wishlistFollow.model";
+
 const MONGODB_URI = process.env.MONGODB_URI;
 
 if (!MONGODB_URI) {
   throw new Error(
-    "Please define the MONGODB_URI environment variable inside .env.local"
+    "Please define the MONGODB_URI environment variable inside .env.local",
   );
 }
 

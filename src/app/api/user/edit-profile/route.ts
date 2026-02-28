@@ -16,10 +16,24 @@ export async function PATCH(req: NextRequest) {
 
     await connectDb();
 
-    const formData = await req.formData();
-    const name = formData.get("name") as string;
-    const mobile = formData.get("mobileNumber") as string;
-    const imageFile = formData.get("image") as File | null;
+    const contentType = req.headers.get("content-type") || "";
+    let name: string | undefined;
+    let mobile: string | undefined;
+    let gender: string | undefined;
+    let imageFile: File | null = null;
+
+    if (contentType.includes("multipart/form-data")) {
+      const formData = await req.formData();
+      name = (formData.get("name") as string) || undefined;
+      mobile = (formData.get("mobileNumber") as string) || undefined;
+      gender = (formData.get("gender") as string) || undefined;
+      imageFile = (formData.get("image") as File) || null;
+    } else {
+      const body = await req.json();
+      name = body.name;
+      mobile = body.mobileNumber;
+      gender = body.gender;
+    }
 
     const user = await User.findOne({ email: session.user.email });
     if (!user) {
@@ -29,6 +43,7 @@ export async function PATCH(req: NextRequest) {
     const updateData: {
       name?: string;
       mobileNumber?: string;
+      gender?: string | null;
       image?: { url: string; publicId: string };
     } = {};
 
@@ -38,6 +53,17 @@ export async function PATCH(req: NextRequest) {
 
     if (mobile) {
       updateData.mobileNumber = mobile;
+    }
+
+    if (typeof gender === "string") {
+      const allowedGenders = ["male", "female", "other", "prefer-not-to-say"];
+      if (gender === "") {
+        updateData.gender = null;
+      } else if (allowedGenders.includes(gender)) {
+        updateData.gender = gender;
+      } else {
+        updateData.gender = null;
+      }
     }
 
     if (imageFile) {
@@ -62,14 +88,23 @@ export async function PATCH(req: NextRequest) {
       return NextResponse.json({ user: userWithoutPassword }, { status: 200 });
     }
 
-    const updatedUser = await User.findByIdAndUpdate(
-      user._id,
-      { $set: updateData },
-      { new: true }
-    ).select("-password");
+    console.log("💾 Saving user with data:", updateData);
 
+    if (updateData.name !== undefined) {
+      user.name = updateData.name;
+    }
+    if (updateData.mobileNumber !== undefined) {
+      user.mobileNumber = updateData.mobileNumber;
+    }
+    if (updateData.gender !== undefined) {
+      user.gender = updateData.gender;
+    }
+
+    await user.save();
+
+    const updatedUser = await User.findById(user._id).lean();
     const userWithHasPassword = {
-      ...updatedUser.toObject(),
+      ...updatedUser,
       hasPassword: !!user.password, // user has the password field since not selected
     };
 
