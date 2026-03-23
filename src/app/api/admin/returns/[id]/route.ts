@@ -10,6 +10,8 @@ import emailService from "@/lib/server/email";
 import Stripe from "stripe";
 import Razorpay from "razorpay";
 
+export const dynamic = "force-dynamic";
+
 let stripeClient: Stripe | null = null;
 const getStripeClient = () => {
   if (stripeClient) return stripeClient;

@@ -1,10 +1,33 @@
 // src/lib/server/redis.ts
 import { Redis } from "@upstash/redis";
 
-export const redis = new Redis({
-  url: process.env.UPSTASH_REDIS_URL!,
-  token: process.env.UPSTASH_REDIS_TOKEN!,
-});
+let redisClient: Redis | null = null;
+
+const getRedisClient = (): Redis => {
+  if (redisClient) {
+    return redisClient;
+  }
+
+  const url = process.env.UPSTASH_REDIS_URL;
+  const token = process.env.UPSTASH_REDIS_TOKEN;
+
+  if (!url || !token) {
+    throw new Error(
+      "UPSTASH_REDIS_URL/UPSTASH_REDIS_TOKEN are not configured",
+    );
+  }
+
+  redisClient = new Redis({ url, token });
+  return redisClient;
+};
+
+export const redis = new Proxy({} as Redis, {
+  get(_target, prop) {
+    const client = getRedisClient() as any;
+    const value = client[prop];
+    return typeof value === "function" ? value.bind(client) : value;
+  },
+}) as Redis;
 
 export interface OTPData {
   email: string;

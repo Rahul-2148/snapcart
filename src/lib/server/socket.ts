@@ -100,10 +100,4 @@ export const getIO = () => {
   return getSocketClient();
 };
 
-// Pre-initialize socket on module load to avoid cold start delays
-if (typeof window === "undefined") {
-  // Only initialize on server side
-  initializeSocket();
-}
-
 export default getSocketClient;

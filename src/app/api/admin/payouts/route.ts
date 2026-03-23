@@ -5,6 +5,8 @@ import { Payout } from "@/models/payout.model";
 import { User } from "@/models/user.model";
 import Razorpay from "razorpay";
 
+export const dynamic = "force-dynamic";
+
 let razorpayClient: Razorpay | null = null;
 const getRazorpayClient = () => {
   if (razorpayClient) return razorpayClient as any;
