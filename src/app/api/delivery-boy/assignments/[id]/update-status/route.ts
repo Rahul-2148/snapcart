@@ -17,8 +17,9 @@ const ALLOWED_STATUSES = ["picked_up", "on_the_way", "delivered"] as const;
 
 export const POST = async (
   req: NextRequest,
-  { params }: { params: { id: string } },
+  { params }: { params: Promise<{ id: string }> },
 ) => {
+  const { id } = await params;
   const session = await auth();
   if (!session?.user?.id) {
     return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
@@ -38,7 +39,7 @@ export const POST = async (
 
   try {
     const assignment = await DeliveryAssignment.findOne({
-      _id: params.id,
+      _id: id,
       assignedTo: session.user.id,
     }).session(dbSession);
 

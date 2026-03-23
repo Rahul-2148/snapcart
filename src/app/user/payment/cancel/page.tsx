@@ -5,11 +5,11 @@
 import { useRouter, useSearchParams } from "next/navigation";
 import { AlertCircle, ArrowLeft } from "lucide-react";
 import { motion } from "motion/react";
-import { useEffect } from "react";
+import { Suspense, useEffect } from "react";
 import { toast } from "sonner";
 import axios from "axios";
 
-const PaymentCancelPage = () => {
+const PaymentCancelContent = () => {
   const router = useRouter();
   const searchParams = useSearchParams();
   const paymentSessionId =
@@ -69,4 +69,10 @@ const PaymentCancelPage = () => {
   );
 };
 
-export default PaymentCancelPage;
+export default function PaymentCancelPage() {
+  return (
+    <Suspense fallback={<div className="p-6">Loading...</div>}>
+      <PaymentCancelContent />
+    </Suspense>
+  );
+}

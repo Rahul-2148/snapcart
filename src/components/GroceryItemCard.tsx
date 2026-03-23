@@ -676,6 +676,8 @@ const GroceryItemCard = ({
           handleWishlistUpdate();
         }}
         productId={grocery._id}
+        productTitle={grocery.name}
+        productImage={grocery.images?.[0]?.url}
       />
     </motion.div>
   );

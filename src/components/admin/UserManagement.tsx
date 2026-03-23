@@ -58,6 +58,7 @@ export default function UserManagement() {
     userId: string,
     update: {
       role?: string;
+      removeRole?: string;
       isBlocked?: boolean;
       roleChangeRequest?: "approved" | "rejected";
     }
@@ -232,7 +233,7 @@ export default function UserManagement() {
                               {role === "deliveryBoy" ? "Delivery Partner" : role.charAt(0).toUpperCase() + role.slice(1)}
                               {user.currentRole === role && <span className="ml-1">(Current)</span>}
                             </span>
-                            {user.roles.length > 1 && (
+                            {(user.roles?.length || 0) > 1 && (
                               <button
                                 className="text-xs px-1 py-0.5 bg-red-200 text-red-900 rounded hover:bg-red-300 ml-1"
                                 onClick={() => handleUpdateUser(user._id!.toString(), { removeRole: role })}
@@ -366,7 +367,7 @@ export default function UserManagement() {
           >
             {["user", "deliveryBoy"].map((role: string) => {
               const user = users.find(u => u._id?.toString() === openRoleMenuUserId);
-              if (user?.roles?.includes(role)) return null;
+              if (user?.roles?.includes(role as any)) return null;
               return (
                 <button
                   key={role}

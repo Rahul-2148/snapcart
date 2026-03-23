@@ -9,13 +9,14 @@ import "@/models/groceryVariant.model";
 
 export async function GET(
   req: NextRequest,
-  { params }: { params: { id: string } },
+  { params }: { params: Promise<{ id: string }> },
 ) {
   try {
     await connectDb();
+    const { id: routeId } = await params;
     
     // Get ID - try multiple ways to access it
-    let id = params?.id;
+    let id = routeId;
     
     // If params is not directly accessible, try from URL
     if (!id) {
@@ -24,7 +25,7 @@ export async function GET(
       id = pathParts[pathParts.length - 1];
     }
     
-    console.log(`[GET Grocery] Full Params:`, JSON.stringify(params));
+    console.log(`[GET Grocery] Full Params:`, JSON.stringify({ id: routeId }));
     console.log(`[GET Grocery] ID: "${id}", Type: ${typeof id}, Length: ${String(id)?.length}`);
     
     // Validate ID exists

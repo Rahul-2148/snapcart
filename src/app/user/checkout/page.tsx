@@ -93,7 +93,7 @@ const Checkout = () => {
     minOrderValue: number;
     maxOrderValue: number;
   } | null>(null);
-  const [codInfo, setCodInfo] = useState<ReturnType<typeof checkCodAvailability> | null>({
+  const [codInfo, setCodInfo] = useState<any>({
     isCodAvailable: true,
     totalCodCharge: 0,
     blockedProducts: [],
@@ -873,7 +873,7 @@ const Checkout = () => {
                         The following items in your cart don't accept Cash on Delivery:
                       </p>
                       <ul className="text-sm text-red-700 space-y-1">
-                        {codInfo.blockedProducts.map((product) => (
+                        {codInfo.blockedProducts.map((product: string) => (
                           <li key={product} className="flex items-center gap-2">
                             <span className="w-1 h-1 bg-red-600 rounded-full" />
                             {product}

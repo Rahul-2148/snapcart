@@ -251,6 +251,7 @@ export async function sendOrderConfirmationEmail(
     }>;
     subTotal: number;
     deliveryFee: number;
+    codHandlingCharge?: number;
     couponDiscount: number;
     finalTotal: number;
     currency: string;
@@ -515,6 +516,7 @@ interface EmailService {
       items: Array<{ name: string; quantity: number; price: number }>;
       subTotal: number;
       deliveryFee: number;
+      codHandlingCharge?: number;
       couponDiscount: number;
       finalTotal: number;
       currency: string;

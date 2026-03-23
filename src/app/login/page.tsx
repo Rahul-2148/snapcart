@@ -7,7 +7,7 @@ import { motion } from "motion/react";
 import { signIn, signOut, useSession } from "next-auth/react";
 import Image from "next/image";
 import { useRouter, useSearchParams } from "next/navigation";
-import { useEffect, useState } from "react";
+import { Suspense, useEffect, useState } from "react";
 import { useDispatch } from "react-redux";
 import axios from "axios";
 import { toast } from "sonner";
@@ -21,7 +21,7 @@ import {
 import { setCart } from "@/redux/features/cartSlice"; // ✅ Removed setIsGuest
 import type { AppDispatch } from "@/redux/store";
 
-const Login = () => {
+const LoginContent = () => {
   const dispatch = useDispatch<AppDispatch>();
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -327,4 +327,10 @@ const Login = () => {
   );
 };
 
-export default Login;
+export default function Login() {
+  return (
+    <Suspense fallback={null}>
+      <LoginContent />
+    </Suspense>
+  );
+}

@@ -82,7 +82,7 @@ const RegisterForm = ({
         const signInResult = await signIn("credentials", {
           email,
           password,
-          redirect: true,
+          redirect: false,
           callbackUrl: redirectUrl,
         });
         
@@ -93,6 +93,8 @@ const RegisterForm = ({
           console.log("Auto sign-in failed, redirecting to login");
           setLoading(false);
           router.push("/login");
+        } else {
+          router.push(redirectUrl);
         }
       }
       setLoading(false);

@@ -3,6 +3,7 @@
 
 import { fetchCartApi } from "@/hooks/cart.api";
 import { setCart } from "@/redux/features/cartSlice";
+import type { AppliedCoupon } from "@/redux/features/cartSlice";
 import { AppDispatch } from "@/redux/store";
 import axios from "axios";
 import { motion } from "framer-motion";
@@ -80,7 +81,7 @@ const StripePaymentPage = () => {
       const cart = await fetchCartApi();
       
       // Preserve coupon if it exists
-      let appliedCoupon = null;
+      let appliedCoupon: AppliedCoupon | null = null;
       if (cart.coupon) {
         const couponType = cart.coupon.discountType?.toLowerCase();
         appliedCoupon = {
@@ -382,11 +383,11 @@ const StripePaymentPage = () => {
                   </span>
                 </div>
               )}
-              {orderData.codHandlingCharge > 0 && (
+              {(orderData.codHandlingCharge || 0) > 0 && (
                 <div className="flex justify-between">
                   <span className="text-gray-600">COD Handling Charge</span>
                   <span className="font-medium">
-                    +₹{orderData.codHandlingCharge.toFixed(2)}
+                    +₹{(orderData.codHandlingCharge || 0).toFixed(2)}
                   </span>
                 </div>
               )}

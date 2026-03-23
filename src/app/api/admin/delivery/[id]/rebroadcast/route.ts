@@ -6,15 +6,16 @@ import { broadcastOrderToPartners } from "@/lib/server/delivery";
 
 export const POST = async (
   req: NextRequest,
-  { params }: { params: { id: string } },
+  { params }: { params: Promise<{ id: string }> },
 ) => {
+  const { id } = await params;
   const session = await auth();
   if (!session?.user?.id || session.user.currentRole !== "admin") {
     return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
   }
 
   await connectDb();
-  const assignment = await DeliveryAssignment.findById(params.id);
+  const assignment = await DeliveryAssignment.findById(id);
   if (!assignment || assignment.status !== "broadcasted") {
     return NextResponse.json(
       { message: "Cannot re-broadcast this assignment" },
@@ -23,7 +24,7 @@ export const POST = async (
   }
 
   try {
-    const result = await broadcastOrderToPartners(params.id);
+    const result = await broadcastOrderToPartners(id);
     return NextResponse.json({ success: true, ...result });
   } catch (error: any) {
     return NextResponse.json({ message: error.message }, { status: 500 });

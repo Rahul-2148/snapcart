@@ -35,7 +35,11 @@ interface Grocery {
   images?: { url: string }[];
 }
 
-const Navbar = () => {
+interface NavbarProps {
+  user?: IUser | null;
+}
+
+const Navbar = ({ user: propUser }: NavbarProps = {}) => {
   const router = useRouter();
   const [open, setOpen] = useState(false);
   const profileDropdown = useRef<HTMLDivElement>(null);
@@ -75,7 +79,7 @@ const Navbar = () => {
 
   // Use Redux user if available, otherwise use NextAuth session
   const authenticatedUser =
-    user || (session?.user ? (session.user as any) : null);
+    propUser || user || (session?.user ? (session.user as any) : null);
   const [showSearchDropdown, setShowSearchDropdown] = useState(false);
   const [recentSearches, setRecentSearches] = useState<string[]>([]);
   const searchInputRef = useRef<HTMLInputElement>(null);

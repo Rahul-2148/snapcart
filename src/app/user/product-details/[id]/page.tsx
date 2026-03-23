@@ -932,7 +932,7 @@ const ProductDetailsPage = () => {
     );
   }
 
-  if (!product && !loading) {
+  if (!product) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-red-50 to-orange-50">
         <div className="bg-white shadow-xl rounded-3xl p-10 text-center max-w-md">

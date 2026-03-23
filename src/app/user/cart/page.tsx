@@ -369,7 +369,7 @@ const CartPage = () => {
             );
             toast.success("Cart cleared successfully!");
           } else {
-            await clearCart();
+            await clearCartApi();
             dispatch(
               setCart({
                 items: [],
@@ -388,7 +388,8 @@ const CartPage = () => {
   };
 
   /* ================= HANDLE APPLY COUPON ================= */
-  const handleApplyCoupon = async (e: React.FormEvent) => {
+  const handleApplyCoupon = async (e?: React.FormEvent) => {
+    e?.preventDefault();
     if (!couponCode.trim()) {
       setCouponError("Please enter a coupon code");
       return;

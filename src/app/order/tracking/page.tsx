@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useState } from "react";
+import React, { Suspense, useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import dynamic from "next/dynamic";
 import { useSocket } from "@/contexts/SocketContext";
@@ -21,7 +21,7 @@ interface TrackingData {
   deliveryPartnerContact?: { name?: string; mobile?: string } | null;
 }
 
-export default function OrderTrackingPage() {
+function OrderTrackingContent() {
   const searchParams = useSearchParams();
   const orderId = searchParams.get("orderId");
   const socket = useSocket();
@@ -359,5 +359,13 @@ export default function OrderTrackingPage() {
         />
       )}
     </div>
+  );
+}
+
+export default function OrderTrackingPage() {
+  return (
+    <Suspense fallback={<div className="p-6">Loading tracking...</div>}>
+      <OrderTrackingContent />
+    </Suspense>
   );
 }

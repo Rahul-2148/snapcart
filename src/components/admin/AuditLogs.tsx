@@ -28,6 +28,103 @@ interface AuditLogEntry {
   createdAt?: string;
 }
 
+const isObject = (value: unknown): value is Record<string, unknown> =>
+  typeof value === "object" && value !== null && !Array.isArray(value);
+
+const tryParseJson = (value: unknown) => {
+  if (typeof value !== "string") return value;
+  try {
+    return JSON.parse(value);
+  } catch {
+    return value;
+  }
+};
+
+const resolveFirst = (
+  source: Record<string, unknown>,
+  keys: string[],
+): unknown => {
+  for (const key of keys) {
+    const value = source[key];
+    if (value !== undefined && value !== null) {
+      return tryParseJson(value);
+    }
+  }
+  return undefined;
+};
+
+const buildFallbackDiff = (
+  before: Record<string, unknown> | null,
+  after: Record<string, unknown> | null,
+) => {
+  if (!before || !after) return {} as Record<string, { from: unknown; to: unknown }>;
+
+  const keys = new Set([...Object.keys(before), ...Object.keys(after)]);
+  const diff: Record<string, { from: unknown; to: unknown }> = {};
+
+  keys.forEach((key) => {
+    const from = before[key];
+    const to = after[key];
+    if (JSON.stringify(from) !== JSON.stringify(to)) {
+      diff[key] = { from, to };
+    }
+  });
+
+  return diff;
+};
+
+const normalizeMetadata = (log: AuditLogEntry) => {
+  const logRecord = log as unknown as Record<string, unknown>;
+  const metadata = isObject(log.metadata) ? log.metadata : {};
+  const metadataRecord = metadata as Record<string, unknown>;
+
+  const beforeRaw =
+    resolveFirst(metadataRecord, [
+      "before",
+      "old",
+      "previous",
+      "prev",
+      "oldValue",
+      "beforeData",
+      "oldData",
+    ]) ??
+    resolveFirst(logRecord, ["before", "oldValue", "beforeData"]);
+
+  const afterRaw =
+    resolveFirst(metadataRecord, [
+      "after",
+      "new",
+      "next",
+      "newValue",
+      "afterData",
+      "newData",
+    ]) ?? resolveFirst(logRecord, ["after", "newValue", "afterData"]);
+
+  const before = isObject(beforeRaw) ? beforeRaw : null;
+  const after = isObject(afterRaw) ? afterRaw : null;
+
+  const diffRaw =
+    resolveFirst(metadataRecord, ["diff", "changesDiff", "delta", "patch"]) ??
+    resolveFirst(logRecord, ["diff", "changesDiff"]);
+
+  const diff = isObject(diffRaw)
+    ? (diffRaw as Record<string, { from: unknown; to: unknown }>)
+    : buildFallbackDiff(before, after);
+
+  return {
+    ...metadata,
+    before,
+    after,
+    diff,
+  } as AuditMetadata;
+};
+
+const formatJsonPanel = (value: unknown) => {
+  if (value === null || value === undefined) return "No data";
+  if (isObject(value) && Object.keys(value).length === 0) return "No data";
+  return JSON.stringify(value, null, 2);
+};
+
 interface PaginationState {
   page: number;
   limit: number;
@@ -54,6 +151,43 @@ const formatDate = (value?: string) => {
   if (!value) return "-";
   const date = new Date(value);
   return Number.isNaN(date.getTime()) ? value : date.toLocaleString();
+};
+
+const formatIpAddress = (ipAddress?: string) => {
+  if (!ipAddress) return "-";
+
+  let candidate = String(ipAddress).trim();
+  if (!candidate) return "-";
+
+  if (candidate.startsWith("[") && candidate.includes("]")) {
+    candidate = candidate.slice(1, candidate.indexOf("]"));
+  }
+
+  if (candidate.includes(",")) {
+    candidate = candidate
+      .split(",")
+      .map((value) => value.trim())
+      .find(Boolean) || candidate;
+  }
+
+  if (candidate.toLowerCase() === "local" || candidate.toLowerCase() === "localhost") {
+    return "127.0.0.1 (localhost)";
+  }
+
+  if (candidate.startsWith("::ffff:")) {
+    candidate = candidate.replace("::ffff:", "");
+  }
+
+  if (candidate === "::1" || candidate === "0:0:0:0:0:0:0:1") {
+    return "127.0.0.1 (localhost)";
+  }
+
+  const ipv4WithPort = candidate.match(/^(\d{1,3}(?:\.\d{1,3}){3}):(\d+)$/);
+  if (ipv4WithPort) {
+    candidate = ipv4WithPort[1];
+  }
+
+  return candidate || "-";
 };
 
 export default function AuditLogs() {
@@ -265,6 +399,7 @@ export default function AuditLogs() {
               )}
               {!loading &&
                 logs.map((log) => {
+                  const normalizedMetadata = normalizeMetadata(log);
                   const changes = log.metadata?.changes?.length
                     ? log.metadata.changes.join(", ")
                     : "-";
@@ -289,7 +424,7 @@ export default function AuditLogs() {
                           {log.metadata?.source || "-"}
                         </td>
                         <td className="px-4 py-3 text-sm text-gray-600">
-                          {log.ipAddress || "-"}
+                          {formatIpAddress(log.ipAddress)}
                         </td>
                         <td className="px-4 py-3 text-right">
                           <button
@@ -312,11 +447,7 @@ export default function AuditLogs() {
                                   Diff
                                 </p>
                                 <pre className="max-h-56 overflow-auto rounded-lg border border-gray-200 bg-white p-3 text-xs text-gray-700">
-                                  {JSON.stringify(
-                                    log.metadata?.diff || {},
-                                    null,
-                                    2,
-                                  )}
+                                  {formatJsonPanel(normalizedMetadata.diff)}
                                 </pre>
                               </div>
                               <div className="space-y-2">
@@ -324,11 +455,7 @@ export default function AuditLogs() {
                                   Before
                                 </p>
                                 <pre className="max-h-56 overflow-auto rounded-lg border border-gray-200 bg-white p-3 text-xs text-gray-700">
-                                  {JSON.stringify(
-                                    log.metadata?.before || {},
-                                    null,
-                                    2,
-                                  )}
+                                  {formatJsonPanel(normalizedMetadata.before)}
                                 </pre>
                               </div>
                               <div className="space-y-2">
@@ -336,11 +463,7 @@ export default function AuditLogs() {
                                   After
                                 </p>
                                 <pre className="max-h-56 overflow-auto rounded-lg border border-gray-200 bg-white p-3 text-xs text-gray-700">
-                                  {JSON.stringify(
-                                    log.metadata?.after || {},
-                                    null,
-                                    2,
-                                  )}
+                                  {formatJsonPanel(normalizedMetadata.after)}
                                 </pre>
                               </div>
                             </div>

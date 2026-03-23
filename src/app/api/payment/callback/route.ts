@@ -316,7 +316,7 @@ export const POST = async (req: NextRequest) => {
     return NextResponse.json({
       success: true,
       message: "Payment callback processed",
-      order,
+      orderId: processedOrderId,
     });
   } catch (error: any) {
     if (dbSession.inTransaction()) {

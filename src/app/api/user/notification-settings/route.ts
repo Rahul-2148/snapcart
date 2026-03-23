@@ -106,6 +106,23 @@ const sanitizePayload = (payload: NotificationSettingsPayload) => ({
   },
 });
 
+const getClientIp = (req: NextRequest) => {
+  const forwarded = req.headers.get("x-forwarded-for");
+  const realIp = req.headers.get("x-real-ip");
+  const cfIp = req.headers.get("cf-connecting-ip");
+
+  const raw =
+    forwarded?.split(",")[0]?.trim() ||
+    realIp?.trim() ||
+    cfIp?.trim() ||
+    "";
+
+  if (!raw) return undefined;
+  if (raw.startsWith("::ffff:")) return raw.replace("::ffff:", "");
+  if (raw === "::1" || raw === "0:0:0:0:0:0:0:1") return "127.0.0.1";
+  return raw;
+};
+
 const extractSettings = (
   value?: Partial<{
     channels: Record<string, boolean>;
@@ -213,10 +230,7 @@ export async function PUT(req: NextRequest) {
         after: afterSettings,
         diff,
       },
-      ipAddress:
-        req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ||
-        req.headers.get("x-real-ip") ||
-        undefined,
+      ipAddress: getClientIp(req),
       userAgent: req.headers.get("user-agent") || undefined,
     });
 

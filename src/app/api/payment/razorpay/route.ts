@@ -131,7 +131,7 @@ export const POST = async (req: NextRequest) => {
     const body = await req.text();
 
     try {
-      razorpay.webhooks.validateWebhookSignature(body, signature, secret);
+      (razorpay.webhooks as any).validateWebhookSignature(body, signature, secret);
     } catch (error) {
       return NextResponse.json(
         { message: "Invalid webhook signature" },

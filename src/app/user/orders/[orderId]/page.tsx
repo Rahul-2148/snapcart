@@ -51,6 +51,7 @@ interface Order {
   onlinePaymentType?: string;
   paymentDetails?: Array<{
     provider?: string;
+    transactionId?: string;
     paymentMethod?: string;
     status?: string;
   }>;
@@ -81,9 +82,14 @@ type ReturnInfo = {
     pickedUpAt?: string;
     receivedAt?: string;
     completedAt?: string;
-    refund?: { amount: number; method: string; completedAt?: string };
+    refund?: {
+      amount: number;
+      method: string;
+      transactionId?: string;
+      completedAt?: string;
+    };
     replacement?: { quantity: number; shippedAt?: string; deliveredAt?: string };
-  };
+  } | null;
 };
 
 interface TimelineItem {

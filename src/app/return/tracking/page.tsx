@@ -2,7 +2,7 @@
 "use client";
 
 import { useSearchParams } from "next/navigation";
-import { useEffect, useState } from "react";
+import { Suspense, useEffect, useState } from "react";
 import { useSocket } from "@/contexts/SocketContext";
 import dynamic from "next/dynamic";
 import { Clock, Package, Truck, CheckCircle } from "lucide-react";
@@ -36,7 +36,7 @@ interface ReturnDetails {
   receivedAt?: string;
 }
 
-export default function ReturnTrackingPage() {
+function ReturnTrackingContent() {
   const searchParams = useSearchParams();
   const returnId = searchParams.get("returnId");
   const socket = useSocket();
@@ -288,5 +288,13 @@ export default function ReturnTrackingPage() {
         )}
       </div>
     </div>
+  );
+}
+
+export default function ReturnTrackingPage() {
+  return (
+    <Suspense fallback={<div className="p-6">Loading return tracking...</div>}>
+      <ReturnTrackingContent />
+    </Suspense>
   );
 }

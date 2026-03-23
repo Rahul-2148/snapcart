@@ -10,8 +10,9 @@ import { isDeliveryPartner } from "@/lib/server/roles";
 
 export const POST = async (
   req: NextRequest,
-  { params }: { params: { id: string } },
+  { params }: { params: Promise<{ id: string }> },
 ) => {
+  const { id } = await params;
   const session = await auth();
   if (!session?.user?.id) {
     return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
@@ -46,7 +47,7 @@ export const POST = async (
 
     const assignment = await DeliveryAssignment.findOneAndUpdate(
       {
-        _id: params.id,
+        _id: id,
         status: "broadcasted",
         assignedTo: null,
         broadcastedTo: { $in: [partner.user] },

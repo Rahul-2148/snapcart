@@ -22,7 +22,7 @@ export async function GET(req: NextRequest) {
     }
     if (category) {
       // Normalize slug: lowercase, replace spaces/underscores with dashes
-      let categoryId = category;
+      let categoryId: any = category;
       const mongoose = (await import("mongoose")).default;
       let found = null;
       if (!mongoose.Types.ObjectId.isValid(category)) {

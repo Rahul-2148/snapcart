@@ -71,7 +71,9 @@ const MapView = ({
         touchZoom
         dragging
         className="w-full h-full rounded-lg"
-        whenCreated={(map) => (mapRef.current = map)}
+        ref={(map) => {
+          mapRef.current = map;
+        }}
       >
         <TileLayer
           attribution="&copy; OpenStreetMap contributors"

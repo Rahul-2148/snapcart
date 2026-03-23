@@ -17,6 +17,7 @@ import { useDispatch } from "react-redux";
 import { setCart, clearCart } from "@/redux/features/cartSlice";
 import { fetchCartApi } from "@/hooks/cart.api";
 import { AppDispatch } from "@/redux/store";
+import type { AppliedCoupon } from "@/redux/features/cartSlice";
 import Image from "next/image";
 
 declare global {
@@ -98,7 +99,7 @@ const RazorpayPaymentPage = () => {
       await axios.post("/api/payment/session/cancel", { paymentSessionId });
       const cart = await fetchCartApi();
 
-      let appliedCoupon = null;
+      let appliedCoupon: AppliedCoupon | null = null;
       if (cart.coupon) {
         const couponType = cart.coupon.discountType?.toLowerCase();
         appliedCoupon = {

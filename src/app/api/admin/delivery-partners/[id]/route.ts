@@ -50,7 +50,7 @@ export async function GET(
     }
 
     // Get all delivery assignments with error handling
-    let assignments = [];
+    let assignments: any[] = [];
     try {
       assignments = await DeliveryAssignment.find({
         assignedTo: partnerId,
@@ -82,7 +82,7 @@ export async function GET(
     );
 
     // Calculate average rating from reviews with error handling
-    let reviews = [];
+    let reviews: any[] = [];
     try {
       reviews = await Review.find({
         user: partnerId,

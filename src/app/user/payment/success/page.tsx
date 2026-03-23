@@ -2,7 +2,7 @@
 // src/app/user/payment/success/page.tsx
 "use client";
 
-import { useEffect, useState } from "react";
+import { Suspense, useEffect, useState } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import { CheckCircle, ArrowRight, Loader2, AlertTriangle } from "lucide-react";
 import { motion } from "framer-motion";
@@ -11,7 +11,7 @@ import { useDispatch } from "react-redux";
 import { clearCart } from "@/redux/features/cartSlice";
 import axios from "axios";
 
-const PaymentSuccessPage = () => {
+const PaymentSuccessContent = () => {
   const router = useRouter();
   const searchParams = useSearchParams();
   const dispatch = useDispatch();
@@ -110,4 +110,10 @@ const PaymentSuccessPage = () => {
   );
 };
 
-export default PaymentSuccessPage;
+export default function PaymentSuccessPage() {
+  return (
+    <Suspense fallback={<div className="p-6">Loading...</div>}>
+      <PaymentSuccessContent />
+    </Suspense>
+  );
+}

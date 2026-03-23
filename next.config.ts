@@ -9,7 +9,7 @@ const nextConfig: NextConfig = {
   
   // Suppress hydration warnings in development (caused by browser extensions)
   devIndicators: {
-    buildActivityPosition: 'bottom-right',
+    position: "bottom-right",
   },
 
   images: {

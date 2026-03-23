@@ -1,7 +1,7 @@
 // src/app/user/products/page.tsx
 "use client";
 
-import React, { useEffect, useState, useCallback } from "react";
+import React, { Suspense, useEffect, useState, useCallback } from "react";
 import axios from "axios";
 import { useSearchParams } from "next/navigation";
 import Navbar from "@/components/Navbar";
@@ -57,7 +57,7 @@ interface Grocery {
   isActive?: boolean;
 }
 
-const ProductsPage = () => {
+const ProductsPageContent = () => {
   const searchParams = useSearchParams();
 
   // State management
@@ -698,4 +698,10 @@ const ProductsPage = () => {
   );
 };
 
-export default ProductsPage;
+export default function ProductsPage() {
+  return (
+    <Suspense fallback={<div className="min-h-screen flex items-center justify-center">Loading...</div>}>
+      <ProductsPageContent />
+    </Suspense>
+  );
+}

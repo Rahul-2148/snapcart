@@ -4,7 +4,7 @@ export const hasRole = (
   session: Session | null | undefined,
   role: string,
 ): boolean => {
-  return (
+  return !!(
     session?.user?.currentRole === role ||
     session?.user?.roles?.includes(role)
   );

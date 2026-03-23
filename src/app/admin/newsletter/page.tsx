@@ -33,6 +33,9 @@ interface Campaign {
   _id: string;
   title: string;
   subject: string;
+  content?: string;
+  htmlContent?: string;
+  sentTo?: string;
   status: "draft" | "scheduled" | "sent" | "failed";
   recipientCount: number;
   openCount: number;
@@ -203,10 +206,12 @@ export default function AdminNewsletterPage() {
       const campaign = res.data.campaign;
       
       // Format HTML content for better display in editor with proper indentation
-      let formattedHtml = campaign.htmlContent || "";
+      let formattedHtml: string = campaign.htmlContent || "";
       if (formattedHtml) {
         // Split tags and content
-        const parts = formattedHtml.split(/(<[^>]+>)/g).filter(p => p.trim());
+        const parts = formattedHtml
+          .split(/(<[^>]+>)/g)
+          .filter((p: string) => p.trim());
         let indentLevel = 0;
         const selfClosingTags = /<(area|base|br|col|embed|hr|img|input|link|meta|param|source|track|wbr)[\s/>]/i;
         const blockTags = /^<\/?(?:div|p|ul|ol|li|h[1-6]|section|article|header|footer|nav|main|form|table|tbody|thead|tfoot|tr|td|th|blockquote|pre|address)/i;
@@ -314,7 +319,7 @@ export default function AdminNewsletterPage() {
       
       // Extract BODY content only - remove the Snapcart header/footer that AI might have generated
       // This ensures we only store the email body, not the wrapper
-      let bodyContent = campaign.htmlContent
+      let bodyContent: string = String(campaign.htmlContent ?? "")
         .replace(/\\n/g, '\n') // Unescape newlines for proper formatting in editor
         // Remove DOCTYPE and html/body tags
         .replace(/<!DOCTYPE[^>]*>/gi, '')
@@ -329,12 +334,14 @@ export default function AdminNewsletterPage() {
         .trim();
       
       // Format HTML for better readability with proper indentation
-      const parts = bodyContent.split(/(<[^>]+>)/g).filter(p => p.trim());
+      const parts = bodyContent
+        .split(/(<[^>]+>)/g)
+        .filter((p: string) => p.trim());
       let indentLevel = 0;
       const selfClosingTags = /<(area|base|br|col|embed|hr|img|input|link|meta|param|source|track|wbr)[\s/>]/i;
       const blockTags = /^<\/?(?:div|p|ul|ol|li|h[1-6]|section|article|header|footer|nav|main|form|table|tbody|thead|tfoot|tr|td|th|blockquote|pre|address)/i;
       
-      bodyContent = parts.map((part) => {
+      bodyContent = parts.map((part: string) => {
         const isTag = /^</.test(part);
         if (!isTag) return part.trim() ? '  '.repeat(indentLevel) + part.trim() : '';
         
@@ -356,7 +363,7 @@ export default function AdminNewsletterPage() {
         }
         
         return line;
-      }).filter(line => line.trim()).join('\n');
+      }).filter((line: string) => line.trim()).join('\n');
       
       // Extract plain text content for preview (preserve paragraph structure)
       let plainText = bodyContent
@@ -424,7 +431,7 @@ export default function AdminNewsletterPage() {
 
       const { campaign } = res.data;
 
-      let htmlBody = campaign.htmlContent.replace(/\\n/g, '\n');
+      let htmlBody: string = String(campaign.htmlContent ?? "").replace(/\\n/g, '\n');
       
       // Format HTML for better readability with proper indentation
       htmlBody = htmlBody
@@ -432,12 +439,14 @@ export default function AdminNewsletterPage() {
         .replace(/(<\/(?:div|p|ul|ol|li|h[1-6]|a|span)>)/gi, '$1\n');
       
       // Add proper indentation like ChatGPT/GitHub
-      const bulkParts = htmlBody.split(/(<[^>]+>)/g).filter(p => p.trim());
+      const bulkParts = htmlBody
+        .split(/(<[^>]+>)/g)
+        .filter((p: string) => p.trim());
       let bulkIndent = 0;
       const bulkSelfClosing = /<(area|base|br|col|embed|hr|img|input|link|meta|param|source|track|wbr)[\s/>]/i;
       const bulkBlockTags = /^<\/?(?:div|p|ul|ol|li|h[1-6]|section|article|header|footer|nav|main|form|table|tbody|thead|tfoot|tr|td|th|blockquote|pre|address)/i;
       
-      htmlBody = bulkParts.map((part) => {
+      htmlBody = bulkParts.map((part: string) => {
         const isTag = /^</.test(part);
         if (!isTag) return part.trim() ? '  '.repeat(bulkIndent) + part.trim() : '';
         
@@ -459,7 +468,7 @@ export default function AdminNewsletterPage() {
         }
         
         return line;
-      }).filter(line => line.trim()).join('\n');
+      }).filter((line: string) => line.trim()).join('\n');
 
       // Extract plain text from HTML
       const plainText = htmlBody

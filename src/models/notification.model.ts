@@ -2,7 +2,10 @@ import mongoose, { Schema, Document, Model } from "mongoose";
 
 export interface INotification extends Document {
     recipient: mongoose.Types.ObjectId;
+    recipientRole?: string;
+    title?: string;
     message: string;
+    priority?: string;
     type: "order" | "promotion" | "system" | "role_change"; // Example types, can be expanded
     link?: string; // Optional URL to navigate to when clicking the notification
     read: boolean;
@@ -19,6 +22,15 @@ const NotificationSchema: Schema<INotification> = new Schema<INotification>({
     message: {
         type: String,
         required: true,
+    },
+    recipientRole: {
+        type: String,
+    },
+    title: {
+        type: String,
+    },
+    priority: {
+        type: String,
     },
     type: {
         type: String,

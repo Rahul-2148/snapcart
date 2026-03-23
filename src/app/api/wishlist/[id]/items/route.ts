@@ -23,9 +23,9 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
 		if (!collection)
 			return NextResponse.json({ success: false, message: "Collection not found" }, { status: 404 });
 
-		const exists = collection.items.some((i) => i.grocery.toString() === groceryId);
+		const exists = collection.items.some((i: any) => i.grocery.toString() === groceryId);
 		collection.items = exists
-			? collection.items.filter((i) => i.grocery.toString() !== groceryId)
+			? collection.items.filter((i: any) => i.grocery.toString() !== groceryId)
 			: [...collection.items, { grocery: groceryId, addedAt: new Date() }];
 		collection.updatedAt = new Date();
 		await collection.save();
