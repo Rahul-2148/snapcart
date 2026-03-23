@@ -4,10 +4,20 @@ import connectDb from "@/lib/server/db";
 import { PaymentSession } from "@/models/paymentSession.model";
 import Stripe from "stripe";
 
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!);
+let stripeClient: Stripe | null = null;
+const getStripeClient = () => {
+  if (stripeClient) return stripeClient;
+  const stripeSecret = process.env.STRIPE_SECRET_KEY;
+  if (!stripeSecret) {
+    throw new Error("STRIPE_SECRET_KEY not configured");
+  }
+  stripeClient = new Stripe(stripeSecret);
+  return stripeClient;
+};
 
 export const POST = async (req: NextRequest) => {
   try {
+    const stripe = getStripeClient();
     await connectDb();
     const { paymentSessionId } = await req.json();
 

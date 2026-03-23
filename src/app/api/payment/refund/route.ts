@@ -5,12 +5,28 @@ import { Order } from "@/models/order.model";
 import Stripe from "stripe";
 import Razorpay from "razorpay";
 
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!);
+let stripeClient: Stripe | null = null;
+const getStripeClient = () => {
+  if (stripeClient) return stripeClient;
+  const stripeSecret = process.env.STRIPE_SECRET_KEY;
+  if (!stripeSecret) {
+    throw new Error("STRIPE_SECRET_KEY not configured");
+  }
+  stripeClient = new Stripe(stripeSecret);
+  return stripeClient;
+};
 
-const razorpay = new Razorpay({
-  key_id: process.env.RAZORPAY_KEY_ID!,
-  key_secret: process.env.RAZORPAY_KEY_SECRET!,
-});
+let razorpayClient: Razorpay | null = null;
+const getRazorpayClient = () => {
+  if (razorpayClient) return razorpayClient;
+  const keyId = process.env.RAZORPAY_KEY_ID;
+  const keySecret = process.env.RAZORPAY_KEY_SECRET;
+  if (!keyId || !keySecret) {
+    throw new Error("RAZORPAY_KEY_ID/RAZORPAY_KEY_SECRET not configured");
+  }
+  razorpayClient = new Razorpay({ key_id: keyId, key_secret: keySecret });
+  return razorpayClient;
+};
 
 export const POST = async (req: NextRequest) => {
   try {
@@ -54,6 +70,7 @@ export const POST = async (req: NextRequest) => {
       order.onlinePaymentType === "stripe" &&
       latestPayment?.transactionId
     ) {
+      const stripe = getStripeClient();
       await stripe.refunds.create({
         payment_intent: latestPayment.transactionId,
         amount: Math.round(order.finalTotal * 100), // in paise
@@ -65,6 +82,7 @@ export const POST = async (req: NextRequest) => {
       order.onlinePaymentType === "razorpay" &&
       latestPayment?.transactionId
     ) {
+      const razorpay = getRazorpayClient();
       await razorpay.payments.refund(latestPayment.transactionId, {
         amount: Math.round(order.finalTotal * 100), // in paise
       });

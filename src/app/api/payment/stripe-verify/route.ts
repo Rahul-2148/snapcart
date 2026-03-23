@@ -19,7 +19,16 @@ import {
 import { sendOrderConfirmationEmail } from "@/lib/server/email";
 import { createOrderFromPaymentSession } from "@/lib/server/createOrderFromPaymentSession";
 
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!);
+let stripeClient: Stripe | null = null;
+const getStripeClient = () => {
+  if (stripeClient) return stripeClient;
+  const stripeSecret = process.env.STRIPE_SECRET_KEY;
+  if (!stripeSecret) {
+    throw new Error("STRIPE_SECRET_KEY not configured");
+  }
+  stripeClient = new Stripe(stripeSecret);
+  return stripeClient;
+};
 
 const createAssignmentIfNeeded = async (order: any, dbSession?: any) => {
   if (!order || order.assignment) return null;
@@ -129,6 +138,7 @@ export const POST = async (req: NextRequest) => {
     }
 
     await connectDb();
+    const stripe = getStripeClient();
 
     const session = await stripe.checkout.sessions.retrieve(sessionId as string, {
       expand: ["payment_intent"],

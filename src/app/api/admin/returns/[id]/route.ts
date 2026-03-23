@@ -10,11 +10,28 @@ import emailService from "@/lib/server/email";
 import Stripe from "stripe";
 import Razorpay from "razorpay";
 
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!);
-const razorpay = new Razorpay({
-  key_id: process.env.RAZORPAY_KEY_ID!,
-  key_secret: process.env.RAZORPAY_KEY_SECRET!,
-});
+let stripeClient: Stripe | null = null;
+const getStripeClient = () => {
+  if (stripeClient) return stripeClient;
+  const stripeSecret = process.env.STRIPE_SECRET_KEY;
+  if (!stripeSecret) {
+    throw new Error("STRIPE_SECRET_KEY not configured");
+  }
+  stripeClient = new Stripe(stripeSecret);
+  return stripeClient;
+};
+
+let razorpayClient: Razorpay | null = null;
+const getRazorpayClient = () => {
+  if (razorpayClient) return razorpayClient;
+  const keyId = process.env.RAZORPAY_KEY_ID;
+  const keySecret = process.env.RAZORPAY_KEY_SECRET;
+  if (!keyId || !keySecret) {
+    throw new Error("RAZORPAY_KEY_ID/RAZORPAY_KEY_SECRET not configured");
+  }
+  razorpayClient = new Razorpay({ key_id: keyId, key_secret: keySecret });
+  return razorpayClient;
+};
 
 export async function PATCH(
   req: NextRequest,
@@ -74,6 +91,7 @@ export async function PATCH(
               // Process refund through payment gateway
               if (order.onlinePaymentType === "stripe" && paymentDetail?.transactionId) {
                 try {
+                  const stripe = getStripeClient();
                   const refundResponse = await stripe.refunds.create({
                     charge: paymentDetail.transactionId,
                     amount: Math.round(order.finalTotal * 100), // in paise
@@ -84,6 +102,7 @@ export async function PATCH(
                   console.error("Stripe refund error:", stripeError.message);
                   // Try with payment_intent if charge fails
                   try {
+                    const stripe = getStripeClient();
                     const refundResponse = await stripe.refunds.create({
                       payment_intent: paymentDetail.transactionId,
                       amount: Math.round(order.finalTotal * 100),
@@ -98,6 +117,7 @@ export async function PATCH(
 
               if (order.onlinePaymentType === "razorpay" && paymentDetail?.transactionId) {
                 try {
+                  const razorpay = getRazorpayClient();
                   const refundResponse = await razorpay.payments.refund(
                     paymentDetail.transactionId,
                     {

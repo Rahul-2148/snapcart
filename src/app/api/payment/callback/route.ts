@@ -20,12 +20,28 @@ import Razorpay from "razorpay";
 import { sendOrderConfirmationEmail } from "@/lib/server/email";
 import { createOrderFromPaymentSession } from "@/lib/server/createOrderFromPaymentSession";
 
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!);
+let stripeClient: Stripe | null = null;
+const getStripeClient = () => {
+  if (stripeClient) return stripeClient;
+  const stripeSecret = process.env.STRIPE_SECRET_KEY;
+  if (!stripeSecret) {
+    throw new Error("STRIPE_SECRET_KEY not configured");
+  }
+  stripeClient = new Stripe(stripeSecret);
+  return stripeClient;
+};
 
-const razorpay = new Razorpay({
-  key_id: process.env.RAZORPAY_KEY_ID!,
-  key_secret: process.env.RAZORPAY_KEY_SECRET!,
-});
+let razorpayClient: Razorpay | null = null;
+const getRazorpayClient = () => {
+  if (razorpayClient) return razorpayClient;
+  const keyId = process.env.RAZORPAY_KEY_ID;
+  const keySecret = process.env.RAZORPAY_KEY_SECRET;
+  if (!keyId || !keySecret) {
+    throw new Error("RAZORPAY_KEY_ID/RAZORPAY_KEY_SECRET not configured");
+  }
+  razorpayClient = new Razorpay({ key_id: keyId, key_secret: keySecret });
+  return razorpayClient;
+};
 
 const createAssignmentIfNeeded = async (order: any, dbSession?: any) => {
   if (!order || order.assignment) return null;
@@ -135,6 +151,7 @@ export const POST = async (req: NextRequest) => {
 
     try {
       const body = await req.text();
+      const stripe = getStripeClient();
 
       const event = stripe.webhooks.constructEvent(
         body,
@@ -262,7 +279,8 @@ export const POST = async (req: NextRequest) => {
         throw new Error("Invalid Razorpay signature");
       }
 
-      const payment = await razorpay.payments.fetch(razorpay_payment_id);
+  const razorpay = getRazorpayClient();
+  const payment = await razorpay.payments.fetch(razorpay_payment_id);
 
       try {
         const order = await createOrderFromPaymentSession(

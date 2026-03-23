@@ -19,14 +19,17 @@ import { OrderItem } from "@/models/orderItem.model";
 import { User } from "@/models/user.model";
 import { createOrderFromPaymentSession } from "@/lib/server/createOrderFromPaymentSession";
 
-if (!process.env.RAZORPAY_KEY_ID || !process.env.RAZORPAY_KEY_SECRET) {
-  console.error("Razorpay key/secret not set");
-}
-
-const razorpay = new Razorpay({
-  key_id: process.env.RAZORPAY_KEY_ID!,
-  key_secret: process.env.RAZORPAY_KEY_SECRET!,
-});
+let razorpayClient: Razorpay | null = null;
+const getRazorpayClient = () => {
+  if (razorpayClient) return razorpayClient;
+  const keyId = process.env.RAZORPAY_KEY_ID;
+  const keySecret = process.env.RAZORPAY_KEY_SECRET;
+  if (!keyId || !keySecret) {
+    throw new Error("RAZORPAY_KEY_ID/RAZORPAY_KEY_SECRET not configured");
+  }
+  razorpayClient = new Razorpay({ key_id: keyId, key_secret: keySecret });
+  return razorpayClient;
+};
 
 const createAssignmentIfNeeded = async (order: any, dbSession?: any) => {
   if (!order || order.assignment) return null;
@@ -131,6 +134,7 @@ export const POST = async (req: NextRequest) => {
     const body = await req.text();
 
     try {
+      const razorpay = getRazorpayClient();
       (razorpay.webhooks as any).validateWebhookSignature(body, signature, secret);
     } catch (error) {
       return NextResponse.json(
@@ -258,6 +262,7 @@ export const POST = async (req: NextRequest) => {
         },
       };
 
+      const razorpay = getRazorpayClient();
       const razorpayOrder = await razorpay.orders.create(options);
 
       paymentSession.providerSessionId = razorpayOrder.id;

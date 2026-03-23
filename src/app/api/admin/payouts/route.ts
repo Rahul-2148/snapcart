@@ -5,10 +5,20 @@ import { Payout } from "@/models/payout.model";
 import { User } from "@/models/user.model";
 import Razorpay from "razorpay";
 
-const razorpay = new Razorpay({
-  key_id: process.env.RAZORPAY_KEY_ID || "",
-  key_secret: process.env.RAZORPAY_KEY_SECRET || "",
-}) as any;
+let razorpayClient: Razorpay | null = null;
+const getRazorpayClient = () => {
+  if (razorpayClient) return razorpayClient as any;
+
+  const keyId = process.env.RAZORPAY_KEY_ID;
+  const keySecret = process.env.RAZORPAY_KEY_SECRET;
+
+  if (!keyId || !keySecret) {
+    throw new Error("RAZORPAY_KEY_ID/RAZORPAY_KEY_SECRET not configured");
+  }
+
+  razorpayClient = new Razorpay({ key_id: keyId, key_secret: keySecret });
+  return razorpayClient as any;
+};
 
 export async function GET(req: NextRequest) {
   try {
@@ -233,6 +243,7 @@ export async function POST(req: NextRequest) {
           // Process payout via Razorpay if configured, otherwise mark as completed manually
           try {
             if (hasRazorpayKeys) {
+              const razorpay = getRazorpayClient();
               const payoutResponse = await razorpay.payouts.create({
                 account_number: process.env.RAZORPAY_ACCOUNT_NUMBER,
                 amount: payout.amount * 100, // Convert to paise
