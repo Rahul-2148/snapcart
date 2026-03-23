@@ -12,14 +12,6 @@ import "@/models/newsletterSubscriber.model";
 import "@/models/wishlist.model";
 import "@/models/wishlistFollow.model";
 
-const MONGODB_URI = process.env.MONGODB_URI;
-
-if (!MONGODB_URI) {
-  throw new Error(
-    "Please define the MONGODB_URI environment variable inside .env.local",
-  );
-}
-
 // Global cached connection across hot reloads (serverless safe)
 let cached = global.mongoose;
 
@@ -28,6 +20,14 @@ if (!cached) {
 }
 
 const connectDb = async () => {
+  const mongodbUri = process.env.MONGODB_URI;
+
+  if (!mongodbUri) {
+    throw new Error(
+      "MONGODB_URI is not defined. Set it in your environment variables.",
+    );
+  }
+
   if (cached.conn) {
     return cached.conn;
   }
@@ -35,7 +35,7 @@ const connectDb = async () => {
   if (!cached.promise) {
     // Use options recommended for serverless
     cached.promise = mongoose
-      .connect(MONGODB_URI, {
+      .connect(mongodbUri, {
         bufferCommands: false, // prevent mongoose buffering
         serverSelectionTimeoutMS: 5000, // fail fast if db is unreachable
       })
