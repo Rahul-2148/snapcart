@@ -1,6 +1,7 @@
 // src/models/order.model.ts
 import mongoose, { Schema, Document } from "mongoose";
 import { CURRENCY_CODES, DEFAULT_CURRENCY } from "@/constants/currencies";
+import "@/models/orderItem.model";
 
 export type PaymentMethod = "cod" | "online";
 export type OnlinePaymentType = "stripe" | "razorpay";
