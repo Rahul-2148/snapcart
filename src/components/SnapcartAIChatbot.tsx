@@ -171,6 +171,10 @@ export default function SnapcartAIChatbot({ showLauncher = true }: SnapcartAICha
   const { data: session } = useSession();
   const pathname = usePathname();
   const { userData } = useSelector((state: RootState) => state.user);
+  const isProductDetailsPage = pathname?.includes("/product-details/");
+  const floatingBottomOffsetClassName = isProductDetailsPage
+    ? "bottom-24 sm:bottom-6"
+    : "bottom-6";
 
   const role = useMemo(() => {
     const sessionUser = session?.user as Session["user"] | undefined;
@@ -1203,7 +1207,7 @@ export default function SnapcartAIChatbot({ showLauncher = true }: SnapcartAICha
             </div>
             <div className="flex items-center gap-1">
               <button
-                onClick={retryLastMessage}
+                    : `${floatingBottomOffsetClassName} right-4 sm:right-6 w-[calc(100vw-2rem)] sm:w-[400px] h-[560px] max-h-[80vh] rounded-2xl`
                 className="rounded-full p-1 hover:bg-green-700 transition-colors disabled:opacity-50"
                 aria-label="Retry last message"
                 type="button"
@@ -1581,7 +1585,7 @@ export default function SnapcartAIChatbot({ showLauncher = true }: SnapcartAICha
         <button
           type="button"
           onClick={() => setIsOpen(true)}
-          className="fixed bottom-6 right-4 sm:right-6 z-[90] bg-green-600 text-white rounded-full h-12 w-12 shadow-xl hover:bg-green-700 transition-colors flex items-center justify-center"
+          className={`fixed ${floatingBottomOffsetClassName} right-4 sm:right-6 z-[90] bg-green-600 text-white rounded-full h-12 w-12 shadow-xl hover:bg-green-700 transition-colors flex items-center justify-center`}
           aria-label="Open Snapcart AI chatbot"
           title="Ask Snapcart AI"
         >
