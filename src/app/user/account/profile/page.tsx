@@ -378,30 +378,32 @@ export default function ProfilePage() {
   };
 
   return (
-    <div className="bg-gray-50 p-4 sm:p-8">
-      <div className="max-w-4xl mx-auto">
-        <h1 className="text-3xl font-bold text-gray-800 mb-6">My Account</h1>
+    <div className="w-full min-h-screen bg-gradient-to-br from-gray-50 to-gray-100">
+      <div className="max-w-3xl mx-auto px-3 sm:px-4 md:px-8 py-4 sm:py-6 md:py-8">
+        <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 mb-2">My Account</h1>
+        <p className="text-sm text-gray-600 mb-6 sm:mb-8">Manage your profile, password, and account preferences</p>
 
         {/* Profile Settings */}
-        <div className="bg-white p-6 rounded-lg shadow-md mb-8">
-          <h2 className="text-xl font-semibold text-gray-700 mb-6">
-            Profile Settings
-          </h2>
-          <form onSubmit={handleUpdateProfile} className="space-y-6">
-            <div className="flex flex-col sm:flex-row items-center space-y-4 sm:space-y-0 sm:space-x-6">
+        <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden mb-6 sm:mb-8">
+          <div className="bg-gradient-to-r from-indigo-50 to-blue-50 px-4 sm:px-6 py-3 sm:py-4 border-b border-gray-200">
+            <h2 className="text-lg sm:text-xl font-semibold text-gray-900">Profile Settings</h2>
+            <p className="text-xs sm:text-sm text-gray-600 mt-1">Update your personal information</p>
+          </div>
+          <form onSubmit={handleUpdateProfile} className="p-4 sm:p-6 space-y-5 sm:space-y-6">
+            <div className="flex flex-col sm:flex-row items-start gap-4 sm:gap-6 pb-5 sm:pb-6 border-b border-gray-100">
               {/* Profile Image with Edit Button */}
-              <div className="relative">
-                <div className="relative w-24 h-24 rounded-full border-2 border-gray-200 flex items-center justify-center overflow-hidden bg-gray-100">
+              <div className="relative mx-auto sm:mx-0">
+                <div className="relative w-20 h-20 sm:w-24 sm:h-24 rounded-full border-3 border-indigo-200 flex items-center justify-center overflow-hidden bg-gradient-to-br from-indigo-50 to-blue-50 shadow-sm">
                   {previewImage ? (
                     <Image
                       src={previewImage}
                       alt="Profile"
                       width={96}
                       height={96}
-                      className="w-24 h-24 object-cover"
+                      className="w-full h-full object-cover"
                     />
                   ) : (
-                    <UserIcon className="w-10 h-10 text-gray-400" />
+                    <UserIcon className="w-8 h-8 sm:w-10 sm:h-10 text-indigo-400" />
                   )}
                 </div>
 
@@ -409,7 +411,7 @@ export default function ProfilePage() {
                 <button
                   type="button"
                   onClick={() => fileInputRef.current?.click()}
-                  className="absolute bottom-0 right-0 bg-indigo-600 text-white p-2 rounded-full shadow-lg hover:bg-indigo-700 transition-colors duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="absolute -bottom-1 -right-1 bg-indigo-600 text-white p-2 rounded-full shadow-md hover:bg-indigo-700 active:scale-95 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed ring-2 ring-white"
                   title="Change profile picture"
                   disabled={isImageLoading}
                 >
@@ -420,24 +422,14 @@ export default function ProfilePage() {
                   )}
                 </button>
 
-                {/* Hidden file input */}
-                <input
-                  type="file"
-                  ref={fileInputRef}
-                  onChange={handleImageChange}
-                  accept="image/*"
-                  className="hidden"
-                  disabled={isImageLoading}
-                />
-
                 {/* Image Change Actions (Show only when editing) */}
                 {isEditingImage && (
-                  <div className="absolute -bottom-10 left-0 right-0 flex justify-center space-x-2">
+                  <div className="absolute -bottom-12 left-1/2 -translate-x-1/2 flex justify-center gap-1.5 bg-white rounded-lg shadow-lg p-2 border border-gray-200">
                     <button
                       type="button"
                       onClick={handleSaveImage}
                       disabled={isImageLoading}
-                      className="bg-green-500 text-white p-1 rounded-full hover:bg-green-600 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center"
+                      className="bg-green-500 text-white p-1.5 rounded-full hover:bg-green-600 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center transition-all duration-150"
                       title="Save changes"
                     >
                       {isImageLoading ? (
@@ -450,41 +442,46 @@ export default function ProfilePage() {
                       type="button"
                       onClick={handleCancelImageChange}
                       disabled={isImageLoading}
-                      className="bg-red-500 text-white p-1 rounded-full hover:bg-red-600 disabled:opacity-50 disabled:cursor-not-allowed"
+                      className="bg-red-500 text-white p-1.5 rounded-full hover:bg-red-600 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-150"
                       title="Cancel"
                     >
                       <X className="w-4 h-4" />
                     </button>
                   </div>
                 )}
+
+                {/* Hidden file input */}
+                <input
+                  type="file"
+                  ref={fileInputRef}
+                  onChange={handleImageChange}
+                  accept="image/*"
+                  className="hidden"
+                  disabled={isImageLoading}
+                />
               </div>
 
-              <div className="flex-grow text-center sm:text-left">
-                <p className="text-lg font-semibold">{userData?.name}</p>
-                <p className="text-sm text-gray-500">{userData?.email}</p>
-                <p className="text-xs text-gray-400 mt-1">
-                  Click the camera icon to change profile picture
+              <div className="flex-grow w-full text-center sm:text-left">
+                <p className="text-base sm:text-lg font-semibold text-gray-900">{userData?.name}</p>
+                <p className="text-sm text-gray-600 mt-0.5">{userData?.email}</p>
+                <p className="text-xs text-gray-500 mt-2">
+                  {isEditingImage ? (
+                    <span className="text-yellow-600 font-medium">✓ Save or ✕ Cancel your image</span>
+                  ) : isImageLoading ? (
+                    <span className="text-blue-600 inline-flex items-center gap-1">
+                      <Loader2 className="w-3 h-3 animate-spin" />
+                      Uploading image...
+                    </span>
+                  ) : (
+                    <span>Tap camera icon to change profile picture</span>
+                  )}
                 </p>
-                {isEditingImage && (
-                  <p className="text-xs text-yellow-600 mt-1">
-                    Click ✓ to save or ✕ to cancel
-                  </p>
-                )}
-                {isImageLoading && (
-                  <p className="text-xs text-blue-600 mt-1 flex items-center">
-                    <Loader2 className="w-3 h-3 mr-1 animate-spin" />
-                    Uploading image...
-                  </p>
-                )}
               </div>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div className="grid grid-cols-1 gap-4 sm:gap-5">
               <div>
-                <label
-                  htmlFor="name"
-                  className="block text-sm font-medium text-gray-600"
-                >
+                <label htmlFor="name" className="block text-sm sm:text-base font-semibold text-gray-900 mb-2">
                   Full Name
                 </label>
                 <input
@@ -492,15 +489,12 @@ export default function ProfilePage() {
                   id="name"
                   value={name}
                   onChange={(e) => setName(e.target.value)}
-                  className="mt-1 block w-full px-4 py-2 bg-gray-50 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 disabled:opacity-50"
+                  className="w-full px-3 sm:px-4 py-2.5 sm:py-3 bg-gray-50 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent text-sm sm:text-base transition-all duration-150 disabled:opacity-50 disabled:bg-gray-100"
                   disabled={isProfileLoading || isImageLoading}
                 />
               </div>
               <div>
-                <label
-                  htmlFor="mobile"
-                  className="block text-sm font-medium text-gray-600"
-                >
+                <label htmlFor="mobile" className="block text-sm sm:text-base font-semibold text-gray-900 mb-2">
                   Mobile Number
                 </label>
                 <input
@@ -508,22 +502,19 @@ export default function ProfilePage() {
                   id="mobile"
                   value={mobileNumber}
                   onChange={(e) => setMobileNumber(e.target.value)}
-                  className="mt-1 block w-full px-4 py-2 bg-gray-50 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 disabled:opacity-50"
+                  className="w-full px-3 sm:px-4 py-2.5 sm:py-3 bg-gray-50 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent text-sm sm:text-base transition-all duration-150 disabled:opacity-50 disabled:bg-gray-100"
                   disabled={isProfileLoading || isImageLoading}
                 />
               </div>
               <div>
-                <label
-                  htmlFor="gender"
-                  className="block text-sm font-medium text-gray-600"
-                >
+                <label htmlFor="gender" className="block text-sm sm:text-base font-semibold text-gray-900 mb-2">
                   Gender
                 </label>
                 <select
                   id="gender"
                   value={gender}
                   onChange={(e) => setGender(e.target.value)}
-                  className="mt-1 block w-full px-4 py-2 bg-gray-50 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 disabled:opacity-50 appearance-none"
+                  className="w-full px-3 sm:px-4 py-2.5 sm:py-3 bg-gray-50 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent text-sm sm:text-base transition-all duration-150 disabled:opacity-50 disabled:bg-gray-100 appearance-none cursor-pointer"
                   disabled={isProfileLoading || isImageLoading}
                 >
                   <option value="">Select Gender</option>
@@ -534,15 +525,15 @@ export default function ProfilePage() {
                 </select>
               </div>
             </div>
-            <div className="text-right">
+            <div className="pt-4 sm:pt-2 flex flex-col-reverse sm:flex-row gap-3 sm:gap-4">
               <button
                 type="submit"
                 disabled={isProfileLoading || isImageLoading}
-                className="inline-flex items-center justify-center py-2 px-6 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 disabled:opacity-50 disabled:cursor-not-allowed"
+                className="w-full px-4 py-3 bg-indigo-600 hover:bg-indigo-700 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed text-white font-semibold rounded-lg shadow-md transition-all duration-200 flex items-center justify-center gap-2 text-sm sm:text-base"
               >
                 {isProfileLoading ? (
                   <>
-                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                    <Loader2 className="w-4 h-4 animate-spin" />
                     Saving...
                   </>
                 ) : (
@@ -554,17 +545,15 @@ export default function ProfilePage() {
         </div>
 
         {/* Password Change */}
-        <div className="bg-white p-6 rounded-lg shadow-md mb-8">
-          <h2 className="text-xl font-semibold text-gray-700 mb-6">
-            Change Password
-          </h2>
-          <form onSubmit={handleChangePassword} className="space-y-6">
+        <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden mb-6 sm:mb-8">
+          <div className="bg-gradient-to-r from-amber-50 to-orange-50 px-4 sm:px-6 py-3 sm:py-4 border-b border-gray-200">
+            <h2 className="text-lg sm:text-xl font-semibold text-gray-900">Change Password</h2>
+            <p className="text-xs sm:text-sm text-gray-600 mt-1">Keep your account secure with a strong password</p>
+          </div>
+          <form onSubmit={handleChangePassword} className="p-4 sm:p-6 space-y-4 sm:space-y-5">
             {(userData as any)?.hasPassword && (
               <div>
-                <label
-                  htmlFor="oldPassword"
-                  className="block text-sm font-medium text-gray-600"
-                >
+                <label htmlFor="oldPassword" className="block text-sm sm:text-base font-semibold text-gray-900 mb-2">
                   Current Password
                 </label>
                 <div className="relative">
@@ -573,28 +562,26 @@ export default function ProfilePage() {
                     id="oldPassword"
                     value={oldPassword}
                     onChange={(e) => setOldPassword(e.target.value)}
-                    className="mt-1 block w-full px-4 py-2 pr-10 bg-gray-50 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 disabled:opacity-50"
+                    className="w-full px-3 sm:px-4 py-2.5 sm:py-3 pr-10 bg-gray-50 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent text-sm sm:text-base transition-all duration-150 disabled:opacity-50 disabled:bg-gray-100"
                     disabled={isPasswordLoading}
                   />
                   <button
                     type="button"
                     onClick={() => setShowOld(!showOld)}
-                    className="absolute inset-y-0 right-0 pr-3 flex items-center"
+                    className="absolute inset-y-0 right-0 pr-3 flex items-center text-gray-500 hover:text-gray-700"
+                    disabled={isPasswordLoading}
                   >
                     {showOld ? (
-                      <EyeOff className="h-5 w-5 text-gray-400" />
+                      <EyeOff className="w-5 h-5" />
                     ) : (
-                      <Eye className="h-5 w-5 text-gray-400" />
+                      <Eye className="w-5 h-5" />
                     )}
                   </button>
                 </div>
               </div>
             )}
             <div>
-              <label
-                htmlFor="newPassword"
-                className="block text-sm font-medium text-gray-600"
-              >
+              <label htmlFor="newPassword" className="block text-sm sm:text-base font-semibold text-gray-900 mb-2">
                 New Password
               </label>
               <div className="relative">
@@ -603,27 +590,25 @@ export default function ProfilePage() {
                   id="newPassword"
                   value={newPassword}
                   onChange={(e) => setNewPassword(e.target.value)}
-                  className="mt-1 block w-full px-4 py-2 pr-10 bg-gray-50 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 disabled:opacity-50"
+                  className="w-full px-3 sm:px-4 py-2.5 sm:py-3 pr-10 bg-gray-50 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent text-sm sm:text-base transition-all duration-150 disabled:opacity-50 disabled:bg-gray-100"
                   disabled={isPasswordLoading}
                 />
                 <button
                   type="button"
                   onClick={() => setShowNew(!showNew)}
-                  className="absolute inset-y-0 right-0 pr-3 flex items-center"
+                  className="absolute inset-y-0 right-0 pr-3 flex items-center text-gray-500 hover:text-gray-700"
+                  disabled={isPasswordLoading}
                 >
                   {showNew ? (
-                    <EyeOff className="h-5 w-5 text-gray-400" />
+                    <EyeOff className="w-5 h-5" />
                   ) : (
-                    <Eye className="h-5 w-5 text-gray-400" />
+                    <Eye className="w-5 h-5" />
                   )}
                 </button>
               </div>
             </div>
             <div>
-              <label
-                htmlFor="confirmNewPassword"
-                className="block text-sm font-medium text-gray-600"
-              >
+              <label htmlFor="confirmNewPassword" className="block text-sm sm:text-base font-semibold text-gray-900 mb-2">
                 Confirm New Password
               </label>
               <div className="relative">
@@ -632,31 +617,32 @@ export default function ProfilePage() {
                   id="confirmNewPassword"
                   value={confirmNewPassword}
                   onChange={(e) => setConfirmNewPassword(e.target.value)}
-                  className="mt-1 block w-full px-4 py-2 pr-10 bg-gray-50 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 disabled:opacity-50"
+                  className="w-full px-3 sm:px-4 py-2.5 sm:py-3 pr-10 bg-gray-50 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent text-sm sm:text-base transition-all duration-150 disabled:opacity-50 disabled:bg-gray-100"
                   disabled={isPasswordLoading}
                 />
                 <button
                   type="button"
                   onClick={() => setShowConfirm(!showConfirm)}
-                  className="absolute inset-y-0 right-0 pr-3 flex items-center"
+                  className="absolute inset-y-0 right-0 pr-3 flex items-center text-gray-500 hover:text-gray-700"
+                  disabled={isPasswordLoading}
                 >
                   {showConfirm ? (
-                    <EyeOff className="h-5 w-5 text-gray-400" />
+                    <EyeOff className="w-5 h-5" />
                   ) : (
-                    <Eye className="h-5 w-5 text-gray-400" />
+                    <Eye className="w-5 h-5" />
                   )}
                 </button>
               </div>
             </div>
-            <div className="text-right">
+            <div className="pt-4 sm:pt-2 flex flex-col-reverse sm:flex-row gap-3 sm:gap-4">
               <button
                 type="submit"
                 disabled={isPasswordLoading}
-                className="inline-flex items-center justify-center py-2 px-6 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 disabled:opacity-50 disabled:cursor-not-allowed"
+                className="w-full px-4 py-3 bg-amber-600 hover:bg-amber-700 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed text-white font-semibold rounded-lg shadow-md transition-all duration-200 flex items-center justify-center gap-2 text-sm sm:text-base"
               >
                 {isPasswordLoading ? (
                   <>
-                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                    <Loader2 className="w-4 h-4 animate-spin" />
                     Changing...
                   </>
                 ) : (
@@ -668,11 +654,14 @@ export default function ProfilePage() {
         </div>
 
         {/* Role Management */}
-        <div className="bg-white p-6 rounded-lg shadow-md">
-          <h2 className="text-xl font-semibold text-gray-700 mb-4">
-            Become a Delivery Partner
-          </h2>
+        <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+          <div className="bg-gradient-to-r from-green-50 to-emerald-50 px-4 sm:px-6 py-3 sm:py-4 border-b border-gray-200">
+            <h2 className="text-lg sm:text-xl font-semibold text-gray-900">Become a Delivery Partner</h2>
+            <p className="text-xs sm:text-sm text-gray-600 mt-1">Earn by delivering groceries with Snapcart</p>
+          </div>
+          <div className="p-4 sm:p-6">
           {renderRoleManagement()}
+          </div>
         </div>
       </div>
     </div>

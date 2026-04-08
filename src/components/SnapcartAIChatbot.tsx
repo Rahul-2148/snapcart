@@ -5,7 +5,6 @@ import {
   ArrowDown,
   Bot,
   Maximize2,
-  MessageCircle,
   Minimize2,
   Pause,
   Pencil,
@@ -71,9 +70,14 @@ const getShortDateLabel = (value: string) => {
   });
 };
 
-const escapeRegex = (value: string) => value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+const escapeRegex = (value: string) =>
+  value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 
-const getChatbotTypingLabel = (question: string, role: string, hasProductContext: boolean) => {
+const getChatbotTypingLabel = (
+  question: string,
+  role: string,
+  hasProductContext: boolean,
+) => {
   const text = question.toLowerCase();
 
   if (hasProductContext) {
@@ -127,7 +131,9 @@ type ChatbotProductContext = {
   stock?: number;
 };
 
-export default function SnapcartAIChatbot({ showLauncher = true }: SnapcartAIChatbotProps) {
+export default function SnapcartAIChatbot({
+  showLauncher = true,
+}: SnapcartAIChatbotProps) {
   const cloudTtsEnabled = process.env.NEXT_PUBLIC_ENABLE_NEURAL_TTS === "true";
   const [isOpen, setIsOpen] = useState(false);
   const [isPanelMounted, setIsPanelMounted] = useState(false);
@@ -142,19 +148,29 @@ export default function SnapcartAIChatbot({ showLauncher = true }: SnapcartAICha
   const [sessionOptions, setSessionOptions] = useState<ChatSessionOption[]>([]);
   const [sessionSearch, setSessionSearch] = useState("");
   const [searchingSessions, setSearchingSessions] = useState(false);
-  const [sessionSearchError, setSessionSearchError] = useState<string | null>(null);
+  const [sessionSearchError, setSessionSearchError] = useState<string | null>(
+    null,
+  );
   const [editingSessionId, setEditingSessionId] = useState<string | null>(null);
   const [editingTitle, setEditingTitle] = useState("");
   const [toast, setToast] = useState<ToastState | null>(null);
-  const [suggestionFeedbackLoading, setSuggestionFeedbackLoading] = useState(false);
+  const [suggestionFeedbackLoading, setSuggestionFeedbackLoading] =
+    useState(false);
   const [unreadCount, setUnreadCount] = useState(0);
   const [unreadPulseActive, setUnreadPulseActive] = useState(false);
-  const [speakingMessageId, setSpeakingMessageId] = useState<string | null>(null);
+  const [speakingMessageId, setSpeakingMessageId] = useState<string | null>(
+    null,
+  );
   const [isSpeechPaused, setIsSpeechPaused] = useState(false);
   const [speechRate, setSpeechRate] = useState(1);
-  const [speechMode, setSpeechMode] = useState<"none" | "cloud" | "browser">("none");
-  const [availableVoices, setAvailableVoices] = useState<SpeechSynthesisVoice[]>([]);
-  const [productContext, setProductContext] = useState<ChatbotProductContext | null>(null);
+  const [speechMode, setSpeechMode] = useState<"none" | "cloud" | "browser">(
+    "none",
+  );
+  const [availableVoices, setAvailableVoices] = useState<
+    SpeechSynthesisVoice[]
+  >([]);
+  const [productContext, setProductContext] =
+    useState<ChatbotProductContext | null>(null);
   const abortControllerRef = useRef<AbortController | null>(null);
   const speechUtteranceRef = useRef<SpeechSynthesisUtterance | null>(null);
   const speechAudioRef = useRef<HTMLAudioElement | null>(null);
@@ -172,13 +188,11 @@ export default function SnapcartAIChatbot({ showLauncher = true }: SnapcartAICha
   const pathname = usePathname();
   const { userData } = useSelector((state: RootState) => state.user);
   const isProductDetailsPage = pathname?.includes("/product-details/");
-  const floatingBottomOffsetClassName = isProductDetailsPage
-    ? "bottom-24 sm:bottom-6"
-    : "bottom-6";
 
   const role = useMemo(() => {
     const sessionUser = session?.user as Session["user"] | undefined;
-    const currentRole = userData?.currentRole || sessionUser?.currentRole || "guest";
+    const currentRole =
+      userData?.currentRole || sessionUser?.currentRole || "guest";
     return currentRole;
   }, [session?.user, userData?.currentRole]);
 
@@ -192,43 +206,51 @@ export default function SnapcartAIChatbot({ showLauncher = true }: SnapcartAICha
     }
   }, [pathname]);
 
-  const fetchSessions = useCallback(async (query?: string) => {
-    if (!session?.user?.id) {
-      return;
-    }
-
-    const requestId = latestSessionsRequestRef.current + 1;
-    latestSessionsRequestRef.current = requestId;
-    setSearchingSessions(true);
-    setSessionSearchError(null);
-
-    const trimmedQuery = query?.trim();
-    const endpoint = trimmedQuery
-      ? `/api/chatbot/sessions?q=${encodeURIComponent(trimmedQuery)}`
-      : "/api/chatbot/sessions";
-
-    try {
-      const sessionsResponse = await axios.get(endpoint);
-      if (requestId !== latestSessionsRequestRef.current) {
+  const fetchSessions = useCallback(
+    async (query?: string) => {
+      if (!session?.user?.id) {
         return;
       }
 
-      if (sessionsResponse.data?.success && Array.isArray(sessionsResponse.data?.sessions)) {
-        setSessionOptions(sessionsResponse.data.sessions);
-        return;
-      }
+      const requestId = latestSessionsRequestRef.current + 1;
+      latestSessionsRequestRef.current = requestId;
+      setSearchingSessions(true);
+      setSessionSearchError(null);
 
-      setSessionSearchError("Search response invalid aaya, please retry.");
-    } catch {
-      if (requestId === latestSessionsRequestRef.current) {
-        setSessionSearchError("Search temporarily unavailable. Please retry.");
+      const trimmedQuery = query?.trim();
+      const endpoint = trimmedQuery
+        ? `/api/chatbot/sessions?q=${encodeURIComponent(trimmedQuery)}`
+        : "/api/chatbot/sessions";
+
+      try {
+        const sessionsResponse = await axios.get(endpoint);
+        if (requestId !== latestSessionsRequestRef.current) {
+          return;
+        }
+
+        if (
+          sessionsResponse.data?.success &&
+          Array.isArray(sessionsResponse.data?.sessions)
+        ) {
+          setSessionOptions(sessionsResponse.data.sessions);
+          return;
+        }
+
+        setSessionSearchError("Search response invalid aaya, please retry.");
+      } catch {
+        if (requestId === latestSessionsRequestRef.current) {
+          setSessionSearchError(
+            "Search temporarily unavailable. Please retry.",
+          );
+        }
+      } finally {
+        if (requestId === latestSessionsRequestRef.current) {
+          setSearchingSessions(false);
+        }
       }
-    } finally {
-      if (requestId === latestSessionsRequestRef.current) {
-        setSearchingSessions(false);
-      }
-    }
-  }, [session?.user?.id]);
+    },
+    [session?.user?.id],
+  );
 
   const activeSession = useMemo(
     () => sessionOptions.find((item) => item.id === sessionId) || null,
@@ -245,7 +267,10 @@ export default function SnapcartAIChatbot({ showLauncher = true }: SnapcartAICha
     return parts.map((part, index) => {
       const isMatch = part.toLowerCase() === trimmed.toLowerCase();
       return isMatch ? (
-        <span key={`${part}-${index}`} className="bg-yellow-100 text-gray-900 rounded px-0.5">
+        <span
+          key={`${part}-${index}`}
+          className="bg-yellow-100 text-gray-900 rounded px-0.5"
+        >
           {part}
         </span>
       ) : (
@@ -266,7 +291,10 @@ export default function SnapcartAIChatbot({ showLauncher = true }: SnapcartAICha
           await fetchSessions();
 
           const response = await axios.get("/api/chatbot/history");
-          if (response.data?.success && response.data?.session?.messages?.length) {
+          if (
+            response.data?.success &&
+            response.data?.session?.messages?.length
+          ) {
             setMessages(response.data.session.messages);
             setSessionId(response.data.session.id || null);
           }
@@ -407,7 +435,10 @@ export default function SnapcartAIChatbot({ showLauncher = true }: SnapcartAICha
         return;
       }
 
-      if (!(event.ctrlKey || event.metaKey) || event.key.toLowerCase() !== "k") {
+      if (
+        !(event.ctrlKey || event.metaKey) ||
+        event.key.toLowerCase() !== "k"
+      ) {
         return;
       }
 
@@ -444,7 +475,8 @@ export default function SnapcartAIChatbot({ showLauncher = true }: SnapcartAICha
     };
 
     window.addEventListener("snapcart-ai-open", handleExternalOpen);
-    return () => window.removeEventListener("snapcart-ai-open", handleExternalOpen);
+    return () =>
+      window.removeEventListener("snapcart-ai-open", handleExternalOpen);
   }, []);
 
   const closeChatbot = () => {
@@ -458,7 +490,10 @@ export default function SnapcartAIChatbot({ showLauncher = true }: SnapcartAICha
 
   useEffect(() => {
     if (!session?.user?.id) {
-      localStorage.setItem("snapcart_chat_history", JSON.stringify(messages.slice(-20)));
+      localStorage.setItem(
+        "snapcart_chat_history",
+        JSON.stringify(messages.slice(-20)),
+      );
     }
   }, [messages, session?.user?.id]);
 
@@ -469,7 +504,8 @@ export default function SnapcartAIChatbot({ showLauncher = true }: SnapcartAICha
     }
 
     const handleScroll = () => {
-      const distanceFromBottom = container.scrollHeight - container.scrollTop - container.clientHeight;
+      const distanceFromBottom =
+        container.scrollHeight - container.scrollTop - container.clientHeight;
       autoScrollEnabledRef.current = distanceFromBottom < 120;
       if (autoScrollEnabledRef.current) {
         setUnreadCount(0);
@@ -499,7 +535,12 @@ export default function SnapcartAIChatbot({ showLauncher = true }: SnapcartAICha
   }, [isOpen, loading, messages]);
 
   useEffect(() => {
-    if (!isOpen || autoScrollEnabledRef.current || messages.length === 0 || loading) {
+    if (
+      !isOpen ||
+      autoScrollEnabledRef.current ||
+      messages.length === 0 ||
+      loading
+    ) {
       return;
     }
 
@@ -544,7 +585,10 @@ export default function SnapcartAIChatbot({ showLauncher = true }: SnapcartAICha
       return null;
     }
 
-    const voices = availableVoices.length > 0 ? availableVoices : window.speechSynthesis.getVoices();
+    const voices =
+      availableVoices.length > 0
+        ? availableVoices
+        : window.speechSynthesis.getVoices();
     if (!voices.length) {
       return null;
     }
@@ -552,7 +596,9 @@ export default function SnapcartAIChatbot({ showLauncher = true }: SnapcartAICha
     const lower = content.toLowerCase();
     const hasHindiHint =
       /[\u0900-\u097F]/.test(content) ||
-      /(kya|kaise|hai|mera|mere|aap|nahi|batao|samjhao|kr|kar|delivery|order|returns|admin)/.test(lower);
+      /(kya|kaise|hai|mera|mere|aap|nahi|batao|samjhao|kr|kar|delivery|order|returns|admin)/.test(
+        lower,
+      );
 
     const scoreVoice = (voice: SpeechSynthesisVoice) => {
       const name = voice.name.toLowerCase();
@@ -572,8 +618,18 @@ export default function SnapcartAIChatbot({ showLauncher = true }: SnapcartAICha
 
       if (name.includes("google")) score += 25;
       if (name.includes("microsoft")) score += 22;
-      if (name.includes("natural") || name.includes("neural") || name.includes("wavenet")) score += 18;
-      if (name.includes("india") || name.includes("hindi") || name.includes("indian")) score += 16;
+      if (
+        name.includes("natural") ||
+        name.includes("neural") ||
+        name.includes("wavenet")
+      )
+        score += 18;
+      if (
+        name.includes("india") ||
+        name.includes("hindi") ||
+        name.includes("indian")
+      )
+        score += 16;
 
       if (
         name.includes("female") ||
@@ -729,7 +785,10 @@ export default function SnapcartAIChatbot({ showLauncher = true }: SnapcartAICha
         setIsSpeechPaused(false);
         setSpeechMode("none");
         speechUtteranceRef.current = null;
-        setToast({ type: "error", message: "Unable to play this response as audio" });
+        setToast({
+          type: "error",
+          message: "Unable to play this response as audio",
+        });
       };
 
       speechUtteranceRef.current = utterance;
@@ -785,7 +844,10 @@ export default function SnapcartAIChatbot({ showLauncher = true }: SnapcartAICha
         speechAudioUrlRef.current = null;
       }
       speechAudioRef.current = null;
-      setToast({ type: "error", message: "Unable to play this response as audio" });
+      setToast({
+        type: "error",
+        message: "Unable to play this response as audio",
+      });
     };
 
     await audio.play();
@@ -793,7 +855,10 @@ export default function SnapcartAIChatbot({ showLauncher = true }: SnapcartAICha
 
   const toggleSpeechForMessage = async (messageId: string, content: string) => {
     if (typeof window === "undefined" || !("speechSynthesis" in window)) {
-      setToast({ type: "error", message: "Audio playback is not supported in this browser" });
+      setToast({
+        type: "error",
+        message: "Audio playback is not supported in this browser",
+      });
       return;
     }
 
@@ -838,15 +903,18 @@ export default function SnapcartAIChatbot({ showLauncher = true }: SnapcartAICha
       try {
         await playCloudSpeech(messageId, trimmedContent);
         return;
-      } catch {
-      }
+      } catch {}
     }
 
     playBrowserSpeech(messageId, trimmedContent);
   };
 
   const submitSuggestionsFeedback = async (sentiment: "up" | "down") => {
-    if (!session?.user?.id || suggestionFeedbackLoading || suggestions.length === 0) {
+    if (
+      !session?.user?.id ||
+      suggestionFeedbackLoading ||
+      suggestions.length === 0
+    ) {
       return;
     }
 
@@ -863,10 +931,16 @@ export default function SnapcartAIChatbot({ showLauncher = true }: SnapcartAICha
 
       setToast({
         type: "success",
-        message: sentiment === "up" ? "Suggestions feedback saved" : "Noted. Suggestions will adapt",
+        message:
+          sentiment === "up"
+            ? "Suggestions feedback saved"
+            : "Noted. Suggestions will adapt",
       });
     } catch {
-      setToast({ type: "error", message: "Feedback save failed, please retry" });
+      setToast({
+        type: "error",
+        message: "Feedback save failed, please retry",
+      });
     } finally {
       setSuggestionFeedbackLoading(false);
     }
@@ -884,7 +958,9 @@ export default function SnapcartAIChatbot({ showLauncher = true }: SnapcartAICha
       try {
         if (sessionId) {
           await axios.delete(`/api/chatbot/history?sessionId=${sessionId}`);
-          setSessionOptions((prev) => prev.filter((item) => item.id !== sessionId));
+          setSessionOptions((prev) =>
+            prev.filter((item) => item.id !== sessionId),
+          );
         }
         setSessionId(null);
       } catch {
@@ -923,7 +999,9 @@ export default function SnapcartAIChatbot({ showLauncher = true }: SnapcartAICha
     }
 
     try {
-      const response = await axios.get(`/api/chatbot/history?sessionId=${targetSessionId}`);
+      const response = await axios.get(
+        `/api/chatbot/history?sessionId=${targetSessionId}`,
+      );
       if (response.data?.success && response.data?.session?.messages?.length) {
         setSessionId(response.data.session.id || targetSessionId);
         setMessages(response.data.session.messages);
@@ -1000,8 +1078,14 @@ export default function SnapcartAIChatbot({ showLauncher = true }: SnapcartAICha
       return;
     }
 
-    const nextMessages: Message[] = [...messages, { role: "user", content: finalMessage }];
-    const pendingMessages: Message[] = [...nextMessages, { role: "assistant", content: "" }];
+    const nextMessages: Message[] = [
+      ...messages,
+      { role: "user", content: finalMessage },
+    ];
+    const pendingMessages: Message[] = [
+      ...nextMessages,
+      { role: "assistant", content: "" },
+    ];
     setMessages(pendingMessages);
     setSuggestions([]);
     setLastUserPrompt(finalMessage);
@@ -1115,12 +1199,21 @@ export default function SnapcartAIChatbot({ showLauncher = true }: SnapcartAICha
         await fetchSessions(sessionSearch);
       }
     } catch (streamError) {
-      if (streamError instanceof DOMException && streamError.name === "AbortError") {
+      if (
+        streamError instanceof DOMException &&
+        streamError.name === "AbortError"
+      ) {
         setMessages((prev) => {
           const updated = [...prev];
           const lastIndex = updated.length - 1;
-          if (updated[lastIndex]?.role === "assistant" && !updated[lastIndex].content.trim()) {
-            updated[lastIndex] = { role: "assistant", content: "Generation stopped." };
+          if (
+            updated[lastIndex]?.role === "assistant" &&
+            !updated[lastIndex].content.trim()
+          ) {
+            updated[lastIndex] = {
+              role: "assistant",
+              content: "Generation stopped.",
+            };
           }
           return updated;
         });
@@ -1147,10 +1240,16 @@ export default function SnapcartAIChatbot({ showLauncher = true }: SnapcartAICha
               };
               return updated;
             }
-            return [...updated, { role: "assistant", content: fallbackResponse.data.reply }];
+            return [
+              ...updated,
+              { role: "assistant", content: fallbackResponse.data.reply },
+            ];
           });
 
-          if (typeof fallbackResponse.data.sessionId === "string" && fallbackResponse.data.sessionId.trim()) {
+          if (
+            typeof fallbackResponse.data.sessionId === "string" &&
+            fallbackResponse.data.sessionId.trim()
+          ) {
             setSessionId(fallbackResponse.data.sessionId);
           }
           if (Array.isArray(fallbackResponse.data.suggestions)) {
@@ -1170,10 +1269,14 @@ export default function SnapcartAIChatbot({ showLauncher = true }: SnapcartAICha
         }
       } catch (error: unknown) {
         const errorMessage =
-          axios.isAxiosError(error) && typeof error.response?.data?.message === "string"
+          axios.isAxiosError(error) &&
+          typeof error.response?.data?.message === "string"
             ? error.response.data.message
             : "Network issue aa gaya, please retry.";
-        setMessages((prev) => [...prev.slice(0, -1), { role: "assistant", content: errorMessage }]);
+        setMessages((prev) => [
+          ...prev.slice(0, -1),
+          { role: "assistant", content: errorMessage },
+        ]);
       }
     } finally {
       abortControllerRef.current = null;
@@ -1197,32 +1300,42 @@ export default function SnapcartAIChatbot({ showLauncher = true }: SnapcartAICha
                 : "opacity-0 translate-y-2 scale-95 pointer-events-none"
           }`}
         >
-          <div className={`bg-green-600 text-white flex items-center justify-between ${isFullscreen ? "px-5 py-4" : "px-4 py-3"}`}>
+          <div
+            className={`bg-green-600 text-white flex items-center justify-between ${isFullscreen ? "px-5 py-4" : "px-4 py-3"}`}
+          >
             <div className="flex items-center gap-2">
               <Bot className="w-5 h-5" />
               <div>
                 <p className="font-semibold leading-tight">Snapcart AI</p>
-                <p className="text-xs text-green-100">Role: {roleLabelMap[role] || "User"}</p>
+                <p className="text-xs text-green-100">
+                  Role: {roleLabelMap[role] || "User"}
+                </p>
               </div>
             </div>
             <div className="flex items-center gap-1">
               <button
-                    : `${floatingBottomOffsetClassName} right-4 sm:right-6 w-[calc(100vw-2rem)] sm:w-[400px] h-[560px] max-h-[80vh] rounded-2xl`
                 className="rounded-full p-1 hover:bg-green-700 transition-colors disabled:opacity-50"
                 aria-label="Retry last message"
                 type="button"
                 disabled={!lastUserPrompt || loading}
+                onClick={retryLastMessage}
               >
                 <RotateCcw className="w-4 h-4" />
               </button>
               <button
                 onClick={toggleFullscreen}
                 className="rounded-full p-1 hover:bg-green-700 transition-colors"
-                aria-label={isFullscreen ? "Exit full screen" : "Enter full screen"}
+                aria-label={
+                  isFullscreen ? "Exit full screen" : "Enter full screen"
+                }
                 title={isFullscreen ? "Exit full screen" : "Enter full screen"}
                 type="button"
               >
-                {isFullscreen ? <Minimize2 className="w-4 h-4" /> : <Maximize2 className="w-4 h-4" />}
+                {isFullscreen ? (
+                  <Minimize2 className="w-4 h-4" />
+                ) : (
+                  <Maximize2 className="w-4 h-4" />
+                )}
               </button>
               <button
                 onClick={clearChat}
@@ -1249,150 +1362,168 @@ export default function SnapcartAIChatbot({ showLauncher = true }: SnapcartAICha
                 isFullscreen ? "px-5 py-3" : "px-3 py-2"
               }`}
             >
-              <div className={isFullscreen ? "max-w-5xl mx-auto space-y-2" : "space-y-2"}>
-              <div className="flex items-center gap-2">
-                <button
-                  type="button"
-                  onClick={startNewChat}
-                  className="text-xs px-2 py-1 rounded border border-green-200 bg-green-50 text-green-700 hover:bg-green-100"
-                >
-                  New Chat
-                </button>
-                <input
-                  ref={sessionSearchInputRef}
-                  type="text"
-                  value={sessionSearch}
-                  onChange={(event) => setSessionSearch(event.target.value)}
-                  placeholder="Search chats"
-                  title="Press Ctrl+K to focus"
-                  className="flex-1 text-xs rounded border border-gray-300 px-2 py-1 outline-none"
-                />
-              </div>
+              <div
+                className={
+                  isFullscreen ? "max-w-5xl mx-auto space-y-2" : "space-y-2"
+                }
+              >
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={startNewChat}
+                    className="text-xs px-2 py-1 rounded border border-green-200 bg-green-50 text-green-700 hover:bg-green-100"
+                  >
+                    New Chat
+                  </button>
+                  <input
+                    ref={sessionSearchInputRef}
+                    type="text"
+                    value={sessionSearch}
+                    onChange={(event) => setSessionSearch(event.target.value)}
+                    placeholder="Search chats"
+                    title="Press Ctrl+K to focus"
+                    className="flex-1 text-xs rounded border border-gray-300 px-2 py-1 outline-none"
+                  />
+                </div>
 
-              <div className="flex items-center gap-2">
-                <select
-                  value={sessionId || ""}
-                  onChange={(event) => switchSession(event.target.value)}
-                  className="flex-1 text-xs rounded border border-gray-300 px-2 py-1 outline-none"
-                >
-                  <option value="">Current Chat</option>
-                  {sessionOptions.map((item) => (
-                    <option key={item.id} value={item.id}>
+                <div className="flex items-center gap-2">
+                  <select
+                    value={sessionId || ""}
+                    onChange={(event) => switchSession(event.target.value)}
+                    className="flex-1 text-xs rounded border border-gray-300 px-2 py-1 outline-none"
+                  >
+                    <option value="">Current Chat</option>
+                    {sessionOptions.map((item) => (
+                      <option key={item.id} value={item.id}>
                         {`${item.pinned ? "📌 " : ""}${item.title}${
                           item.title.trim().toLowerCase() === "untitled chat"
                             ? ` • ${getShortDateLabel(item.updatedAt)}`
                             : ""
                         }`}
-                    </option>
-                  ))}
-                </select>
-                <button
-                  type="button"
-                  onClick={togglePinSession}
-                  disabled={!activeSession || loading}
-                  className="text-xs px-2 py-1 rounded border border-gray-300 text-gray-700 hover:bg-gray-100 disabled:opacity-50"
-                  title={activeSession?.pinned ? "Unpin chat" : "Pin chat"}
-                >
-                  {activeSession?.pinned ? <PinOff className="w-3.5 h-3.5" /> : <Pin className="w-3.5 h-3.5" />}
-                </button>
-                <button
-                  type="button"
-                  onClick={startRenameSession}
-                  disabled={!activeSession || loading}
-                  className="text-xs px-2 py-1 rounded border border-gray-300 text-gray-700 hover:bg-gray-100 disabled:opacity-50"
-                  title="Rename chat"
-                >
-                  <Pencil className="w-3.5 h-3.5" />
-                </button>
-              </div>
-
-              {sessionSearch.trim() && sessionOptions.length > 0 ? (
-                <div className="space-y-1">
-                  <p className="text-[11px] text-gray-500">Matched chats</p>
-                  <div className="max-h-28 overflow-y-auto space-y-1 pr-1">
-                    {sessionOptions.slice(0, 6).map((item) => {
-                      const title = `${item.pinned ? "📌 " : ""}${item.title}`;
-                      return (
-                        <button
-                          key={`match-${item.id}`}
-                          type="button"
-                          onClick={() => switchSession(item.id)}
-                          className="w-full text-left text-xs px-2 py-1.5 rounded border border-gray-200 bg-gray-50 hover:bg-gray-100"
-                        >
-                          {renderHighlightedText(title, sessionSearch)}
-                        </button>
-                      );
-                    })}
-                  </div>
-                </div>
-              ) : null}
-
-              {editingSessionId ? (
-                <div className="space-y-1">
-                  {editingSessionMeta ? (
-                    <p className="text-[11px] text-gray-500">
-                      Editing: {editingSessionMeta.title}
-                      {` • ${getShortDateLabel(editingSessionMeta.updatedAt)}`}
-                    </p>
-                  ) : null}
-                  <div className="flex items-center gap-2">
-                  <input
-                    ref={renameInputRef}
-                    type="text"
-                    value={editingTitle}
-                    onChange={(event) => setEditingTitle(event.target.value)}
-                    onKeyDown={(event) => {
-                      if (event.key === "Enter") {
-                        event.preventDefault();
-                        saveSessionTitle();
-                      }
-                      if (event.key === "Escape") {
-                        event.preventDefault();
-                        cancelRenameSession();
-                      }
-                    }}
-                    placeholder="Chat title"
-                    className="flex-1 text-xs rounded border border-gray-300 px-2 py-1 outline-none"
-                    maxLength={140}
-                  />
+                      </option>
+                    ))}
+                  </select>
                   <button
                     type="button"
-                    onClick={saveSessionTitle}
-                    disabled={!editingTitle.trim() || loading}
-                    className="text-xs px-2 py-1 rounded border border-green-200 bg-green-50 text-green-700 hover:bg-green-100 disabled:opacity-50"
+                    onClick={togglePinSession}
+                    disabled={!activeSession || loading}
+                    className="text-xs px-2 py-1 rounded border border-gray-300 text-gray-700 hover:bg-gray-100 disabled:opacity-50"
+                    title={activeSession?.pinned ? "Unpin chat" : "Pin chat"}
                   >
-                    Save
+                    {activeSession?.pinned ? (
+                      <PinOff className="w-3.5 h-3.5" />
+                    ) : (
+                      <Pin className="w-3.5 h-3.5" />
+                    )}
                   </button>
                   <button
                     type="button"
-                    onClick={cancelRenameSession}
-                    className="text-xs px-2 py-1 rounded border border-gray-300 text-gray-700 hover:bg-gray-100"
+                    onClick={startRenameSession}
+                    disabled={!activeSession || loading}
+                    className="text-xs px-2 py-1 rounded border border-gray-300 text-gray-700 hover:bg-gray-100 disabled:opacity-50"
+                    title="Rename chat"
                   >
-                    Cancel
+                    <Pencil className="w-3.5 h-3.5" />
                   </button>
-                  </div>
                 </div>
-              ) : null}
 
-              {toast ? (
-                <p
-                  className={`text-[11px] ${
-                    toast.type === "success" ? "text-green-700" : "text-red-600"
-                  }`}
-                >
-                  {toast.message}
-                </p>
-              ) : null}
+                {sessionSearch.trim() && sessionOptions.length > 0 ? (
+                  <div className="space-y-1">
+                    <p className="text-[11px] text-gray-500">Matched chats</p>
+                    <div className="max-h-28 overflow-y-auto space-y-1 pr-1">
+                      {sessionOptions.slice(0, 6).map((item) => {
+                        const title = `${item.pinned ? "📌 " : ""}${item.title}`;
+                        return (
+                          <button
+                            key={`match-${item.id}`}
+                            type="button"
+                            onClick={() => switchSession(item.id)}
+                            className="w-full text-left text-xs px-2 py-1.5 rounded border border-gray-200 bg-gray-50 hover:bg-gray-100"
+                          >
+                            {renderHighlightedText(title, sessionSearch)}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                ) : null}
 
-              {sessionSearch.trim() && sessionOptions.length === 0 ? (
-                <p className="text-[11px] text-gray-500">No chats found for this search.</p>
-              ) : null}
-              {sessionSearch.trim() && searchingSessions ? (
-                <p className="text-[11px] text-gray-500">Searching chats...</p>
-              ) : null}
-              {sessionSearchError ? (
-                <p className="text-[11px] text-red-600">{sessionSearchError}</p>
-              ) : null}
+                {editingSessionId ? (
+                  <div className="space-y-1">
+                    {editingSessionMeta ? (
+                      <p className="text-[11px] text-gray-500">
+                        Editing: {editingSessionMeta.title}
+                        {` • ${getShortDateLabel(editingSessionMeta.updatedAt)}`}
+                      </p>
+                    ) : null}
+                    <div className="flex items-center gap-2">
+                      <input
+                        ref={renameInputRef}
+                        type="text"
+                        value={editingTitle}
+                        onChange={(event) =>
+                          setEditingTitle(event.target.value)
+                        }
+                        onKeyDown={(event) => {
+                          if (event.key === "Enter") {
+                            event.preventDefault();
+                            saveSessionTitle();
+                          }
+                          if (event.key === "Escape") {
+                            event.preventDefault();
+                            cancelRenameSession();
+                          }
+                        }}
+                        placeholder="Chat title"
+                        className="flex-1 text-xs rounded border border-gray-300 px-2 py-1 outline-none"
+                        maxLength={140}
+                      />
+                      <button
+                        type="button"
+                        onClick={saveSessionTitle}
+                        disabled={!editingTitle.trim() || loading}
+                        className="text-xs px-2 py-1 rounded border border-green-200 bg-green-50 text-green-700 hover:bg-green-100 disabled:opacity-50"
+                      >
+                        Save
+                      </button>
+                      <button
+                        type="button"
+                        onClick={cancelRenameSession}
+                        className="text-xs px-2 py-1 rounded border border-gray-300 text-gray-700 hover:bg-gray-100"
+                      >
+                        Cancel
+                      </button>
+                    </div>
+                  </div>
+                ) : null}
+
+                {toast ? (
+                  <p
+                    className={`text-[11px] ${
+                      toast.type === "success"
+                        ? "text-green-700"
+                        : "text-red-600"
+                    }`}
+                  >
+                    {toast.message}
+                  </p>
+                ) : null}
+
+                {sessionSearch.trim() && sessionOptions.length === 0 ? (
+                  <p className="text-[11px] text-gray-500">
+                    No chats found for this search.
+                  </p>
+                ) : null}
+                {sessionSearch.trim() && searchingSessions ? (
+                  <p className="text-[11px] text-gray-500">
+                    Searching chats...
+                  </p>
+                ) : null}
+                {sessionSearchError ? (
+                  <p className="text-[11px] text-red-600">
+                    {sessionSearchError}
+                  </p>
+                ) : null}
               </div>
             </div>
           ) : null}
@@ -1401,96 +1532,124 @@ export default function SnapcartAIChatbot({ showLauncher = true }: SnapcartAICha
             ref={messagesScrollRef}
             className={`flex-1 bg-gray-50 space-y-3 overflow-y-auto ${isFullscreen ? "p-5" : "p-3"}`}
           >
-            <div className={isFullscreen ? "max-w-5xl mx-auto space-y-3" : "space-y-3"}>
-            {messages.map((msg, index) => (
-              <div
-                key={`${msg.role}-${index}`}
-                className={`flex ${msg.role === "user" ? "justify-end" : "justify-start"}`}
-              >
-                {(() => {
-                  const isAssistantPending =
-                    loading &&
-                    msg.role === "assistant" &&
-                    index === messages.length - 1 &&
-                    !msg.content.trim();
-
-                  return (
+            <div
+              className={
+                isFullscreen ? "max-w-5xl mx-auto space-y-3" : "space-y-3"
+              }
+            >
+              {messages.map((msg, index) => (
                 <div
-                  className={`${
-                    isFullscreen ? "max-w-[75%] text-[15px] leading-relaxed px-4 py-3" : "max-w-[85%] text-sm px-3 py-2"
-                  } rounded-2xl whitespace-pre-wrap ${
-                    msg.role === "user"
-                      ? "bg-green-600 text-white rounded-br-md"
-                      : "bg-white text-gray-800 border border-gray-200 rounded-bl-md"
-                  }`}
+                  key={`${msg.role}-${index}`}
+                  className={`flex ${msg.role === "user" ? "justify-end" : "justify-start"}`}
                 >
-                  {isAssistantPending ? (
-                    <div className="inline-flex items-center gap-2 text-gray-600">
-                      <span className="font-medium">
-                        {getChatbotTypingLabel(lastUserPrompt, role, Boolean(productContext))}
-                      </span>
-                      <span className="inline-flex items-center gap-1">
-                        <span className="w-1.5 h-1.5 rounded-full bg-gray-500 animate-bounce" />
-                        <span className="w-1.5 h-1.5 rounded-full bg-gray-500 animate-bounce [animation-delay:120ms]" />
-                        <span className="w-1.5 h-1.5 rounded-full bg-gray-500 animate-bounce [animation-delay:240ms]" />
-                      </span>
-                    </div>
-                  ) : (
-                    msg.content
-                  )}
+                  {(() => {
+                    const isAssistantPending =
+                      loading &&
+                      msg.role === "assistant" &&
+                      index === messages.length - 1 &&
+                      !msg.content.trim();
 
-                  {msg.role === "assistant" && msg.content.trim() ? (
-                    <div className="mt-2 flex justify-end items-center gap-1.5 flex-wrap">
-                      <button
-                        type="button"
-                        onClick={() => toggleSpeechForMessage(`assistant-${index}`, msg.content)}
-                        className="inline-flex items-center gap-1 rounded-full border border-gray-200 bg-white/90 px-2 py-1 text-[11px] text-gray-700 hover:bg-gray-100"
-                        title={
-                          speakingMessageId === `assistant-${index}` && !isSpeechPaused
-                            ? "Pause audio"
-                            : "Play audio"
-                        }
+                    return (
+                      <div
+                        className={`${
+                          isFullscreen
+                            ? "max-w-[75%] text-[15px] leading-relaxed px-4 py-3"
+                            : "max-w-[85%] text-sm px-3 py-2"
+                        } rounded-2xl whitespace-pre-wrap ${
+                          msg.role === "user"
+                            ? "bg-green-600 text-white rounded-br-md"
+                            : "bg-white text-gray-800 border border-gray-200 rounded-bl-md"
+                        }`}
                       >
-                        {speakingMessageId === `assistant-${index}` && !isSpeechPaused ? (
-                          <Pause className="w-3.5 h-3.5" />
+                        {isAssistantPending ? (
+                          <div className="inline-flex items-center gap-2 text-gray-600">
+                            <span className="font-medium">
+                              {getChatbotTypingLabel(
+                                lastUserPrompt,
+                                role,
+                                Boolean(productContext),
+                              )}
+                            </span>
+                            <span className="inline-flex items-center gap-1">
+                              <span className="w-1.5 h-1.5 rounded-full bg-gray-500 animate-bounce" />
+                              <span className="w-1.5 h-1.5 rounded-full bg-gray-500 animate-bounce [animation-delay:120ms]" />
+                              <span className="w-1.5 h-1.5 rounded-full bg-gray-500 animate-bounce [animation-delay:240ms]" />
+                            </span>
+                          </div>
                         ) : (
-                          <Play className="w-3.5 h-3.5" />
+                          msg.content
                         )}
-                        {speakingMessageId === `assistant-${index}` && !isSpeechPaused ? "Pause" : "Play"}
-                      </button>
 
-                      {[0.9, 1, 1.2].map((rate) => (
-                        <button
-                          key={`speech-rate-${rate}`}
-                          type="button"
-                          onClick={() => setSpeechRate(rate)}
-                          className={`rounded-full border px-2 py-1 text-[11px] ${
-                            speechRate === rate
-                              ? "border-green-300 bg-green-50 text-green-700"
-                              : "border-gray-200 bg-white text-gray-600 hover:bg-gray-100"
-                          }`}
-                          title={`Speech speed ${rate}x`}
-                        >
-                          {rate}x
-                        </button>
-                      ))}
-                    </div>
-                  ) : null}
+                        {msg.role === "assistant" && msg.content.trim() ? (
+                          <div className="mt-2 flex justify-end items-center gap-1.5 flex-wrap">
+                            <button
+                              type="button"
+                              onClick={() =>
+                                toggleSpeechForMessage(
+                                  `assistant-${index}`,
+                                  msg.content,
+                                )
+                              }
+                              className="inline-flex items-center gap-1 rounded-full border border-gray-200 bg-white/90 px-2 py-1 text-[11px] text-gray-700 hover:bg-gray-100"
+                              title={
+                                speakingMessageId === `assistant-${index}` &&
+                                !isSpeechPaused
+                                  ? "Pause audio"
+                                  : "Play audio"
+                              }
+                            >
+                              {speakingMessageId === `assistant-${index}` &&
+                              !isSpeechPaused ? (
+                                <Pause className="w-3.5 h-3.5" />
+                              ) : (
+                                <Play className="w-3.5 h-3.5" />
+                              )}
+                              {speakingMessageId === `assistant-${index}` &&
+                              !isSpeechPaused
+                                ? "Pause"
+                                : "Play"}
+                            </button>
+
+                            {[0.9, 1, 1.2].map((rate) => (
+                              <button
+                                key={`speech-rate-${rate}`}
+                                type="button"
+                                onClick={() => setSpeechRate(rate)}
+                                className={`rounded-full border px-2 py-1 text-[11px] ${
+                                  speechRate === rate
+                                    ? "border-green-300 bg-green-50 text-green-700"
+                                    : "border-gray-200 bg-white text-gray-600 hover:bg-gray-100"
+                                }`}
+                                title={`Speech speed ${rate}x`}
+                              >
+                                {rate}x
+                              </button>
+                            ))}
+                          </div>
+                        ) : null}
+                      </div>
+                    );
+                  })()}
                 </div>
-                  );
-                })()}
-              </div>
-            ))}
+              ))}
             </div>
           </div>
 
           {suggestions.length > 0 ? (
             <div
               className={`border-t border-gray-200 bg-white flex gap-2 overflow-x-auto ${
-                isFullscreen ? "sticky bottom-[88px] z-[1] px-5 py-3" : "px-3 py-2"
+                isFullscreen
+                  ? "sticky bottom-[88px] z-[1] px-5 py-3"
+                  : "px-3 py-2"
               }`}
             >
-              <div className={isFullscreen ? "max-w-5xl mx-auto w-full space-y-2" : "w-full space-y-2"}>
+              <div
+                className={
+                  isFullscreen
+                    ? "max-w-5xl mx-auto w-full space-y-2"
+                    : "w-full space-y-2"
+                }
+              >
                 <div className="flex gap-2 overflow-x-auto">
                   {suggestions.map((suggestion) => (
                     <button
@@ -1498,7 +1657,9 @@ export default function SnapcartAIChatbot({ showLauncher = true }: SnapcartAICha
                       type="button"
                       onClick={() => sendMessage(suggestion)}
                       className={`whitespace-nowrap rounded-full border border-green-200 bg-green-50 text-green-700 hover:bg-green-100 ${
-                        isFullscreen ? "text-sm px-3 py-1.5" : "text-xs px-2 py-1"
+                        isFullscreen
+                          ? "text-sm px-3 py-1.5"
+                          : "text-xs px-2 py-1"
                       }`}
                     >
                       {suggestion}
@@ -1557,7 +1718,13 @@ export default function SnapcartAIChatbot({ showLauncher = true }: SnapcartAICha
               sendMessage();
             }}
           >
-            <div className={isFullscreen ? "max-w-5xl mx-auto flex items-center gap-2" : "flex items-center gap-2"}>
+            <div
+              className={
+                isFullscreen
+                  ? "max-w-5xl mx-auto flex items-center gap-2"
+                  : "flex items-center gap-2"
+              }
+            >
               <input
                 type="text"
                 value={input}
@@ -1576,21 +1743,24 @@ export default function SnapcartAIChatbot({ showLauncher = true }: SnapcartAICha
                 }`}
                 aria-label={loading ? "Stop generating" : "Send"}
               >
-                {loading ? <Square className="w-4 h-4" /> : <Send className="w-4 h-4" />}
+                {loading ? (
+                  <Square className="w-4 h-4" />
+                ) : (
+                  <Send className="w-4 h-4" />
+                )}
               </button>
             </div>
           </form>
         </div>
-      ) : showLauncher ? (
+      ) : showLauncher && !isProductDetailsPage ? (
         <button
           type="button"
           onClick={() => setIsOpen(true)}
-          className={`fixed ${floatingBottomOffsetClassName} right-4 sm:right-6 z-[90] bg-green-600 text-white rounded-full h-12 w-12 shadow-xl hover:bg-green-700 transition-colors flex items-center justify-center`}
+          className="fixed bottom-6 right-4 sm:right-6 z-[90] bg-gradient-to-r from-purple-500 to-purple-600 text-white p-2.5 rounded-full shadow-lg hover:shadow-purple-500/40 hover:scale-110 transition-all duration-300 group"
           aria-label="Open Snapcart AI chatbot"
           title="Ask Snapcart AI"
         >
-          <MessageCircle className="w-5 h-5" />
-          <Sparkles className="w-3.5 h-3.5 absolute -top-1 -right-1" />
+          <Sparkles className="w-5 h-5 group-hover:rotate-12 transition-transform duration-300" />
         </button>
       ) : null}
     </>

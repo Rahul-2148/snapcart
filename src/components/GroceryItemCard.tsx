@@ -44,6 +44,15 @@ interface IGrocery {
   variants?: IVariant[];
 }
 
+const generateTempCartItemId = () => {
+  const randomUUIDFn = globalThis.crypto?.randomUUID;
+  if (typeof randomUUIDFn === "function") {
+    return randomUUIDFn.call(globalThis.crypto);
+  }
+
+  return `temp-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
+};
+
 const GroceryItemCard = ({
   grocery,
   rating,
@@ -166,7 +175,7 @@ const GroceryItemCard = ({
           if (existing.quantity < stock) existing.quantity += 1;
         } else {
           updatedItems.push({
-            _id: crypto.randomUUID(),
+            _id: generateTempCartItemId(),
             variant: defaultVariant,
             quantity: 1,
             priceAtAdd: {
@@ -198,7 +207,7 @@ const GroceryItemCard = ({
           if (existing.quantity < stock) existing.quantity += 1;
         } else {
           updatedItems.push({
-            _id: "temp-" + crypto.randomUUID(),
+            _id: generateTempCartItemId(),
             variant: defaultVariant,
             quantity: 1,
             priceAtAdd: {

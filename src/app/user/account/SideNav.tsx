@@ -12,7 +12,12 @@ const links = [
   { href: "/user/account/notifications", label: "Notifications", icon: Bell },
 ];
 
-export default function SideNav() {
+type SideNavProps = {
+  onNavigate?: () => void;
+  className?: string;
+};
+
+export default function SideNav({ onNavigate, className = "" }: SideNavProps) {
   const pathname = usePathname();
   const userData = useSelector((state: RootState) => state.user.userData);
 
@@ -25,7 +30,7 @@ export default function SideNav() {
   });
 
   return (
-    <nav className="w-80 bg-white rounded-xl shadow-lg border border-gray-100 overflow-hidden h-full">
+    <nav className={`bg-white rounded-xl shadow-lg border border-gray-100 overflow-hidden h-full ${className}`}>
       <div className="bg-gradient-to-r from-green-500 to-emerald-600 p-6">
         <h2 className="text-white text-xl font-semibold">My Account</h2>
         <p className="text-green-100 text-sm mt-1">
@@ -40,6 +45,7 @@ export default function SideNav() {
             <li key={link.href} className="mb-2">
               <Link
                 href={link.href}
+                onClick={onNavigate}
                 className={`flex items-center py-3 px-4 rounded-lg transition-all duration-200 group ${
                   isActive
                     ? "bg-emerald-50 text-emerald-700 border border-emerald-200 shadow-sm"

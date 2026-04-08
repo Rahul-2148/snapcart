@@ -101,7 +101,7 @@ const HeroSection = () => {
 
   if (loading) {
     return (
-      <div className="relative w-[98%] mx-auto mt-2 h-[80vh] rounded-3xl overflow-hidden shadow-2xl bg-gray-100 flex items-center justify-center">
+      <div className="relative w-[98%] mx-auto mt-2 h-[48vh] sm:h-[60vh] lg:h-[80vh] rounded-3xl overflow-hidden shadow-2xl bg-gray-100 flex items-center justify-center">
         <Loader2 className="w-8 h-8 animate-spin text-green-600" />
       </div>
     );
@@ -109,7 +109,7 @@ const HeroSection = () => {
 
   if (banners.length === 0) {
     return (
-      <div className="relative w-[98%] mx-auto mt-2 h-[80vh] rounded-3xl overflow-hidden shadow-2xl bg-gray-100 flex items-center justify-center">
+      <div className="relative w-[98%] mx-auto mt-2 h-[48vh] sm:h-[60vh] lg:h-[80vh] rounded-3xl overflow-hidden shadow-2xl bg-gray-100 flex items-center justify-center">
         <p className="text-gray-600">No banners available</p>
       </div>
     );
@@ -118,7 +118,7 @@ const HeroSection = () => {
   const currentBanner = banners[currentSlide];
 
   return (
-    <div className="relative w-[98%] mx-auto mt-2 h-[80vh] rounded-3xl overflow-hidden shadow-2xl">
+    <div className="relative w-[98%] mx-auto mt-2 h-[48vh] sm:h-[60vh] lg:h-[80vh] rounded-3xl overflow-hidden shadow-2xl">
       <AnimatePresence mode="wait">
         <motion.div
           key={currentBanner._id}

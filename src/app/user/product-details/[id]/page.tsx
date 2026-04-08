@@ -101,6 +101,15 @@ const getProductAiTypingLabel = (question: string) => {
   return "AI is preparing your answer...";
 };
 
+const generateTempCartItemId = () => {
+  const randomUUIDFn = globalThis.crypto?.randomUUID;
+  if (typeof randomUUIDFn === "function") {
+    return randomUUIDFn.call(globalThis.crypto);
+  }
+
+  return `temp-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
+};
+
 const ProductDetailsPage = () => {
   const cloudTtsEnabled = process.env.NEXT_PUBLIC_ENABLE_NEURAL_TTS === "true";
   const params = useParams<{ id: string }>();
@@ -439,7 +448,7 @@ const ProductDetailsPage = () => {
           if (existing.quantity < stock) existing.quantity += 1;
         } else {
           updatedItems.push({
-            _id: crypto.randomUUID(),
+            _id: generateTempCartItemId(),
             variant: selectedVariant,
             quantity: 1,
             priceAtAdd: {
