@@ -275,7 +275,9 @@ io.on("connection", (socket) => {
   });
 });
 
-const SOCKET_PORT = Number(process.env.SOCKET_PORT || 3001);
+const SOCKET_PORT = Number(
+  process.env.PORT || process.env.SOCKET_PORT || 3001,
+);
 
 httpServer.listen(SOCKET_PORT, () => {
   console.log(`Socket.io server listening on port ${SOCKET_PORT}`);
