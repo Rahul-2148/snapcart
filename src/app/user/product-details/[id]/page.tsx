@@ -110,6 +110,18 @@ const generateTempCartItemId = () => {
   return `temp-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
 };
 
+const isLikelyMobileDevice = () => {
+  if (typeof navigator === "undefined") {
+    return false;
+  }
+
+  const userAgent = navigator.userAgent || "";
+  return (
+    /Android|iPhone|iPad|iPod|Mobi/i.test(userAgent) ||
+    (navigator.maxTouchPoints > 1 && /Macintosh/i.test(userAgent))
+  );
+};
+
 const ProductDetailsPage = () => {
   const cloudTtsEnabled = process.env.NEXT_PUBLIC_ENABLE_NEURAL_TTS === "true";
   const params = useParams<{ id: string }>();
@@ -150,14 +162,22 @@ const ProductDetailsPage = () => {
   const [isWishlisted, setIsWishlisted] = useState(false);
   const [aiQuestion, setAiQuestion] = useState("");
   const [aiLoading, setAiLoading] = useState(false);
-  const [aiMessages, setAiMessages] = useState<Array<{ role: "user" | "assistant"; content: string }>>([]);
+  const [aiMessages, setAiMessages] = useState<
+    Array<{ role: "user" | "assistant"; content: string }>
+  >([]);
   const [aiSuggestions, setAiSuggestions] = useState<string[]>([]);
   const [pendingAiQuestion, setPendingAiQuestion] = useState("");
-  const [speakingAiMessageId, setSpeakingAiMessageId] = useState<string | null>(null);
+  const [speakingAiMessageId, setSpeakingAiMessageId] = useState<string | null>(
+    null,
+  );
   const [isAiSpeechPaused, setIsAiSpeechPaused] = useState(false);
   const [aiSpeechRate, setAiSpeechRate] = useState(1);
-  const [aiSpeechMode, setAiSpeechMode] = useState<"none" | "cloud" | "browser">("none");
-  const [availableVoices, setAvailableVoices] = useState<SpeechSynthesisVoice[]>([]);
+  const [aiSpeechMode, setAiSpeechMode] = useState<
+    "none" | "cloud" | "browser"
+  >("none");
+  const [availableVoices, setAvailableVoices] = useState<
+    SpeechSynthesisVoice[]
+  >([]);
   const aiSpeechUtteranceRef = useRef<SpeechSynthesisUtterance | null>(null);
   const aiSpeechAudioRef = useRef<HTMLAudioElement | null>(null);
   const aiSpeechAudioUrlRef = useRef<string | null>(null);
@@ -364,30 +384,38 @@ const ProductDetailsPage = () => {
   const fetchProduct = async (id: string, retries = 3) => {
     try {
       setLoading(true);
-      
+
       // Validate ID exists and is a string
-      console.log(`[ProductDetails] Fetching product with ID: "${id}", Type: ${typeof id}, Length: ${String(id).length}`);
-      
-      if (!id || typeof id !== 'string' || id.trim().length === 0) {
+      console.log(
+        `[ProductDetails] Fetching product with ID: "${id}", Type: ${typeof id}, Length: ${String(id).length}`,
+      );
+
+      if (!id || typeof id !== "string" || id.trim().length === 0) {
         throw new Error("Invalid product ID");
       }
-      
+
       console.log(`[ProductDetails] Making API call to /api/groceries/${id}`);
       const response = await axios.get(`/api/groceries/${id}`, {
         timeout: 10000, // 10 second timeout
       });
-      
+
       console.log(`[ProductDetails] Response:`, response.data);
-      
+
       if (response.data?.success && response.data?.grocery) {
         const groceryData = response.data.grocery;
-        console.log(`[ProductDetails] Successfully fetched product: ${groceryData.name}`);
-        
+        console.log(
+          `[ProductDetails] Successfully fetched product: ${groceryData.name}`,
+        );
+
         // Validate that we have essential data
-        if (!groceryData._id || !groceryData.variants || groceryData.variants.length === 0) {
+        if (
+          !groceryData._id ||
+          !groceryData.variants ||
+          groceryData.variants.length === 0
+        ) {
           throw new Error("Product data incomplete");
         }
-        
+
         const normalizedVariants = (groceryData?.variants || []).map(
           (v: any) => ({
             ...v,
@@ -409,14 +437,17 @@ const ProductDetailsPage = () => {
       }
     } catch (error: any) {
       console.error("[ProductDetails] Failed to fetch product", error);
-      
+
       // Retry logic for network errors
-      if (retries > 0 && (error.code === 'ECONNABORTED' || error.message === 'Network Error')) {
+      if (
+        retries > 0 &&
+        (error.code === "ECONNABORTED" || error.message === "Network Error")
+      ) {
         console.log(`Retrying... (${retries} retries left)`);
         setTimeout(() => fetchProduct(id, retries - 1), 1000);
         return;
       }
-      
+
       if (error.response?.status === 400) {
         toast.error("Invalid product ID. Please search again.");
       } else if (error.response?.status === 404) {
@@ -426,7 +457,7 @@ const ProductDetailsPage = () => {
       } else {
         toast.error("Unable to load product right now. Please try again.");
       }
-      
+
       // Go back after a short delay to allow user to see the error
       setTimeout(() => router.back(), 1500);
     } finally {
@@ -549,8 +580,13 @@ const ProductDetailsPage = () => {
       return;
     }
 
-    setAiQuestion(`${product.name} ke baare me quick details do aur best use-case batao`);
-    aiSectionRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+    setAiQuestion(
+      `${product.name} ke baare me quick details do aur best use-case batao`,
+    );
+    aiSectionRef.current?.scrollIntoView({
+      behavior: "smooth",
+      block: "start",
+    });
   };
 
   const askProductAi = async (questionText?: string) => {
@@ -563,8 +599,14 @@ const ProductDetailsPage = () => {
       return;
     }
 
-    const nextHistory = [...aiMessages, { role: "user" as const, content: finalQuestion }];
-    setAiMessages([...nextHistory, { role: "assistant" as const, content: "__ai_loading__" }]);
+    const nextHistory = [
+      ...aiMessages,
+      { role: "user" as const, content: finalQuestion },
+    ];
+    setAiMessages([
+      ...nextHistory,
+      { role: "assistant" as const, content: "__ai_loading__" },
+    ]);
     setPendingAiQuestion(finalQuestion);
     setAiQuestion("");
     setAiLoading(true);
@@ -573,7 +615,10 @@ const ProductDetailsPage = () => {
       setAiMessages((prev) => {
         const updated = [...prev];
         for (let index = updated.length - 1; index >= 0; index -= 1) {
-          if (updated[index]?.role === "assistant" && updated[index]?.content === "__ai_loading__") {
+          if (
+            updated[index]?.role === "assistant" &&
+            updated[index]?.content === "__ai_loading__"
+          ) {
             updated[index] = { role: "assistant", content };
             return updated;
           }
@@ -602,15 +647,21 @@ const ProductDetailsPage = () => {
       });
 
       if (response.data?.success) {
-        replacePendingAssistant(response.data.reply || "Abhi exact answer unavailable hai.");
+        replacePendingAssistant(
+          response.data.reply || "Abhi exact answer unavailable hai.",
+        );
         if (Array.isArray(response.data.suggestions)) {
           setAiSuggestions(response.data.suggestions.slice(0, 3));
         }
       } else {
-        replacePendingAssistant("Product AI response abhi unavailable hai. Thoda der baad try karein.");
+        replacePendingAssistant(
+          "Product AI response abhi unavailable hai. Thoda der baad try karein.",
+        );
       }
     } catch {
-      replacePendingAssistant("Product AI temporarily unavailable hai. Please retry.");
+      replacePendingAssistant(
+        "Product AI temporarily unavailable hai. Please retry.",
+      );
     } finally {
       setAiLoading(false);
       setPendingAiQuestion("");
@@ -622,7 +673,10 @@ const ProductDetailsPage = () => {
       return null;
     }
 
-    const voices = availableVoices.length > 0 ? availableVoices : window.speechSynthesis.getVoices();
+    const voices =
+      availableVoices.length > 0
+        ? availableVoices
+        : window.speechSynthesis.getVoices();
     if (!voices.length) {
       return null;
     }
@@ -630,7 +684,8 @@ const ProductDetailsPage = () => {
     const lower = content.toLowerCase();
     const hasHindiHint =
       /[\u0900-\u097F]/.test(content) ||
-      /(kya|kaise|hai|mera|mere|aap|nahi|batao|samjhao|kr|kar|product|variant|freshness|storage)/.test(lower);
+      /(kya|kaise|hai|mera|mere|aap|nahi|batao|samjhao|kr|kar)/.test(lower);
+    const isDesktop = !isLikelyMobileDevice();
 
     const scoreVoice = (voice: SpeechSynthesisVoice) => {
       const name = voice.name.toLowerCase();
@@ -638,31 +693,73 @@ const ProductDetailsPage = () => {
       let score = 0;
 
       if (hasHindiHint) {
-        if (lang.startsWith("hi-in")) score += 80;
-        else if (lang.startsWith("hi")) score += 70;
-        else if (lang.startsWith("en-in")) score += 55;
+        if (lang.startsWith("hi-in")) score += 120;
+        else if (lang.startsWith("hi")) score += 110;
+        else if (lang.startsWith("en-in")) score += 85;
+        else if (lang.startsWith("en-gb") || lang.startsWith("en-us"))
+          score -= 12;
       } else {
-        if (lang.startsWith("en-in")) score += 80;
-        else if (lang.startsWith("en-gb")) score += 60;
-        else if (lang.startsWith("en-us")) score += 45;
-        else if (lang.startsWith("hi-in")) score += 40;
+        if (lang.startsWith("en-in")) score += 120;
+        else if (lang.startsWith("hi-in")) score += 100;
+        else if (lang.startsWith("hi")) score += 90;
+        else if (lang.startsWith("en-gb") || lang.startsWith("en-us"))
+          score -= 8;
       }
 
       if (name.includes("google")) score += 25;
       if (name.includes("microsoft")) score += 22;
-      if (name.includes("natural") || name.includes("neural") || name.includes("wavenet")) score += 18;
-      if (name.includes("india") || name.includes("hindi") || name.includes("indian")) score += 16;
+      if (
+        name.includes("natural") ||
+        name.includes("neural") ||
+        name.includes("wavenet")
+      )
+        score += 18;
+      if (
+        name.includes("india") ||
+        name.includes("hindi") ||
+        name.includes("indian")
+      )
+        score += 16;
 
       if (
         name.includes("female") ||
         name.includes("woman") ||
+        name.includes("girl") ||
         name.includes("swara") ||
         name.includes("aditi") ||
         name.includes("priya") ||
         name.includes("raveena") ||
-        name.includes("sangeeta")
+        name.includes("sangeeta") ||
+        name.includes("salli") ||
+        name.includes("zira") ||
+        name.includes("vaani") ||
+        name.includes("heera") ||
+        name.includes("neerja") ||
+        name.includes("meera") ||
+        name.includes("kavya") ||
+        name.includes("isha") ||
+        name.includes("anjali") ||
+        name.includes("suhani") ||
+        name.includes("rashi") ||
+        name.includes("shreya") ||
+        name.includes("tessa") ||
+        name.includes("aria") ||
+        name.includes("samantha") ||
+        name.includes("neural")
       ) {
-        score += 14;
+        score += isDesktop ? 60 : 36;
+      }
+
+      if (
+        name.includes("david") ||
+        name.includes("male") ||
+        name.includes("man") ||
+        name.includes("alex") ||
+        name.includes("daniel") ||
+        name.includes("harry") ||
+        name.includes("mike")
+      ) {
+        score -= isDesktop ? 18 : 6;
       }
 
       if (voice.localService) {
@@ -682,14 +779,31 @@ const ProductDetailsPage = () => {
       .replace(/`([^`]+)`/g, "$1")
       .replace(/\*\*|__/g, "")
       .replace(/[•●▪]/g, ". ")
+      .replace(/\bMRP\b/gi, "maximum retail price")
+      .replace(/\bSKU\b/gi, "stock keeping unit")
+      .replace(/\bGST\b/gi, "goods and services tax")
+      .replace(/\bFSSAI\b/gi, "food safety and standards authority of India")
+      .replace(/\bCOD\b/gi, "cash on delivery")
+      .replace(/\bFAQ\b/gi, "frequently asked questions")
+      .replace(/\bAI\b/gi, "artificial intelligence")
       .replace(/\n+/g, ". ")
       .replace(/\s+/g, " ")
       .replace(/\bETA\b/gi, "estimated time")
       .replace(/₹\s?(\d+)/g, "$1 rupees")
+      .replace(/(\d+)\s?(kg|kilograms?)\b/gi, "$1 kilogram")
+      .replace(/(\d+)\s?(g|gm|grams?)\b/gi, "$1 gram")
+      .replace(/(\d+)\s?(ml|milliliters?)\b/gi, "$1 milliliter")
+      .replace(/(\d+)\s?(l|ltr|liter|litre|liters|litres)\b/gi, "$1 liter")
       .replace(/\bkg\b/gi, "kilogram")
       .replace(/\bgm\b/gi, "gram")
+      .replace(/\bg\b/gi, "gram")
       .replace(/\bml\b/gi, "milliliter")
+      .replace(/\bltr\b/gi, "liter")
+      .replace(/\blitre\b/gi, "liter")
+      .replace(/\bliter\b/gi, "liter")
+      .replace(/\blitre\b/gi, "liter")
       .replace(/\s*\/\s*/g, " or ")
+      .replace(/&/g, " and ")
       .trim();
   };
 
@@ -762,6 +876,13 @@ const ProductDetailsPage = () => {
 
     const playbackToken = ++aiSpeechPlaybackTokenRef.current;
     const preferredVoice = pickPreferredVoice(normalized);
+    const preferredFallbackLang =
+      /[\u0900-\u097F]/.test(normalized) ||
+      /(kya|kaise|hai|mera|mere|aap|nahi|batao|samjhao|kr|kar)/.test(
+        normalized.toLowerCase(),
+      )
+        ? "hi-IN"
+        : "en-IN";
 
     setSpeakingAiMessageId(messageId);
     setIsAiSpeechPaused(false);
@@ -776,10 +897,14 @@ const ProductDetailsPage = () => {
       if (preferredVoice) {
         utterance.voice = preferredVoice;
         utterance.lang = preferredVoice.lang;
+      } else {
+        utterance.lang = preferredFallbackLang;
       }
 
-      utterance.rate = aiSpeechRate * 0.96;
-      utterance.pitch = 1.08;
+      utterance.rate = isLikelyMobileDevice()
+        ? aiSpeechRate * 0.96
+        : aiSpeechRate * 0.9;
+      utterance.pitch = isLikelyMobileDevice() ? 1.08 : 1.22;
       utterance.volume = 1;
 
       utterance.onend = () => {
@@ -818,56 +943,115 @@ const ProductDetailsPage = () => {
   };
 
   const playCloudAiSpeech = async (messageId: string, text: string) => {
-    const response = await fetch("/api/tts", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({ text }),
-    });
-
-    if (!response.ok) {
+    const normalized = normalizeTextForSpeech(text);
+    const chunks = splitSpeechChunks(normalized, 1800);
+    if (chunks.length === 0) {
       throw new Error("Cloud TTS unavailable");
     }
 
-    const blob = await response.blob();
-    const objectUrl = URL.createObjectURL(blob);
-    const audio = new Audio(objectUrl);
-    audio.playbackRate = aiSpeechRate;
+    const playbackToken = ++aiSpeechPlaybackTokenRef.current;
 
-    aiSpeechAudioRef.current = audio;
-    aiSpeechAudioUrlRef.current = objectUrl;
     setAiSpeechMode("cloud");
     setSpeakingAiMessageId(messageId);
     setIsAiSpeechPaused(false);
 
-    audio.onended = () => {
+    const clearCloudPlaybackState = () => {
       setSpeakingAiMessageId(null);
       setIsAiSpeechPaused(false);
       setAiSpeechMode("none");
+
       if (aiSpeechAudioUrlRef.current) {
         URL.revokeObjectURL(aiSpeechAudioUrlRef.current);
         aiSpeechAudioUrlRef.current = null;
       }
+
       aiSpeechAudioRef.current = null;
     };
 
-    audio.onerror = () => {
-      setSpeakingAiMessageId(null);
-      setIsAiSpeechPaused(false);
-      setAiSpeechMode("none");
-      if (aiSpeechAudioUrlRef.current) {
-        URL.revokeObjectURL(aiSpeechAudioUrlRef.current);
-        aiSpeechAudioUrlRef.current = null;
+    const playChunk = async (chunkIndex: number) => {
+      if (playbackToken !== aiSpeechPlaybackTokenRef.current) {
+        return;
       }
-      aiSpeechAudioRef.current = null;
-      toast.error("Unable to play this response as audio");
+
+      const response = await fetch("/api/tts", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ text: chunks[chunkIndex] }),
+      });
+
+      if (!response.ok) {
+        throw new Error("Cloud TTS unavailable");
+      }
+
+      const blob = await response.blob();
+      if (playbackToken !== aiSpeechPlaybackTokenRef.current) {
+        return;
+      }
+
+      const objectUrl = URL.createObjectURL(blob);
+      const audio = new Audio(objectUrl);
+      audio.playbackRate = aiSpeechRate;
+
+      aiSpeechAudioRef.current = audio;
+      aiSpeechAudioUrlRef.current = objectUrl;
+
+      audio.onended = () => {
+        if (playbackToken !== aiSpeechPlaybackTokenRef.current) {
+          return;
+        }
+
+        if (aiSpeechAudioUrlRef.current) {
+          URL.revokeObjectURL(aiSpeechAudioUrlRef.current);
+          aiSpeechAudioUrlRef.current = null;
+        }
+
+        aiSpeechAudioRef.current = null;
+
+        if (chunkIndex < chunks.length - 1) {
+          void playChunk(chunkIndex + 1).catch(() => {
+            if (playbackToken !== aiSpeechPlaybackTokenRef.current) {
+              return;
+            }
+
+            clearCloudPlaybackState();
+            toast.error("Unable to play this response as audio");
+          });
+          return;
+        }
+
+        clearCloudPlaybackState();
+      };
+
+      audio.onerror = () => {
+        if (playbackToken !== aiSpeechPlaybackTokenRef.current) {
+          return;
+        }
+
+        clearCloudPlaybackState();
+        toast.error("Unable to play this response as audio");
+      };
+
+      try {
+        await audio.play();
+      } catch {
+        if (playbackToken !== aiSpeechPlaybackTokenRef.current) {
+          return;
+        }
+
+        clearCloudPlaybackState();
+        throw new Error("Cloud TTS unavailable");
+      }
     };
 
-    await audio.play();
+    await playChunk(0);
   };
 
-  const toggleAiSpeechForMessage = async (messageId: string, content: string) => {
+  const toggleAiSpeechForMessage = async (
+    messageId: string,
+    content: string,
+  ) => {
     if (typeof window === "undefined" || !("speechSynthesis" in window)) {
       toast.error("Audio playback is not supported in this browser");
       return;
@@ -910,12 +1094,20 @@ const ProductDetailsPage = () => {
 
     stopCurrentAiSpeechPlayback();
 
-    if (cloudTtsEnabled) {
+    const shouldPreferCloudSpeech = cloudTtsEnabled && !isLikelyMobileDevice();
+
+    if (shouldPreferCloudSpeech) {
       try {
         await playCloudAiSpeech(messageId, trimmedContent);
         return;
-      } catch {
-      }
+      } catch {}
+    }
+
+    if (cloudTtsEnabled && isLikelyMobileDevice()) {
+      try {
+        await playCloudAiSpeech(messageId, trimmedContent);
+        return;
+      } catch {}
     }
 
     playBrowserAiSpeech(messageId, trimmedContent);
@@ -950,7 +1142,8 @@ const ProductDetailsPage = () => {
             Product not available
           </p>
           <p className="text-sm text-gray-600 mb-6">
-            We couldn't load this product. It may have been removed or is temporarily unavailable.
+            We couldn't load this product. It may have been removed or is
+            temporarily unavailable.
           </p>
           <div className="flex gap-3 justify-center">
             <button
@@ -1338,10 +1531,15 @@ const ProductDetailsPage = () => {
               </div>
             )}
 
-            <div ref={aiSectionRef} className="bg-emerald-50/60 border border-emerald-100 rounded-2xl p-4 space-y-3">
+            <div
+              ref={aiSectionRef}
+              className="bg-emerald-50/60 border border-emerald-100 rounded-2xl p-4 space-y-3"
+            >
               <div className="flex items-center gap-2">
                 <Bot className="w-4 h-4 text-emerald-700" />
-                <p className="text-sm font-semibold text-emerald-800">Ask AI about this product</p>
+                <p className="text-sm font-semibold text-emerald-800">
+                  Ask AI about this product
+                </p>
               </div>
 
               <div className="flex flex-wrap gap-2">
@@ -1397,9 +1595,12 @@ const ProductDetailsPage = () => {
                           : "bg-emerald-100 text-emerald-900 border border-emerald-200"
                       }`}
                     >
-                      {msg.role === "assistant" && msg.content === "__ai_loading__" ? (
+                      {msg.role === "assistant" &&
+                      msg.content === "__ai_loading__" ? (
                         <div className="inline-flex items-center gap-2 text-emerald-800">
-                          <span className="font-medium">{getProductAiTypingLabel(pendingAiQuestion)}</span>
+                          <span className="font-medium">
+                            {getProductAiTypingLabel(pendingAiQuestion)}
+                          </span>
                           <span className="inline-flex items-center gap-1">
                             <span className="w-1.5 h-1.5 rounded-full bg-emerald-600 animate-bounce" />
                             <span className="w-1.5 h-1.5 rounded-full bg-emerald-600 animate-bounce [animation-delay:120ms]" />
@@ -1409,24 +1610,36 @@ const ProductDetailsPage = () => {
                       ) : (
                         <p>{msg.content}</p>
                       )}
-                      {msg.role === "assistant" && msg.content.trim() && msg.content !== "__ai_loading__" ? (
+                      {msg.role === "assistant" &&
+                      msg.content.trim() &&
+                      msg.content !== "__ai_loading__" ? (
                         <div className="mt-2 flex justify-end items-center gap-1.5 flex-wrap">
                           <button
                             type="button"
-                            onClick={() => toggleAiSpeechForMessage(`pdp-assistant-${index}`, msg.content)}
+                            onClick={() =>
+                              toggleAiSpeechForMessage(
+                                `pdp-assistant-${index}`,
+                                msg.content,
+                              )
+                            }
                             className="inline-flex items-center gap-1 rounded-full border border-emerald-200 bg-white px-2 py-1 text-[11px] text-emerald-700 hover:bg-emerald-100"
                             title={
-                              speakingAiMessageId === `pdp-assistant-${index}` && !isAiSpeechPaused
+                              speakingAiMessageId ===
+                                `pdp-assistant-${index}` && !isAiSpeechPaused
                                 ? "Pause audio"
                                 : "Play audio"
                             }
                           >
-                            {speakingAiMessageId === `pdp-assistant-${index}` && !isAiSpeechPaused ? (
+                            {speakingAiMessageId === `pdp-assistant-${index}` &&
+                            !isAiSpeechPaused ? (
                               <Pause className="w-3.5 h-3.5" />
                             ) : (
                               <Play className="w-3.5 h-3.5" />
                             )}
-                            {speakingAiMessageId === `pdp-assistant-${index}` && !isAiSpeechPaused ? "Pause" : "Play"}
+                            {speakingAiMessageId === `pdp-assistant-${index}` &&
+                            !isAiSpeechPaused
+                              ? "Pause"
+                              : "Play"}
                           </button>
 
                           {[0.9, 1, 1.2].map((rate) => (
@@ -1450,7 +1663,10 @@ const ProductDetailsPage = () => {
                   ))}
                 </div>
               ) : (
-                <p className="text-xs text-emerald-700">Tip: product ingredients, quantity suitability, storage, alternatives, aur value-for-money puch sakte ho.</p>
+                <p className="text-xs text-emerald-700">
+                  Tip: product ingredients, quantity suitability, storage,
+                  alternatives, aur value-for-money puch sakte ho.
+                </p>
               )}
 
               {aiSuggestions.length > 0 ? (

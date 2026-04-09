@@ -131,6 +131,18 @@ type ChatbotProductContext = {
   stock?: number;
 };
 
+const isLikelyMobileDevice = () => {
+  if (typeof navigator === "undefined") {
+    return false;
+  }
+
+  const userAgent = navigator.userAgent || "";
+  return (
+    /Android|iPhone|iPad|iPod|Mobi/i.test(userAgent) ||
+    (navigator.maxTouchPoints > 1 && /Macintosh/i.test(userAgent))
+  );
+};
+
 export default function SnapcartAIChatbot({
   showLauncher = true,
 }: SnapcartAIChatbotProps) {
@@ -599,6 +611,8 @@ export default function SnapcartAIChatbot({
       /(kya|kaise|hai|mera|mere|aap|nahi|batao|samjhao|kr|kar|delivery|order|returns|admin)/.test(
         lower,
       );
+    const isDesktop = !isLikelyMobileDevice();
+    const preferredFallbackLang = hasHindiHint ? "hi-IN" : "en-IN";
 
     const scoreVoice = (voice: SpeechSynthesisVoice) => {
       const name = voice.name.toLowerCase();
@@ -606,14 +620,15 @@ export default function SnapcartAIChatbot({
       let score = 0;
 
       if (hasHindiHint) {
-        if (lang.startsWith("hi-in")) score += 80;
-        else if (lang.startsWith("hi")) score += 70;
-        else if (lang.startsWith("en-in")) score += 55;
+        if (lang.startsWith("hi-in")) score += 120;
+        else if (lang.startsWith("hi")) score += 110;
+        else if (lang.startsWith("en-in")) score += 85;
+        else if (lang.startsWith("en-gb") || lang.startsWith("en-us")) score -= 12;
       } else {
-        if (lang.startsWith("en-in")) score += 80;
-        else if (lang.startsWith("en-gb")) score += 60;
-        else if (lang.startsWith("en-us")) score += 45;
-        else if (lang.startsWith("hi-in")) score += 40;
+        if (lang.startsWith("en-in")) score += 120;
+        else if (lang.startsWith("hi-in")) score += 100;
+        else if (lang.startsWith("hi")) score += 90;
+        else if (lang.startsWith("en-gb") || lang.startsWith("en-us")) score -= 8;
       }
 
       if (name.includes("google")) score += 25;
@@ -634,13 +649,43 @@ export default function SnapcartAIChatbot({
       if (
         name.includes("female") ||
         name.includes("woman") ||
+        name.includes("girl") ||
         name.includes("swara") ||
         name.includes("aditi") ||
         name.includes("priya") ||
         name.includes("raveena") ||
-        name.includes("sangeeta")
+        name.includes("sangeeta") ||
+        name.includes("salli") ||
+        name.includes("zira") ||
+        name.includes("vaani") ||
+        name.includes("heera") ||
+        name.includes("neerja") ||
+        name.includes("neeraj") ||
+        name.includes("meera") ||
+        name.includes("kavya") ||
+        name.includes("isha") ||
+        name.includes("anjali") ||
+        name.includes("suhani") ||
+        name.includes("rashi") ||
+        name.includes("shreya") ||
+        name.includes("tessa") ||
+        name.includes("aria") ||
+        name.includes("samantha") ||
+        name.includes("neural")
       ) {
-        score += 14;
+        score += isDesktop ? 60 : 36;
+      }
+
+      if (
+        name.includes("david") ||
+        name.includes("male") ||
+        name.includes("man") ||
+        name.includes("alex") ||
+        name.includes("daniel") ||
+        name.includes("harry") ||
+        name.includes("mike")
+      ) {
+        score -= isDesktop ? 18 : 6;
       }
 
       if (voice.localService) {
@@ -660,14 +705,31 @@ export default function SnapcartAIChatbot({
       .replace(/`([^`]+)`/g, "$1")
       .replace(/\*\*|__/g, "")
       .replace(/[•●▪]/g, ". ")
+      .replace(/\bMRP\b/gi, "maximum retail price")
+      .replace(/\bSKU\b/gi, "stock keeping unit")
+      .replace(/\bGST\b/gi, "goods and services tax")
+      .replace(/\bFSSAI\b/gi, "food safety and standards authority of India")
+      .replace(/\bCOD\b/gi, "cash on delivery")
+      .replace(/\bFAQ\b/gi, "frequently asked questions")
+      .replace(/\bAI\b/gi, "artificial intelligence")
       .replace(/\n+/g, ". ")
       .replace(/\s+/g, " ")
       .replace(/\bETA\b/gi, "estimated time")
       .replace(/₹\s?(\d+)/g, "$1 rupees")
+      .replace(/(\d+)\s?(kg|kilograms?)\b/gi, "$1 kilogram")
+      .replace(/(\d+)\s?(g|gm|grams?)\b/gi, "$1 gram")
+      .replace(/(\d+)\s?(ml|milliliters?)\b/gi, "$1 milliliter")
+      .replace(/(\d+)\s?(l|ltr|liter|litre|liters|litres)\b/gi, "$1 liter")
       .replace(/\bkg\b/gi, "kilogram")
       .replace(/\bgm\b/gi, "gram")
+      .replace(/\bg\b/gi, "gram")
       .replace(/\bml\b/gi, "milliliter")
+      .replace(/\bltr\b/gi, "liter")
+      .replace(/\blitre\b/gi, "liter")
+      .replace(/\bliter\b/gi, "liter")
+      .replace(/\blitres\b/gi, "liter")
       .replace(/\s*\/\s*/g, " or ")
+      .replace(/&/g, " and ")
       .trim();
   };
 
@@ -754,10 +816,12 @@ export default function SnapcartAIChatbot({
       if (preferredVoice) {
         utterance.voice = preferredVoice;
         utterance.lang = preferredVoice.lang;
+      } else {
+        utterance.lang = preferredFallbackLang;
       }
 
-      utterance.rate = speechRate * 0.96;
-      utterance.pitch = 1.08;
+      utterance.rate = isLikelyMobileDevice() ? speechRate * 0.96 : speechRate * 0.9;
+      utterance.pitch = isLikelyMobileDevice() ? 1.08 : 1.22;
       utterance.volume = 1;
 
       utterance.onend = () => {
@@ -899,7 +963,16 @@ export default function SnapcartAIChatbot({
 
     stopCurrentSpeechPlayback();
 
-    if (cloudTtsEnabled) {
+    const shouldPreferCloudSpeech = cloudTtsEnabled && !isLikelyMobileDevice();
+
+    if (shouldPreferCloudSpeech) {
+      try {
+        await playCloudSpeech(messageId, trimmedContent);
+        return;
+      } catch {}
+    }
+
+    if (cloudTtsEnabled && isLikelyMobileDevice()) {
       try {
         await playCloudSpeech(messageId, trimmedContent);
         return;
