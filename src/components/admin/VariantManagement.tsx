@@ -44,6 +44,12 @@ const VariantManagement = ({
   onVariantsChange,
   allowedUnits,
 }: VariantManagementProps) => {
+  const parseWholePrice = (value: string): number => {
+    const parsed = Number(value);
+    if (Number.isNaN(parsed) || parsed <= 0) return 0;
+    return Math.round(parsed);
+  };
+
   const [editingId, setEditingId] = useState<string | null>(null);
   const [formData, setFormData] = useState<IVariant>({
     id: "",
@@ -83,6 +89,11 @@ const VariantManagement = ({
     const generatedLabel = generateLabel();
     const variantToSave = {
       ...formData,
+      price: {
+        ...formData.price,
+        mrp: Math.round(formData.price.mrp),
+        selling: Math.round(formData.price.selling),
+      },
       // Always regenerate label from unit values unless user explicitly set a custom label
       label: generatedLabel,
     };
@@ -344,13 +355,16 @@ const VariantManagement = ({
             </label>
             <input
               type="number"
-              step="0.01"
+              step="1"
               min="0"
               value={formData.price.mrp || ""}
               onChange={(e) => {
                 setFormData({
                   ...formData,
-                  price: { ...formData.price, mrp: parseFloat(e.target.value) || 0 },
+                  price: {
+                    ...formData.price,
+                    mrp: parseWholePrice(e.target.value),
+                  },
                 });
                 setErrors({ ...errors, mrp: "" });
               }}
@@ -371,7 +385,7 @@ const VariantManagement = ({
             </label>
             <input
               type="number"
-              step="0.01"
+              step="1"
               min="0"
               value={formData.price.selling || ""}
               onChange={(e) => {
@@ -379,7 +393,7 @@ const VariantManagement = ({
                   ...formData,
                   price: {
                     ...formData.price,
-                    selling: parseFloat(e.target.value) || 0,
+                    selling: parseWholePrice(e.target.value),
                   },
                 });
                 setErrors({ ...errors, selling: "" });

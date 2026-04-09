@@ -51,6 +51,32 @@ export async function POST(req: Request) {
     }
 
     const id = formData.get("id") as string;
+    const imagesJson = formData.get("imagesJson") as string;
+    let clientUploadedImages: { url: string; publicId: string }[] = [];
+
+    if (imagesJson) {
+      try {
+        const parsed = JSON.parse(imagesJson);
+        if (Array.isArray(parsed)) {
+          clientUploadedImages = parsed
+            .filter(
+              (image) =>
+                image &&
+                typeof image.url === "string" &&
+                typeof image.publicId === "string",
+            )
+            .map((image) => ({
+              url: image.url,
+              publicId: image.publicId,
+            }));
+        }
+      } catch (e) {
+        return NextResponse.json(
+          { success: false, message: "Invalid images JSON" },
+          { status: 400 },
+        );
+      }
+    }
 
     if (id) {
       // ===== UPDATE LOGIC =====
@@ -148,50 +174,61 @@ export async function POST(req: Request) {
 
       const files = formData.getAll("images") as File[];
 
-      // Parse which existing images to keep
-      const keepImageIdsJson = formData.get("keepImageIds") as string;
-      let keepImageIds: string[] = [];
-      if (keepImageIdsJson) {
-        try {
-          keepImageIds = JSON.parse(keepImageIdsJson);
-        } catch (e) {
-          console.error("Error parsing keepImageIds:", e);
-        }
-      }
-
-      // Always process images - either delete removed ones or add new ones
-      if (grocery.images && grocery.images.length > 0) {
-        // Delete images that are NOT in the keepImageIds list
-        for (const img of grocery.images) {
-          const imgId = img._id?.toString() || img.id;
-          if (!keepImageIds.includes(imgId)) {
-            await deleteFromCloudinary(img.publicId);
-          }
-        }
-      }
-
-      // Build final images array
+      // Build final images array from either client-uploaded metadata or server-side file uploads
       const uploadedImages: { url: string; publicId: string }[] = [];
 
-      // First, keep the existing images that weren't removed
-      if (grocery.images && grocery.images.length > 0) {
-        for (const img of grocery.images) {
-          const imgId = img._id?.toString() || img.id;
-          if (keepImageIds.includes(imgId)) {
-            uploadedImages.push({
-              url: img.url,
-              publicId: img.publicId,
-            });
+      if (clientUploadedImages.length > 0) {
+        const nextPublicIds = new Set(
+          clientUploadedImages.map((image) => image.publicId),
+        );
+
+        if (grocery.images && grocery.images.length > 0) {
+          for (const img of grocery.images) {
+            if (!nextPublicIds.has(img.publicId)) {
+              await deleteFromCloudinary(img.publicId);
+            }
           }
         }
-      }
 
-      // Then upload new files if any
-      if (files.length > 0) {
-        const folder = `Snapcart_Grocery_Single-vendor/grocery-images/${grocery.slug}`;
-        for (const file of files) {
-          const uploaded = await uploadOnCloudinary(file, folder);
-          if (uploaded) uploadedImages.push(uploaded);
+        uploadedImages.push(...clientUploadedImages);
+      } else {
+        // Always process images - either delete removed ones or add new ones
+        if (grocery.images && grocery.images.length > 0) {
+          // Delete images that are NOT in the keepImageIds list
+          const keepImageIdsJson = formData.get("keepImageIds") as string;
+          let keepImageIds: string[] = [];
+          if (keepImageIdsJson) {
+            try {
+              keepImageIds = JSON.parse(keepImageIdsJson);
+            } catch (e) {
+              console.error("Error parsing keepImageIds:", e);
+            }
+          }
+
+          for (const img of grocery.images) {
+            const imgId = img._id?.toString() || img.id;
+            if (!keepImageIds.includes(imgId)) {
+              await deleteFromCloudinary(img.publicId);
+            }
+          }
+
+          for (const img of grocery.images) {
+            const imgId = img._id?.toString() || img.id;
+            if (keepImageIds.includes(imgId)) {
+              uploadedImages.push({
+                url: img.url,
+                publicId: img.publicId,
+              });
+            }
+          }
+        }
+
+        if (files.length > 0) {
+          const folder = `Snapcart_Grocery_Single-vendor/grocery-images/${grocery.slug}`;
+          for (const file of files) {
+            const uploaded = await uploadOnCloudinary(file, folder);
+            if (uploaded) uploadedImages.push(uploaded);
+          }
         }
       }
 
@@ -210,9 +247,11 @@ export async function POST(req: Request) {
       const createdVariants: any[] = [];
       for (let i = 0; i < variants.length; i++) {
         const v = variants[i];
+        const mrp = Math.round(Number(v.price.mrp) || 0);
+        const selling = Math.round(Number(v.price.selling) || 0);
         const discountPercent = calculateDiscountPercent(
-          v.price.mrp,
-          v.price.selling,
+          mrp,
+          selling,
         );
         const codStatus = resolveCodStatus(v);
 
@@ -226,8 +265,8 @@ export async function POST(req: Request) {
             multiplier: v.unit.multiplier,
           },
           price: {
-            mrp: v.price.mrp,
-            selling: v.price.selling,
+            mrp,
+            selling,
             discountPercent,
           },
           countInStock: v.countInStock || 0,
@@ -255,6 +294,7 @@ export async function POST(req: Request) {
       const description = formData.get("description") as string;
       const categoryId = formData.get("category") as string;
       const brand = (formData.get("brand") as string) || "Ordinary";
+      const requestedSlug = (formData.get("slug") as string) || "";
       const isBestSeller = formData.get("isBestSeller") === "true";
       const isNew = formData.get("isNew") === "true";
       const isFeatured = formData.get("isFeatured") === "true";
@@ -311,7 +351,13 @@ export async function POST(req: Request) {
       }
 
       /* ---------- CREATE GROCERY ---------- */
-      const slug = `${createSlug(name)}-${Date.now().toString().slice(-5)}`;
+      const fallbackSlug = `${createSlug(name)}-${Date.now().toString().slice(-5)}`;
+      let slug = createSlug(requestedSlug) || fallbackSlug;
+
+      const existingSlug = await Grocery.findOne({ slug }).select("_id");
+      if (existingSlug) {
+        slug = fallbackSlug;
+      }
 
       const grocery = await Grocery.create({
         name,
@@ -331,11 +377,16 @@ export async function POST(req: Request) {
       /* ---------- IMAGE UPLOAD ---------- */
       const files = formData.getAll("images") as File[];
       const uploadedImages: { url: string; publicId: string }[] = [];
-      const folder = `Snapcart_Grocery_Single-vendor/grocery-images/${grocery.slug}`;
 
-      for (const file of files) {
-        const uploaded = await uploadOnCloudinary(file, folder);
-        if (uploaded) uploadedImages.push(uploaded);
+      if (clientUploadedImages.length > 0) {
+        uploadedImages.push(...clientUploadedImages);
+      } else {
+        const folder = `Snapcart_Grocery_Single-vendor/grocery-images/${grocery.slug}`;
+
+        for (const file of files) {
+          const uploaded = await uploadOnCloudinary(file, folder);
+          if (uploaded) uploadedImages.push(uploaded);
+        }
       }
 
       grocery.images = uploadedImages;
@@ -349,9 +400,11 @@ export async function POST(req: Request) {
       const createdVariants: any[] = [];
       for (let i = 0; i < variants.length; i++) {
         const v = variants[i];
+        const mrp = Math.round(Number(v.price.mrp) || 0);
+        const selling = Math.round(Number(v.price.selling) || 0);
         const discountPercent = calculateDiscountPercent(
-          v.price.mrp,
-          v.price.selling,
+          mrp,
+          selling,
         );
         const codStatus = resolveCodStatus(v);
 
@@ -365,8 +418,8 @@ export async function POST(req: Request) {
             multiplier: v.unit.multiplier,
           },
           price: {
-            mrp: v.price.mrp,
-            selling: v.price.selling,
+            mrp,
+            selling,
             discountPercent,
           },
           countInStock: v.countInStock || 0,

@@ -20,11 +20,18 @@ import Link from "next/link";
 import { useRouter, useParams } from "next/navigation";
 import { DragEvent, FormEvent, useRef, useState, useEffect } from "react";
 import { toast } from "sonner";
+import { createSlug } from "@/lib/utils/createSlug";
 
 interface ImageFile {
   id: string;
   file?: File;
   preview: string;
+  publicId?: string;
+}
+
+interface UploadedImage {
+  url: string;
+  publicId: string;
 }
 
 interface Category {
@@ -63,6 +70,7 @@ const EditGrocery = () => {
   const [isLoadingCategories, setIsLoadingCategories] = useState(true);
   const [categoriesError, setCategoriesError] = useState<string | null>(null);
   const [initialLoading, setInitialLoading] = useState(true);
+  const [grocerySlug, setGrocerySlug] = useState("");
 
   // Await params
   useEffect(() => {
@@ -87,6 +95,7 @@ const EditGrocery = () => {
             setDescription(grocery.description);
             setCategoryId(grocery.category._id);
             setBrand(grocery.brand);
+            setGrocerySlug(grocery.slug || "");
             setIsBestSeller(grocery.badges?.isBestSeller || false);
             setIsNew(grocery.badges?.isNew || false);
             setIsFeatured(grocery.badges?.isFeatured || false);
@@ -101,7 +110,11 @@ const EditGrocery = () => {
 
             if (grocery.images && grocery.images.length > 0) {
               setImages(
-                grocery.images.map((img: any) => ({ id: img._id, preview: img.url }))
+                grocery.images.map((img: any) => ({
+                  id: img._id,
+                  preview: img.url,
+                  publicId: img.publicId,
+                }))
               );
             }
           }
@@ -217,6 +230,55 @@ const EditGrocery = () => {
 
   // Variants are managed via VariantManagement; no unit/label generation here.
 
+  const uploadImageDirectly = async (
+    file: File,
+    folder: string
+  ): Promise<UploadedImage> => {
+    const signatureResponse = await axios.post(
+      "/api/admin/cloudinary-signature",
+      {
+        folder,
+      }
+    );
+
+    if (!signatureResponse.data.success) {
+      throw new Error(
+        signatureResponse.data.message || "Failed to prepare image upload"
+      );
+    }
+
+    const { apiKey, cloudName, folder: uploadFolder, signature, timestamp } =
+      signatureResponse.data;
+
+    const uploadData = new FormData();
+    uploadData.append("file", file);
+    uploadData.append("api_key", apiKey);
+    uploadData.append("timestamp", String(timestamp));
+    uploadData.append("signature", signature);
+    uploadData.append("folder", uploadFolder);
+
+    const uploadResponse = await fetch(
+      `https://api.cloudinary.com/v1_1/${cloudName}/image/upload`,
+      {
+        method: "POST",
+        body: uploadData,
+      }
+    );
+
+    const uploadResult = await uploadResponse.json();
+
+    if (!uploadResponse.ok) {
+      throw new Error(
+        uploadResult?.error?.message || "Failed to upload image to Cloudinary"
+      );
+    }
+
+    return {
+      url: uploadResult.secure_url,
+      publicId: uploadResult.public_id,
+    };
+  };
+
   const validateForm = () => {
     // Required fields
     if (!name || !categoryId) {
@@ -251,6 +313,27 @@ const EditGrocery = () => {
 
     try {
       setLoading(true);
+      const fallbackSlug =
+        grocerySlug || `${createSlug(name.trim()) || "grocery-item"}-${id}`;
+      const folder = `Snapcart_Grocery_Single-vendor/grocery-images/${fallbackSlug}`;
+
+      const finalImages = await Promise.all(
+        images.map(async (image) => {
+          if (image.file) {
+            return uploadImageDirectly(image.file, folder);
+          }
+
+          if (!image.publicId) {
+            throw new Error("Missing image metadata for an existing file");
+          }
+
+          return {
+            url: image.preview,
+            publicId: image.publicId,
+          };
+        })
+      );
+
       const formData = new FormData();
 
       // Add ID for update operation
@@ -273,28 +356,7 @@ const EditGrocery = () => {
         cod: { status: v.cod?.status || "with-charge" },
       }));
       formData.append("variants", JSON.stringify(normalizedVariants));
-
-      // Track which existing images are being kept
-      const keepImageIds: string[] = [];
-      const newFiles: File[] = [];
-      
-      images.forEach((image) => {
-        if (image.file) {
-          // New image
-          newFiles.push(image.file);
-        } else {
-          // Existing image - track that we want to keep it
-          keepImageIds.push(image.id);
-        }
-      });
-      
-      // Send list of image IDs to keep (so backend knows which old ones to delete)
-      formData.append("keepImageIds", JSON.stringify(keepImageIds));
-      
-      // Append new image files
-      newFiles.forEach((file) => {
-        formData.append("images", file);
-      });
+      formData.append("imagesJson", JSON.stringify(finalImages));
       
       const url = "/api/admin/add-grocery";
       const method = "POST";
@@ -307,9 +369,6 @@ const EditGrocery = () => {
         url,
         method,
         data: formData,
-        headers: {
-          "Content-Type": "multipart/form-data",
-        },
       });
 
       if (response.data.success) {

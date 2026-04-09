@@ -20,11 +20,17 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { DragEvent, FormEvent, useRef, useState, useEffect } from "react";
 import { toast } from "sonner";
+import { createSlug } from "@/lib/utils/createSlug";
 
 interface ImageFile {
   id: string;
   file: File;
   preview: string;
+}
+
+interface UploadedImage {
+  url: string;
+  publicId: string;
 }
 
 interface Category {
@@ -180,6 +186,55 @@ const AddGrocery = () => {
 
   // Variants are managed by VariantManagement component; no label generation here.
 
+  const uploadImageDirectly = async (
+    file: File,
+    folder: string
+  ): Promise<UploadedImage> => {
+    const signatureResponse = await axios.post(
+      "/api/admin/cloudinary-signature",
+      {
+        folder,
+      }
+    );
+
+    if (!signatureResponse.data.success) {
+      throw new Error(
+        signatureResponse.data.message || "Failed to prepare image upload"
+      );
+    }
+
+    const { apiKey, cloudName, folder: uploadFolder, signature, timestamp } =
+      signatureResponse.data;
+
+    const uploadData = new FormData();
+    uploadData.append("file", file);
+    uploadData.append("api_key", apiKey);
+    uploadData.append("timestamp", String(timestamp));
+    uploadData.append("signature", signature);
+    uploadData.append("folder", uploadFolder);
+
+    const uploadResponse = await fetch(
+      `https://api.cloudinary.com/v1_1/${cloudName}/image/upload`,
+      {
+        method: "POST",
+        body: uploadData,
+      }
+    );
+
+    const uploadResult = await uploadResponse.json();
+
+    if (!uploadResponse.ok) {
+      throw new Error(
+        uploadResult?.error?.message || "Failed to upload image to Cloudinary"
+      );
+    }
+
+    return {
+      url: uploadResult.secure_url,
+      publicId: uploadResult.public_id,
+    };
+  };
+
   const validateForm = () => {
     // Required fields
     if (!name || !categoryId) {
@@ -215,6 +270,15 @@ const AddGrocery = () => {
 
     try {
       setLoading(true);
+      const fallbackBaseSlug = createSlug(name.trim()) || "grocery-item";
+      const slugForCreate = `${fallbackBaseSlug}-${Date.now()
+        .toString()
+        .slice(-5)}`;
+      const folder = `Snapcart_Grocery_Single-vendor/grocery-images/${slugForCreate}`;
+
+      const uploadedImages = await Promise.all(
+        images.map((image) => uploadImageDirectly(image.file, folder))
+      );
       const formData = new FormData();
 
       // Basic grocery info
@@ -232,17 +296,10 @@ const AddGrocery = () => {
         cod: { status: v.cod?.status || "with-charge" },
       }));
       formData.append("variants", JSON.stringify(normalizedVariants));
+      formData.append("slug", slugForCreate);
+      formData.append("imagesJson", JSON.stringify(uploadedImages));
 
-      // Append images
-      images.forEach((image) => {
-        formData.append("images", image.file);
-      });
-
-      const response = await axios.post("/api/admin/add-grocery", formData, {
-        headers: {
-          "Content-Type": "multipart/form-data",
-        },
-      });
+      const response = await axios.post("/api/admin/add-grocery", formData);
 
       if (response.data.success) {
         setSuccess(response.data.message);

@@ -24,3 +24,105 @@
     "slug": "manforce-condoms",
   },
 ]
+
+--------------------------------
+
+Got it — tu direct admin panel me copy-paste karke variants add kar sake, isliye main exact ready-to-fill entries de raha hoon (same fields jo tere UI me hain).
+
+✅ Variant 1 — Classic (10 pack)
+Unit: pack
+Value: 10
+Multiplier: 1
+Variant Name: Classic
+MRP: 160
+Selling Price: 140
+Stock: 50
+
+✅ Variant 2 — Extra Dotted (10 pack)
+Unit: pack
+Value: 10
+Multiplier: 1
+Variant Name: Extra Dotted
+MRP: 180
+Selling Price: 155
+Stock: 50
+
+✅ Variant 3 — Strawberry (10 pack)
+Unit: pack
+Value: 10
+Multiplier: 1
+Variant Name: Strawberry
+MRP: 190
+Selling Price: 160
+Stock: 50
+
+✅ Variant 4 — Chocolate (10 pack)
+Unit: pack
+Value: 10
+Multiplier: 1
+Variant Name: Chocolate
+MRP: 190
+Selling Price: 160
+Stock: 50
+
+✅ Variant 5 — Banana (10 pack)
+Unit: pack
+Value: 10
+Multiplier: 1
+Variant Name: Banana
+MRP: 190
+Selling Price: 160
+Stock: 50
+
+✅ Variant 6 — Mango (10 pack)
+Unit: pack
+Value: 10
+Multiplier: 1
+Variant Name: Mango
+MRP: 190
+Selling Price: 160
+Stock: 50
+
+✅ Variant 7 — Ultra Thin (10 pack)
+Unit: pack
+Value: 10
+Multiplier: 1
+Variant Name: Ultra Thin
+MRP: 200
+Selling Price: 170
+Stock: 40
+
+✅ Variant 8 — Long Last (Delay) (10 pack)
+Unit: pack
+Value: 10
+Multiplier: 1
+Variant Name: Long Last
+MRP: 220
+Selling Price: 190
+Stock: 40
+
+✅ Variant 9 — Assorted Pack (10 pack)
+Unit: pack
+Value: 10
+Multiplier: 1
+Variant Name: Assorted
+MRP: 200
+Selling Price: 170
+Stock: 60
+
+✅ Variant 10 — Small Pack (3 pcs)
+Unit: pack
+Value: 3
+Multiplier: 1
+Variant Name: Trial Pack
+MRP: 60
+Selling Price: 50
+Stock: 100
+
+💡 Bonus (pro level)
+
+Variant Name me ye mat likh:
+❌ "10 pack strawberry"
+✔️ Sirf "Strawberry" (UI already label preview bana raha hai)
+
+--------------------------
