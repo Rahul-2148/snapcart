@@ -802,6 +802,13 @@ export default function SnapcartAIChatbot({
 
     const playbackToken = ++speechPlaybackTokenRef.current;
     const preferredVoice = pickPreferredVoice(normalized);
+    const lower = normalized.toLowerCase();
+    const hasHindiHint =
+      /[\u0900-\u097F]/.test(normalized) ||
+      /(kya|kaise|hai|mera|mere|aap|nahi|batao|samjhao|kr|kar|delivery|order|returns|admin)/.test(
+        lower,
+      );
+    const preferredFallbackLang = hasHindiHint ? "hi-IN" : "en-IN";
 
     setSpeakingMessageId(messageId);
     setIsSpeechPaused(false);
