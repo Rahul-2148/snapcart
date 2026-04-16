@@ -1036,7 +1036,9 @@ const CartPage = () => {
                           {item.variant.grocery?.name || "Unknown Item"}
                         </h4>
                         <p className="text-xs text-gray-500">
-                          {item.variant.label}
+                          {item.variant.variantName
+                            ? `${item.variant.variantName} - ${item.variant.label}`
+                            : item.variant.label}
                         </p>
 
                         <div className="flex items-center gap-2 mt-1">

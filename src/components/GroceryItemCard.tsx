@@ -7,7 +7,7 @@ import { Minus, Plus, ShoppingCart, Star, Heart } from "lucide-react";
 import { motion } from "motion/react";
 import Image from "next/image";
 import Link from "next/link";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useDispatch, useSelector } from "react-redux";
 
 import {
@@ -29,6 +29,7 @@ import AdvancedWishlistSheet from "./AdvancedWishlistSheet";
 interface IVariant {
   _id: string;
   label: string;
+  variantName?: string;
   unit: { value: number; unit: string };
   price: { mrp: number; selling: number; discountPercent?: number };
   countInStock?: number;
@@ -66,6 +67,12 @@ const GroceryItemCard = ({
   const hoverInterval = useRef<NodeJS.Timeout | null>(null);
   const [showVariantBubble, setShowVariantBubble] = useState(false);
   const variantBubbleRef = useRef<HTMLDivElement | null>(null);
+  const totalInCartRef = useRef<HTMLDivElement | null>(null);
+  const [variantSheetOpen, setVariantSheetOpen] = useState(false);
+  const [selectedVariantId, setSelectedVariantId] = useState<string | null>(
+    null,
+  );
+  const [showTotalBreakdown, setShowTotalBreakdown] = useState(false);
 
   // Loading states to prevent double clicks
   const [isAddingToCart, setIsAddingToCart] = useState(false);
@@ -81,15 +88,19 @@ const GroceryItemCard = ({
   const defaultVariant =
     grocery?.variants?.find((v) => v.isDefault) || grocery?.variants?.[0];
 
+  const selectedVariant =
+    grocery?.variants?.find((v) => v._id === selectedVariantId) ||
+    defaultVariant;
+
   const cartItem = cartItems.find(
-    (item) => item.variant?._id === defaultVariant?._id,
+    (item) => item.variant?._id === selectedVariant?._id,
   );
   const quantity = cartItem?.quantity ?? 0;
 
-  // ALWAYS show default variant price on card (not range)
-  const sellingPrice = defaultVariant?.price?.selling ?? 0;
-  const mrpPrice = defaultVariant?.price?.mrp ?? 0;
-  const stock = defaultVariant?.countInStock ?? 0;
+  // Show selected variant details after selection; otherwise fallback to default.
+  const sellingPrice = selectedVariant?.price?.selling ?? 0;
+  const mrpPrice = selectedVariant?.price?.mrp ?? 0;
+  const stock = selectedVariant?.countInStock ?? 0;
   const isOutOfStock = stock === 0;
   const isMaxReached = quantity >= stock;
 
@@ -117,6 +128,12 @@ const GroceryItemCard = ({
       hoverInterval.current = null;
     }
   };
+
+  const getVariantCartItem = (variantId: string) =>
+    cartItems.find((item) => item.variant?._id === variantId);
+
+  const getVariantQuantity = (variantId: string) =>
+    getVariantCartItem(variantId)?.quantity ?? 0;
 
   const syncCartToStore = (cart: any) => {
     let mappedCoupon: any = null;
@@ -158,8 +175,11 @@ const GroceryItemCard = ({
 
   /* ================= CART ACTIONS ================= */
 
-  const handleAddToCart = async () => {
-    if (!defaultVariant?._id || isAddingToCart) return; // Prevent double clicks
+  const handleAddToCart = async (targetVariant?: IVariant) => {
+    const variantToAdd = targetVariant || selectedVariant || defaultVariant;
+    if (!variantToAdd?._id || isAddingToCart) return false; // Prevent double clicks
+
+    const targetStock = variantToAdd?.countInStock ?? 0;
 
     setIsAddingToCart(true);
 
@@ -168,19 +188,19 @@ const GroceryItemCard = ({
         // OPTIMISTIC UPDATE (instant UI feedback like Flipkart)
         const updatedItems = [...cartItems];
         const existing = updatedItems.find(
-          (i) => i.variant._id === defaultVariant._id,
+          (i) => i.variant._id === variantToAdd._id,
         );
 
         if (existing) {
-          if (existing.quantity < stock) existing.quantity += 1;
+          if (existing.quantity < targetStock) existing.quantity += 1;
         } else {
           updatedItems.push({
             _id: generateTempCartItemId(),
-            variant: defaultVariant,
+            variant: variantToAdd,
             quantity: 1,
             priceAtAdd: {
-              mrp: defaultVariant.price.mrp,
-              selling: defaultVariant.price.selling,
+              mrp: variantToAdd.price.mrp,
+              selling: variantToAdd.price.selling,
             },
           });
         }
@@ -190,29 +210,30 @@ const GroceryItemCard = ({
         toast.success("Item added to cart!");
 
         // Sync with server in background
-        const res = await addGuestCartApi(defaultVariant._id, 1);
+        const res = await addGuestCartApi(variantToAdd._id, 1);
         if (!res.success) {
           // Revert if fails
           dispatch(setCart({ items: cartItems, cartId: null, isGuest: true }));
           toast.error(res.message);
+          return false;
         }
       } else {
         // OPTIMISTIC UPDATE for logged-in users
         const updatedItems = [...cartItems];
         const existing = updatedItems.find(
-          (i) => i.variant._id === defaultVariant._id,
+          (i) => i.variant._id === variantToAdd._id,
         );
 
         if (existing) {
-          if (existing.quantity < stock) existing.quantity += 1;
+          if (existing.quantity < targetStock) existing.quantity += 1;
         } else {
           updatedItems.push({
             _id: generateTempCartItemId(),
-            variant: defaultVariant,
+            variant: variantToAdd,
             quantity: 1,
             priceAtAdd: {
-              mrp: defaultVariant.price.mrp,
-              selling: defaultVariant.price.selling,
+              mrp: variantToAdd.price.mrp,
+              selling: variantToAdd.price.selling,
             },
           });
         }
@@ -222,30 +243,43 @@ const GroceryItemCard = ({
         toast.success("Item added to cart!");
 
         // Sync with server in background
-        const res = await addToCartApi(defaultVariant._id, 1);
+        const res = await addToCartApi(variantToAdd._id, 1);
         syncCartToStore(res);
         if (!res.success) {
           // Show error if sync fails
           dispatch(setCart({ items: cartItems, isGuest: false }));
           toast.error(res.message || "Failed to add to cart");
+          return false;
         }
       }
+      return true;
     } catch (err: any) {
       toast.error(err?.message || "Something went wrong");
+      return false;
     } finally {
       setIsAddingToCart(false);
     }
   };
 
-  const handleIncrease = async () => {
-    if (!cartItem?._id || !defaultVariant?._id || isUpdatingQuantity) return;
+  const handleIncreaseVariant = async (variant: IVariant) => {
+    if (!variant?._id || isUpdatingQuantity || isAddingToCart) return;
+
+    const variantCartItem = getVariantCartItem(variant._id);
+    const variantQuantity = variantCartItem?.quantity ?? 0;
+    const variantStock = variant.countInStock ?? 0;
+    if (variantQuantity >= variantStock) return;
+
+    if (!variantCartItem) {
+      await handleAddToCart(variant);
+      return;
+    }
 
     setIsUpdatingQuantity(true);
 
     try {
       if (isGuest) {
         const updatedItems = cartItems.map((i) =>
-          i._id === cartItem._id && i.quantity < stock
+          i._id === variantCartItem._id && i.quantity < variantStock
             ? { ...i, quantity: i.quantity + 1 }
             : i,
         );
@@ -254,14 +288,18 @@ const GroceryItemCard = ({
         toast.success("Quantity updated!");
 
         const newQty =
-          updatedItems.find((i) => i._id === cartItem._id)?.quantity || 1;
-        const res = await updateGuestCartApi(defaultVariant._id, newQty);
+          updatedItems.find((i) => i._id === variantCartItem._id)?.quantity ||
+          1;
+        const res = await updateGuestCartApi(variant._id, newQty);
         if (!res.success) {
           dispatch(setCart({ items: cartItems, cartId: null, isGuest: true }));
           toast.error(res.message);
         }
       } else {
-        const res = await updateCartQuantityApi(cartItem._id, quantity + 1);
+        const res = await updateCartQuantityApi(
+          variantCartItem._id,
+          variantQuantity + 1,
+        );
         if (res.success) {
           toast.success("Quantity updated!");
           syncCartToStore(res);
@@ -276,8 +314,14 @@ const GroceryItemCard = ({
     }
   };
 
-  const handleDecrease = async () => {
-    if (!cartItem?._id || !defaultVariant?._id || isUpdatingQuantity) return;
+  const handleDecreaseVariant = async (variant: IVariant) => {
+    if (!variant?._id || isUpdatingQuantity) return;
+
+    const variantCartItem = getVariantCartItem(variant._id);
+    if (!variantCartItem) return;
+
+    const variantQuantity = variantCartItem.quantity;
+    if (variantQuantity <= 0) return;
 
     setIsUpdatingQuantity(true);
 
@@ -285,15 +329,18 @@ const GroceryItemCard = ({
       if (isGuest) {
         const updatedItems = cartItems
           .map((i) =>
-            i._id === cartItem._id ? { ...i, quantity: i.quantity - 1 } : i,
+            i._id === variantCartItem._id
+              ? { ...i, quantity: i.quantity - 1 }
+              : i,
           )
           .filter((i) => i.quantity > 0);
 
         dispatch(setCart({ items: updatedItems, cartId: null, isGuest: true }));
 
         const newQty =
-          updatedItems.find((i) => i._id === cartItem._id)?.quantity || 0;
-        const res = await updateGuestCartApi(defaultVariant._id, newQty);
+          updatedItems.find((i) => i._id === variantCartItem._id)?.quantity ||
+          0;
+        const res = await updateGuestCartApi(variant._id, newQty);
         if (res.success) {
           if (newQty === 0) {
             toast.success("Item removed from cart!");
@@ -305,9 +352,12 @@ const GroceryItemCard = ({
           toast.error(res.message);
         }
       } else {
-        const res = await updateCartQuantityApi(cartItem._id, quantity - 1);
+        const res = await updateCartQuantityApi(
+          variantCartItem._id,
+          variantQuantity - 1,
+        );
         if (res.success) {
-          if (quantity - 1 === 0) {
+          if (variantQuantity - 1 === 0) {
             toast.success("Item removed from cart!");
           } else {
             toast.success("Quantity updated!");
@@ -322,6 +372,16 @@ const GroceryItemCard = ({
     } finally {
       setIsUpdatingQuantity(false);
     }
+  };
+
+  const handleIncrease = async () => {
+    if (!selectedVariant) return;
+    await handleIncreaseVariant(selectedVariant);
+  };
+
+  const handleDecrease = async () => {
+    if (!selectedVariant) return;
+    await handleDecreaseVariant(selectedVariant);
   };
 
   /* ================= LOAD CART ================= */
@@ -361,8 +421,10 @@ const GroceryItemCard = ({
         const res = await fetch("/api/wishlist", { cache: "no-store" });
         const data = await res.json();
         if (data?.success && isMounted) {
-          const saved = (data.collections || []).some((c: any) =>
-            Array.isArray(c?.items) && c.items.some((i: any) => i.grocery === grocery._id)
+          const saved = (data.collections || []).some(
+            (c: any) =>
+              Array.isArray(c?.items) &&
+              c.items.some((i: any) => i.grocery === grocery._id),
           );
           setIsWishlisted(saved);
         }
@@ -392,8 +454,10 @@ const GroceryItemCard = ({
         const res = await fetch("/api/wishlist", { cache: "no-store" });
         const data = await res.json();
         if (data?.success) {
-          const saved = (data.collections || []).some((c: any) =>
-            Array.isArray(c?.items) && c.items.some((i: any) => i.grocery === grocery._id)
+          const saved = (data.collections || []).some(
+            (c: any) =>
+              Array.isArray(c?.items) &&
+              c.items.some((i: any) => i.grocery === grocery._id),
           );
           setIsWishlisted(saved);
         }
@@ -404,7 +468,77 @@ const GroceryItemCard = ({
     checkStatus();
   };
 
-  const variantLabel = defaultVariant?.label;
+  const getVariantDisplayName = (variant?: IVariant | null) => {
+    if (!variant) return "";
+    return variant.variantName
+      ? `${variant.variantName} - ${variant.label}`
+      : variant.label;
+  };
+
+  const activeVariantLabel = getVariantDisplayName(
+    selectedVariant || defaultVariant,
+  );
+  const productVariantIds = useMemo(
+    () => new Set((grocery?.variants || []).map((variant) => variant._id)),
+    [grocery?.variants],
+  );
+  const productTotalQuantity = useMemo(
+    () =>
+      cartItems
+        .filter((item) => item?.variant?._id && productVariantIds.has(item.variant._id))
+        .reduce((sum, item) => sum + (item.quantity || 0), 0),
+    [cartItems, productVariantIds],
+  );
+  const totalInCartBreakdown = useMemo(
+    () =>
+      (grocery?.variants || [])
+        .map((variant) => {
+          const qty =
+            cartItems.find((item) => item?.variant?._id === variant._id)
+              ?.quantity ?? 0;
+          return {
+            id: variant._id,
+            name: variant.variantName
+              ? `${variant.variantName} - ${variant.label}`
+              : variant.label,
+            qty,
+          };
+        })
+        .filter((entry) => entry.qty > 0),
+    [grocery?.variants, cartItems],
+  );
+  const handleCardAddClick = async () => {
+    if (hasMultipleVariants) {
+      setVariantSheetOpen(true);
+      return;
+    }
+
+    await handleAddToCart();
+  };
+
+  useEffect(() => {
+    if (variantSheetOpen && !selectedVariantId && defaultVariant?._id) {
+      setSelectedVariantId(defaultVariant._id);
+    }
+  }, [variantSheetOpen, selectedVariantId, defaultVariant?._id]);
+
+  useEffect(() => {
+    if (!showTotalBreakdown) return;
+
+    const handleOutsideClick = (event: MouseEvent) => {
+      if (
+        totalInCartRef.current &&
+        !totalInCartRef.current.contains(event.target as Node)
+      ) {
+        setShowTotalBreakdown(false);
+      }
+    };
+
+    document.addEventListener("mousedown", handleOutsideClick);
+    return () => {
+      document.removeEventListener("mousedown", handleOutsideClick);
+    };
+  }, [showTotalBreakdown]);
 
   // Rating handling for homepage and other views where rating prop isn't passed
   const [computedRating, setComputedRating] = useState<number | null>(
@@ -456,14 +590,20 @@ const GroceryItemCard = ({
       initial={{ opacity: 0, y: 40, scale: 0.95 }}
       animate={{ opacity: 1, y: 0, scale: 1 }}
       transition={{ duration: 0.5, ease: "easeOut" }}
-      className={`bg-white rounded-2xl shadow-sm hover:shadow-xl transition-all overflow-hidden border border-gray-100 flex flex-col h-full min-h-[320px] sm:min-h-[340px] ${
-        isListView ? "md:flex-row md:items-stretch md:gap-4" : ""
+      className={`bg-white rounded-2xl shadow-sm hover:shadow-xl transition-all overflow-visible border border-gray-100 flex flex-col h-full min-h-[320px] sm:min-h-[340px] ${
+        isListView
+          ? "md:flex-row md:items-stretch md:gap-4 md:min-h-[220px] md:h-auto"
+          : ""
       }`}
     >
       {/* IMAGE */}
       <Link
         href={`/user/product-details/${grocery?._id}`}
-        className={`block relative ${isListView ? "md:w-64 md:flex-shrink-0" : ""}`}
+        className={`block relative overflow-hidden ${
+          isListView
+            ? "md:w-64 md:flex-shrink-0 md:rounded-l-2xl md:rounded-r-none"
+            : "rounded-t-2xl"
+        }`}
         aria-label={`${grocery?.name} details`}
       >
         <div
@@ -481,7 +621,7 @@ const GroceryItemCard = ({
               {badgeData.label}
             </div>
           )}
-          
+
           {/* WISHLIST HEART BUTTON - Top Right Corner */}
           <motion.button
             whileTap={{ scale: 0.9 }}
@@ -549,7 +689,7 @@ const GroceryItemCard = ({
         </h3>
 
         {/* PRICE & VARIANTS - flexible growth */}
-        <div className="flex-grow flex flex-col">
+        <div className={`flex flex-col ${isListView ? "" : "flex-grow"}`}>
           <div className="flex items-center gap-1 mt-2 flex-wrap">
             <span className="text-green-700 font-bold text-base">
               ₹{sellingPrice}
@@ -568,12 +708,12 @@ const GroceryItemCard = ({
               </span>
             )}
             {hasMultipleVariants && (
-              <div className="relative inline-block">
-                <span
-                  className="text-blue-600 text-xs font-semibold ml-1 cursor-pointer hover:text-blue-800 transition-colors"
-                  onMouseEnter={() => setShowVariantBubble(true)}
-                  onMouseLeave={() => setShowVariantBubble(false)}
-                >
+              <div
+                className="relative inline-block"
+                onMouseEnter={() => setShowVariantBubble(true)}
+                onMouseLeave={() => setShowVariantBubble(false)}
+              >
+                <span className="text-blue-600 text-xs font-semibold ml-1 cursor-pointer hover:text-blue-800 transition-colors">
                   +{(grocery?.variants?.length || 1) - 1} variants
                 </span>
 
@@ -585,7 +725,7 @@ const GroceryItemCard = ({
                     animate={{ opacity: 1, scale: 1, y: 0 }}
                     exit={{ opacity: 0, scale: 0.8, y: -10 }}
                     transition={{ duration: 0.2, ease: "easeOut" }}
-                    className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 z-50 bg-gradient-to-br from-blue-600 to-blue-700 text-white rounded-lg shadow-lg border border-blue-500 max-w-xs"
+                    className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 z-[120] bg-gradient-to-br from-blue-600 to-blue-700 text-white rounded-lg shadow-lg border border-blue-500 max-w-xs"
                   >
                     {/* Arrow */}
                     <div className="absolute top-full left-1/2 transform -translate-x-1/2 border-4 border-transparent border-t-blue-600"></div>
@@ -605,7 +745,7 @@ const GroceryItemCard = ({
                             } transition-colors`}
                           >
                             <span className="whitespace-nowrap text-[8px]">
-                              {variant.label}
+                              {getVariantDisplayName(variant)}
                             </span>
                             <span className="font-bold whitespace-nowrap flex-shrink-0">
                               ₹{variant.price.selling}
@@ -622,9 +762,13 @@ const GroceryItemCard = ({
         </div>
 
         {/* UNIT */}
-        <div className="flex justify-between items-center mt-auto pt-2 text-sm border-t border-gray-100">
-          <span className="bg-gray-100 text-gray-900 font-[500] px-2 py-1 rounded">
-            {variantLabel}
+        <div
+          className={`flex justify-between items-center pt-2 text-sm border-t border-gray-100 ${
+            isListView ? "mt-3" : "mt-auto"
+          }`}
+        >
+          <span className="bg-gray-100 text-gray-900 text-[11px] font-medium px-2 py-1 rounded max-w-[170px] break-words leading-tight">
+            {activeVariantLabel}
           </span>
           {isOutOfStock ? (
             <span className="text-red-500">Out of stock</span>
@@ -639,15 +783,60 @@ const GroceryItemCard = ({
 
         {/* CART */}
         <div className="mt-2">
+          {hasMultipleVariants && productTotalQuantity > 0 && (
+            <div
+              ref={totalInCartRef}
+              className="relative inline-block mb-1 group"
+              onMouseLeave={() => setShowTotalBreakdown(false)}
+            >
+              <button
+                type="button"
+                onClick={() => setShowTotalBreakdown((prev) => !prev)}
+                className="text-[11px] text-emerald-700 font-medium cursor-help underline decoration-dotted underline-offset-2"
+              >
+                Total in cart: {productTotalQuantity}
+              </button>
+
+              <div
+                className={`absolute bottom-full left-0 mb-2 w-56 rounded-lg border border-emerald-100 bg-white shadow-xl p-2 transition-opacity duration-150 z-[130] ${
+                  showTotalBreakdown
+                    ? "opacity-100"
+                    : "opacity-0 pointer-events-none group-hover:opacity-100"
+                }`}
+              >
+                <p className="text-[10px] font-semibold text-emerald-800 mb-1">
+                  Variant-wise qty
+                </p>
+                <div className="space-y-1">
+                  {totalInCartBreakdown.map((entry) => (
+                    <div
+                      key={entry.id}
+                      className="flex items-center justify-between gap-2 text-[11px]"
+                    >
+                      <span className="text-gray-700 truncate">{entry.name}</span>
+                      <span className="font-semibold text-emerald-700">
+                        {entry.qty}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          )}
+
           {quantity === 0 ? (
             <motion.button
               whileTap={{ scale: 0.95 }}
               disabled={isOutOfStock || isAddingToCart}
-              onClick={handleAddToCart}
+              onClick={handleCardAddClick}
               className="w-full flex items-center justify-center gap-2 bg-green-600 hover:bg-green-700 disabled:bg-gray-300 text-white rounded-full py-1.5 md:py-1.5 text-xs md:text-sm font-medium transition-all disabled:cursor-not-allowed"
             >
               <ShoppingCart className="w-4 h-4 md:w-5 md:h-5" />
-              {isAddingToCart ? "Adding..." : "Add to cart"}
+              {isAddingToCart
+                ? "Adding..."
+                : hasMultipleVariants
+                  ? "Select variant"
+                  : "Add to cart"}
             </motion.button>
           ) : (
             <motion.div
@@ -676,7 +865,127 @@ const GroceryItemCard = ({
           )}
         </div>
       </div>
-      
+
+      {variantSheetOpen && hasMultipleVariants && (
+        <div
+          className="fixed inset-0 z-[140] bg-black/40 flex items-end sm:items-center justify-center"
+          onClick={() => setVariantSheetOpen(false)}
+        >
+          <motion.div
+            initial={{ opacity: 0, y: 24 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.2 }}
+            className="w-full sm:max-w-md bg-white rounded-t-3xl sm:rounded-2xl p-4 sm:p-5 shadow-2xl"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <h4 className="text-base font-semibold text-gray-900">Select variant</h4>
+            <p className="text-xs text-gray-500 mt-1">{grocery.name}</p>
+
+            <div className="mt-4 space-y-2 max-h-72 overflow-y-auto pr-1">
+              {grocery.variants?.map((variant) => {
+                const isSelected = selectedVariant?._id === variant._id;
+                const variantOutOfStock = (variant.countInStock ?? 0) === 0;
+                const variantQuantity = getVariantQuantity(variant._id);
+                const variantMaxReached =
+                  variantQuantity >= (variant.countInStock ?? 0);
+
+                return (
+                  <div
+                    key={variant._id}
+                    onClick={() => setSelectedVariantId(variant._id)}
+                    className={`w-full text-left border rounded-xl px-3 py-2 transition ${
+                      isSelected
+                        ? "border-emerald-400 bg-emerald-50"
+                        : "border-gray-200 hover:border-emerald-300"
+                    }`}
+                  >
+                    <div className="flex items-center justify-between gap-3">
+                      <div>
+                        <p className="text-xs font-medium text-gray-800 truncate max-w-[170px]">
+                          {variant.variantName
+                            ? `${variant.variantName} - ${variant.label}`
+                            : variant.label}
+                        </p>
+                        <p className="text-xs text-gray-500 mt-0.5">
+                          {variantOutOfStock
+                            ? "Out of stock"
+                            : `${variant.countInStock ?? 0} in stock`}
+                        </p>
+                      </div>
+                      <div className="text-right">
+                        <p className="text-sm font-bold text-emerald-700">
+                          Rs {variant.price.selling}
+                        </p>
+                        {variant.price.mrp > variant.price.selling && (
+                          <p className="text-xs text-gray-400 line-through">
+                            Rs {variant.price.mrp}
+                          </p>
+                        )}
+                      </div>
+                    </div>
+
+                    <div className="mt-2 flex justify-end">
+                      {variantQuantity === 0 ? (
+                        <button
+                          type="button"
+                          onClick={(event) => {
+                            event.stopPropagation();
+                            void handleAddToCart(variant);
+                          }}
+                          disabled={variantOutOfStock || isAddingToCart}
+                          className="inline-flex items-center gap-1 rounded-full bg-emerald-600 text-white px-3 py-1 text-xs font-semibold hover:bg-emerald-700 disabled:bg-gray-300"
+                        >
+                          <ShoppingCart className="w-3.5 h-3.5" />
+                          {isAddingToCart && isSelected ? "Adding..." : "Add"}
+                        </button>
+                      ) : (
+                        <div className="inline-flex items-center gap-2 bg-emerald-50 border border-emerald-300 rounded-full px-1 py-1">
+                          <button
+                            type="button"
+                            onClick={(event) => {
+                              event.stopPropagation();
+                              void handleDecreaseVariant(variant);
+                            }}
+                            disabled={isUpdatingQuantity}
+                            className="h-6 w-6 rounded-full bg-white border border-emerald-200 flex items-center justify-center disabled:opacity-50"
+                          >
+                            <Minus className="w-3 h-3 text-emerald-700" />
+                          </button>
+                          <span className="min-w-5 text-center text-xs font-semibold text-emerald-800">
+                            {variantQuantity}
+                          </span>
+                          <button
+                            type="button"
+                            onClick={(event) => {
+                              event.stopPropagation();
+                              void handleIncreaseVariant(variant);
+                            }}
+                            disabled={variantMaxReached || isUpdatingQuantity}
+                            className="h-6 w-6 rounded-full bg-white border border-emerald-200 flex items-center justify-center disabled:opacity-40"
+                          >
+                            <Plus className="w-3 h-3 text-emerald-700" />
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+
+            <div className="mt-4">
+              <button
+                type="button"
+                onClick={() => setVariantSheetOpen(false)}
+                className="w-full border border-gray-300 rounded-xl py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
+              >
+                Done
+              </button>
+            </div>
+          </motion.div>
+        </div>
+      )}
+
       {/* Wishlist Sheet Modal */}
       <AdvancedWishlistSheet
         isOpen={wishlistSheetOpen}

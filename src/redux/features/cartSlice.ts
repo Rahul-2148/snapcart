@@ -16,6 +16,7 @@ export interface PriceAtAdd {
 export interface CartVariant {
   _id: string;
   label: string;
+  variantName?: string;
   price: {
     mrp: number;
     selling: number;
