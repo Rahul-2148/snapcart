@@ -11,7 +11,7 @@ export const GET = async () => {
   if (!session?.user?.id) {
     return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
   }
-  if (!isDeliveryPartner(session)) {
+  if (!(await isDeliveryPartner(session))) {
     return NextResponse.json({ message: "Forbidden" }, { status: 403 });
   }
 
@@ -39,7 +39,7 @@ export const PUT = async (req: NextRequest) => {
     if (!session?.user?.id) {
       return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
     }
-    if (!isDeliveryPartner(session)) {
+    if (!(await isDeliveryPartner(session))) {
       return NextResponse.json({ message: "Forbidden" }, { status: 403 });
     }
 

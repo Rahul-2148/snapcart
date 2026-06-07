@@ -259,9 +259,14 @@ export default function ProfilePage() {
   };
 
   const renderRoleManagement = () => {
-    const userRole = userData?.currentRole || userData?.roles?.[0] || "user";
+    const userRoles = userData?.roles || [];
+    const currentRole = userData?.currentRole || "user";
+    
+    // Check if user has deliveryBoy role in their roles array
+    const isDeliveryPartner = userRoles.includes("deliveryBoy");
+    const isAdmin = userRoles.includes("admin");
 
-    if (userRole === "admin") {
+    if (isAdmin) {
       return (
         <div className="p-4 bg-blue-100 border-l-4 border-blue-500 text-blue-700 rounded-md">
           <p className="font-bold">Administrator Account</p>
@@ -273,7 +278,7 @@ export default function ProfilePage() {
       );
     }
 
-    if (userRole === "deliveryBoy") {
+    if (isDeliveryPartner) {
       return (
         <div className="p-4 bg-green-100 border-l-4 border-green-500 text-green-700 rounded-md">
           <p className="font-bold">You are a Delivery Partner!</p>
@@ -282,7 +287,8 @@ export default function ProfilePage() {
       );
     }
 
-    if (userRole === "user") {
+    // If user doesn't have deliveryBoy or admin role, check role change request status
+    if (!isDeliveryPartner && !isAdmin) {
       switch (userData?.roleChangeRequest) {
         case "pending":
           return (

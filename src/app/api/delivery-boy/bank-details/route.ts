@@ -16,7 +16,7 @@ export async function GET() {
         { status: 401 }
       );
     }
-    if (!isDeliveryPartner(session)) {
+    if (!(await isDeliveryPartner(session))) {
       return NextResponse.json(
         { success: false, message: "Forbidden" },
         { status: 403 }
@@ -63,7 +63,7 @@ export async function POST(req: Request) {
         { status: 401 }
       );
     }
-    if (!isDeliveryPartner(session)) {
+    if (!(await isDeliveryPartner(session))) {
       return NextResponse.json(
         { success: false, message: "Forbidden" },
         { status: 403 }
@@ -145,7 +145,7 @@ export async function PUT(req: Request) {
         { status: 401 }
       );
     }
-    if (!isDeliveryPartner(session)) {
+    if (!(await isDeliveryPartner(session))) {
       return NextResponse.json(
         { success: false, message: "Forbidden" },
         { status: 403 }
@@ -219,7 +219,7 @@ export async function DELETE(req: Request) {
         { status: 401 }
       );
     }
-    if (!isDeliveryPartner(session)) {
+    if (!(await isDeliveryPartner(session))) {
       return NextResponse.json(
         { success: false, message: "Forbidden" },
         { status: 403 }

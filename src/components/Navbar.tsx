@@ -50,6 +50,16 @@ const Navbar = ({ user: propUser }: NavbarProps = {}) => {
   const [isSwitchingRole, setIsSwitchingRole] = useState(false);
   const [isRoleAccordionOpen, setIsRoleAccordionOpen] = useState(false);
 
+  // Get session and update function from NextAuth
+  const { data: session, update } = useSession();
+
+  // Get user from Redux
+  const {
+    userData: user,
+    isAuthenticated,
+    isLoading,
+  } = useSelector((state: RootState) => state.user);
+
   // Handle role switch
   const handleRoleSwitch = async (newRole: string) => {
     setIsSwitchingRole(true);
@@ -57,6 +67,8 @@ const Navbar = ({ user: propUser }: NavbarProps = {}) => {
       const response = await axios.post("/api/user/switch-role", { role: newRole });
       if (response.data.success) {
         toast.success(`Switched to ${newRole === "deliveryBoy" ? "Delivery Partner" : newRole} mode`);
+        // Update NextAuth session cookie before redirecting
+        await update();
         // Refresh page to update session
         window.location.href = newRole === "deliveryBoy" ? "/delivery-boy" : newRole === "admin" ? "/admin" : "/";
       }
@@ -66,16 +78,6 @@ const Navbar = ({ user: propUser }: NavbarProps = {}) => {
       setIsSwitchingRole(false);
     }
   };
-
-  // Get user from Redux
-  const {
-    userData: user,
-    isAuthenticated,
-    isLoading,
-  } = useSelector((state: RootState) => state.user);
-
-  // Also get session from NextAuth as fallback
-  const { data: session } = useSession();
 
   // Use Redux user if available, otherwise use NextAuth session
   const authenticatedUser =

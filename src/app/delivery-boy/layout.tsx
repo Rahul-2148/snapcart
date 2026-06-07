@@ -13,7 +13,9 @@ export default async function DeliveryBoyLayout({
     redirect("/login");
   }
 
-  if (!isDeliveryPartner(session)) {
+  const hasDeliveryPartnerAccess = await isDeliveryPartner(session);
+
+  if (!hasDeliveryPartnerAccess) {
     redirect("/unauthorized");
   }
 

@@ -19,6 +19,7 @@ import {
 } from "@heroicons/react/24/outline";
 import { signOut } from "next-auth/react";
 import Link from "next/link";
+import { usePathname } from "next/navigation";
 
 interface SidebarProps {
   isCollapsed: boolean;
@@ -33,39 +34,59 @@ const Sidebar = ({
   isMobile = false,
   onCloseMobile,
 }: SidebarProps) => {
+  const pathname = usePathname();
+  
   // On mobile overlay, always show full sidebar (not collapsed)
-  const shouldShowText = isMobile || !isCollapsed;
+  const effectiveIsCollapsed = isMobile ? false : isCollapsed;
+  const shouldShowText = !effectiveIsCollapsed;
+
+  // Helper to check if a link is active
+  const isActive = (href: string) => {
+    if (href === "/admin") {
+      return pathname === "/admin";
+    }
+    return pathname.startsWith(href);
+  };
+
+  // Handle link click - close mobile sidebar
+  const handleLinkClick = () => {
+    if (isMobile && onCloseMobile) {
+      onCloseMobile();
+    }
+  };
 
   return (
     <div
-      className={`sidebar-scrollable ${isCollapsed ? 'sidebar-collapsed scrollbar-hide px-0' : 'sidebar-expanded'} h-screen flex flex-col bg-gradient-to-b from-slate-800 to-slate-900 text-white transition-all duration-500 overflow-y-auto`}
+      className={`sidebar-scrollable ${effectiveIsCollapsed ? 'sidebar-collapsed scrollbar-hide px-0' : 'sidebar-expanded'} h-screen flex flex-col bg-gradient-to-b from-slate-800 to-slate-900 text-white overflow-y-auto`}
       style={{
-        overflowY: isCollapsed ? 'auto' : 'scroll',
-        scrollbarWidth: isCollapsed ? 'none' : 'thin',
-        scrollbarColor: isCollapsed ? 'transparent transparent' : 'rgba(120, 113, 108, 0.3) transparent',
+        width: effectiveIsCollapsed ? '80px' : '280px',
+        transition: 'width 0.5s cubic-bezier(0.25, 0.46, 0.45, 0.94)',
+        overflowY: effectiveIsCollapsed ? 'auto' : 'scroll',
+        scrollbarWidth: effectiveIsCollapsed ? 'none' : 'thin',
+        scrollbarColor: effectiveIsCollapsed ? 'transparent transparent' : 'rgba(120, 113, 108, 0.3) transparent',
         scrollbarGutter: 'auto',
-        transitionTimingFunction: 'cubic-bezier(0.4, 0, 0.2, 1)',
         willChange: 'width',
       }}
     >
       <div
-        className={`sticky top-0 z-10 flex items-center transition-all duration-500 ${
-          shouldShowText ? "justify-between px-4" : "justify-center px-0"
-        } border-b border-slate-700 bg-gradient-to-b from-slate-800 to-slate-900`}
+        className={`sticky top-0 z-10 flex items-center border-b border-slate-700 bg-gradient-to-b from-slate-800 to-slate-900`}
         style={{
           paddingTop: '18px',
           paddingBottom: '18px',
-          transitionTimingFunction: 'cubic-bezier(0.4, 0, 0.2, 1)',
+          justifyContent: shouldShowText ? 'space-between' : 'center',
+          paddingLeft: shouldShowText ? '16px' : '0',
+          paddingRight: shouldShowText ? '16px' : '0',
+          transition: 'padding 0.4s cubic-bezier(0.25, 0.46, 0.45, 0.94) 0.1s, justify-content 0.4s cubic-bezier(0.25, 0.46, 0.45, 0.94) 0.1s',
         }}
       >
         <Link
           href="/"
-          className={`transition-all duration-500 ${
-            shouldShowText
-              ? "opacity-100 w-auto"
-              : "opacity-0 w-0 overflow-hidden"
-          }`}
-          style={{ transitionTimingFunction: 'cubic-bezier(0.4, 0, 0.2, 1)' }}
+          style={{
+            opacity: shouldShowText ? 1 : 0,
+            width: shouldShowText ? 'auto' : '0',
+            overflow: 'hidden',
+            transition: 'opacity 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94) 0.15s, width 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94) 0.15s',
+          }}
         >
           <h1 className="text-2xl font-bold bg-gradient-to-r from-blue-400 to-purple-500 bg-clip-text text-transparent cursor-pointer hover:opacity-80 transition-all duration-300 ease-in-out whitespace-nowrap">
             Snapcart
@@ -81,37 +102,45 @@ const Sidebar = ({
         ) : (
           <button
             onClick={toggleCollapse}
-            className="p-2 rounded-lg hover:bg-slate-700 transition-all duration-500 cursor-e-resize flex-shrink-0"
-            style={{ transitionTimingFunction: 'cubic-bezier(0.4, 0, 0.2, 1)' }}
+            className="p-2 rounded-lg hover:bg-slate-700 flex-shrink-0"
+            style={{ transition: 'background-color 0.2s' }}
           >
             <ChevronDoubleLeftIcon
-              className={`h-6 w-6 text-slate-300 transition-transform duration-500 ${
-                isCollapsed ? "rotate-180" : ""
-              }`}
-              style={{ transitionTimingFunction: 'cubic-bezier(0.4, 0, 0.2, 1)' }}
+              className="h-6 w-6 text-slate-300"
+              style={{
+                transform: effectiveIsCollapsed ? 'rotate(180deg)' : 'rotate(0deg)',
+                transition: 'transform 0.4s cubic-bezier(0.25, 0.46, 0.45, 0.94) 0.1s',
+              }}
             />
           </button>
         )}
       </div>
-      <nav className={`mt-0 flex-1 overflow-y-auto ${isCollapsed ? 'pr-0' : 'pr-2'}`}>
-        <ul className={`space-y-1 ${isCollapsed ? 'pr-0' : 'pr-1'}`}>
+      <nav className={`mt-0 flex-1 overflow-y-auto ${effectiveIsCollapsed ? 'pr-0' : 'pr-2'}`}>
+        <ul className={`space-y-1 ${effectiveIsCollapsed ? 'pr-0' : 'pr-1'}`}>
           <li>
             <Link
               href="/admin"
-              title={isCollapsed ? "Dashboard" : ""}
-              className={`flex items-center p-3 text-slate-300 hover:bg-slate-700 hover:text-white rounded-lg transition-all duration-200 ${
-                isCollapsed ? "mx-0" : "mx-2"
+              title={effectiveIsCollapsed ? "Dashboard" : ""}
+              onClick={handleLinkClick}
+              className={`flex items-center p-3 rounded-lg transition-all duration-200 ${
+                isActive("/admin")
+                  ? "bg-blue-600 text-white shadow-lg"
+                  : "text-slate-300 hover:bg-slate-700 hover:text-white"
+              } ${
+                effectiveIsCollapsed ? "mx-0" : "mx-2"
               } ${
                 shouldShowText ? "" : "justify-center"
               }`}
             >
               <HomeIcon className="h-6 w-6 flex-shrink-0" />
               <span
-                className={`ml-3 font-medium whitespace-nowrap transition-all duration-300 ease-in-out ${
-                  shouldShowText
-                    ? "opacity-100 w-auto"
-                    : "opacity-0 w-0 overflow-hidden"
-                }`}
+                className="ml-3 font-medium whitespace-nowrap"
+                style={{
+                  opacity: shouldShowText ? 1 : 0,
+                  width: shouldShowText ? 'auto' : '0',
+                  overflow: 'hidden',
+                  transition: 'opacity 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94) 0.2s, width 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94) 0.2s',
+                }}
               >
                 Dashboard
               </span>
@@ -120,20 +149,27 @@ const Sidebar = ({
           <li>
             <Link
               href="/admin/add-grocery"
-              title={isCollapsed ? "Add Grocery" : ""}
-              className={`flex items-center p-3 text-slate-300 hover:bg-slate-700 hover:text-white rounded-lg transition-all duration-200 ${
-                isCollapsed ? "mx-0" : "mx-2"
+              title={effectiveIsCollapsed ? "Add Grocery" : ""}
+              onClick={handleLinkClick}
+              className={`flex items-center p-3 rounded-lg transition-all duration-200 ${
+                isActive("/admin/add-grocery")
+                  ? "bg-blue-600 text-white shadow-lg"
+                  : "text-slate-300 hover:bg-slate-700 hover:text-white"
+              } ${
+                effectiveIsCollapsed ? "mx-0" : "mx-2"
               } ${
                 shouldShowText ? "" : "justify-center"
               }`}
             >
               <PlusIcon className="h-6 w-6 flex-shrink-0" />
               <span
-                className={`ml-3 font-medium whitespace-nowrap transition-all duration-300 ease-in-out ${
-                  shouldShowText
-                    ? "opacity-100 w-auto"
-                    : "opacity-0 w-0 overflow-hidden"
-                }`}
+                className="ml-3 font-medium whitespace-nowrap"
+                style={{
+                  opacity: shouldShowText ? 1 : 0,
+                  width: shouldShowText ? 'auto' : '0',
+                  overflow: 'hidden',
+                  transition: 'opacity 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94) 0.22s, width 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94) 0.22s',
+                }}
               >
                 Add Grocery
               </span>
@@ -142,20 +178,27 @@ const Sidebar = ({
           <li>
             <Link
               href="/admin/groceries"
-              title={isCollapsed ? "Groceries" : ""}
-              className={`flex items-center p-3 text-slate-300 hover:bg-slate-700 hover:text-white rounded-lg transition-all duration-200 ${
-                isCollapsed ? "mx-0" : "mx-2"
+              title={effectiveIsCollapsed ? "Groceries" : ""}
+              onClick={handleLinkClick}
+              className={`flex items-center p-3 rounded-lg transition-all duration-200 ${
+                isActive("/admin/groceries")
+                  ? "bg-blue-600 text-white shadow-lg"
+                  : "text-slate-300 hover:bg-slate-700 hover:text-white"
+              } ${
+                effectiveIsCollapsed ? "mx-0" : "mx-2"
               } ${
                 shouldShowText ? "" : "justify-center"
               }`}
             >
               <ShoppingBagIcon className="h-6 w-6 flex-shrink-0" />
               <span
-                className={`ml-3 font-medium whitespace-nowrap transition-all duration-300 ease-in-out ${
-                  shouldShowText
-                    ? "opacity-100 w-auto"
-                    : "opacity-0 w-0 overflow-hidden"
-                }`}
+                className="ml-3 font-medium whitespace-nowrap"
+                style={{
+                  opacity: shouldShowText ? 1 : 0,
+                  width: shouldShowText ? 'auto' : '0',
+                  overflow: 'hidden',
+                  transition: 'opacity 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94) 0.24s, width 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94) 0.24s',
+                }}
               >
                 Groceries
               </span>
@@ -164,20 +207,27 @@ const Sidebar = ({
           <li>
             <Link
               href="/admin/categories"
-              title={isCollapsed ? "Categories" : ""}
-              className={`flex items-center p-3 text-slate-300 hover:bg-slate-700 hover:text-white rounded-lg transition-all duration-200 ${
-                isCollapsed ? "mx-0" : "mx-2"
+              title={effectiveIsCollapsed ? "Categories" : ""}
+              onClick={handleLinkClick}
+              className={`flex items-center p-3 rounded-lg transition-all duration-200 ${
+                isActive("/admin/categories")
+                  ? "bg-blue-600 text-white shadow-lg"
+                  : "text-slate-300 hover:bg-slate-700 hover:text-white"
+              } ${
+                effectiveIsCollapsed ? "mx-0" : "mx-2"
               } ${
                 shouldShowText ? "" : "justify-center"
               }`}
             >
               <TagIcon className="h-6 w-6 flex-shrink-0" />
               <span
-                className={`ml-3 font-medium whitespace-nowrap transition-all duration-300 ease-in-out ${
-                  shouldShowText
-                    ? "opacity-100 w-auto"
-                    : "opacity-0 w-0 overflow-hidden"
-                }`}
+                className="ml-3 font-medium whitespace-nowrap"
+                style={{
+                  opacity: shouldShowText ? 1 : 0,
+                  width: shouldShowText ? 'auto' : '0',
+                  overflow: 'hidden',
+                  transition: 'opacity 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94) 0.26s, width 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94) 0.26s',
+                }}
               >
                 Categories
               </span>
@@ -186,20 +236,27 @@ const Sidebar = ({
           <li>
             <Link
               href="/admin/banners"
-              title={isCollapsed ? "Banners" : ""}
-              className={`flex items-center p-3 text-slate-300 hover:bg-slate-700 hover:text-white rounded-lg transition-all duration-200 ${
-                isCollapsed ? "mx-0" : "mx-2"
+              title={effectiveIsCollapsed ? "Banners" : ""}
+              onClick={handleLinkClick}
+              className={`flex items-center p-3 rounded-lg transition-all duration-200 ${
+                isActive("/admin/banners")
+                  ? "bg-blue-600 text-white shadow-lg"
+                  : "text-slate-300 hover:bg-slate-700 hover:text-white"
+              } ${
+                effectiveIsCollapsed ? "mx-0" : "mx-2"
               } ${
                 shouldShowText ? "" : "justify-center"
               }`}
             >
               <PhotoIcon className="h-6 w-6 flex-shrink-0" />
               <span
-                className={`ml-3 font-medium whitespace-nowrap transition-all duration-300 ease-in-out ${
-                  shouldShowText
-                    ? "opacity-100 w-auto"
-                    : "opacity-0 w-0 overflow-hidden"
-                }`}
+                className="ml-3 font-medium whitespace-nowrap"
+                style={{
+                  opacity: shouldShowText ? 1 : 0,
+                  width: shouldShowText ? 'auto' : '0',
+                  overflow: 'hidden',
+                  transition: 'opacity 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94) 0.28s, width 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94) 0.28s',
+                }}
               >
                 Banners
               </span>
@@ -208,20 +265,27 @@ const Sidebar = ({
           <li>
             <Link
               href="/admin/orders"
-              title={isCollapsed ? "Orders" : ""}
-              className={`flex items-center p-3 text-slate-300 hover:bg-slate-700 hover:text-white rounded-lg transition-all duration-200 ${
-                isCollapsed ? "mx-0" : "mx-2"
+              title={effectiveIsCollapsed ? "Orders" : ""}
+              onClick={handleLinkClick}
+              className={`flex items-center p-3 rounded-lg transition-all duration-200 ${
+                isActive("/admin/orders")
+                  ? "bg-blue-600 text-white shadow-lg"
+                  : "text-slate-300 hover:bg-slate-700 hover:text-white"
+              } ${
+                effectiveIsCollapsed ? "mx-0" : "mx-2"
               } ${
                 shouldShowText ? "" : "justify-center"
               }`}
             >
               <ClipboardDocumentListIcon className="h-6 w-6 flex-shrink-0" />
               <span
-                className={`ml-3 font-medium whitespace-nowrap transition-all duration-300 ease-in-out ${
-                  shouldShowText
-                    ? "opacity-100 w-auto"
-                    : "opacity-0 w-0 overflow-hidden"
-                }`}
+                className="ml-3 font-medium whitespace-nowrap"
+                style={{
+                  opacity: shouldShowText ? 1 : 0,
+                  width: shouldShowText ? 'auto' : '0',
+                  overflow: 'hidden',
+                  transition: 'opacity 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94) 0.3s, width 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94) 0.3s',
+                }}
               >
                 Orders
               </span>
@@ -230,20 +294,27 @@ const Sidebar = ({
           <li>
             <Link
               href="/admin/returns"
-              title={isCollapsed ? "Returns" : ""}
-              className={`flex items-center p-3 text-slate-300 hover:bg-slate-700 hover:text-white rounded-lg transition-all duration-200 ${
-                isCollapsed ? "mx-0" : "mx-2"
+              title={effectiveIsCollapsed ? "Returns" : ""}
+              onClick={handleLinkClick}
+              className={`flex items-center p-3 rounded-lg transition-all duration-200 ${
+                isActive("/admin/returns")
+                  ? "bg-blue-600 text-white shadow-lg"
+                  : "text-slate-300 hover:bg-slate-700 hover:text-white"
+              } ${
+                effectiveIsCollapsed ? "mx-0" : "mx-2"
               } ${
                 shouldShowText ? "" : "justify-center"
               }`}
             >
               <ArrowPathIcon className="h-6 w-6 flex-shrink-0" />
               <span
-                className={`ml-3 font-medium whitespace-nowrap transition-all duration-300 ease-in-out ${
-                  shouldShowText
-                    ? "opacity-100 w-auto"
-                    : "opacity-0 w-0 overflow-hidden"
-                }`}
+                className="ml-3 font-medium whitespace-nowrap"
+                style={{
+                  opacity: shouldShowText ? 1 : 0,
+                  width: shouldShowText ? 'auto' : '0',
+                  overflow: 'hidden',
+                  transition: 'opacity 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94) 0.32s, width 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94) 0.32s',
+                }}
               >
                 Returns
               </span>
@@ -252,20 +323,27 @@ const Sidebar = ({
           <li>
             <Link
               href="/admin/incentives"
-              title={isCollapsed ? "Incentives" : ""}
-              className={`flex items-center p-3 text-slate-300 hover:bg-slate-700 hover:text-white rounded-lg transition-all duration-200 ${
-                isCollapsed ? "mx-0" : "mx-2"
+              title={effectiveIsCollapsed ? "Incentives" : ""}
+              onClick={handleLinkClick}
+              className={`flex items-center p-3 rounded-lg transition-all duration-200 ${
+                isActive("/admin/incentives")
+                  ? "bg-blue-600 text-white shadow-lg"
+                  : "text-slate-300 hover:bg-slate-700 hover:text-white"
+              } ${
+                effectiveIsCollapsed ? "mx-0" : "mx-2"
               } ${
                 shouldShowText ? "" : "justify-center"
               }`}
             >
               <TicketIcon className="h-6 w-6 flex-shrink-0" />
               <span
-                className={`ml-3 font-medium whitespace-nowrap transition-all duration-300 ease-in-out ${
-                  shouldShowText
-                    ? "opacity-100 w-auto"
-                    : "opacity-0 w-0 overflow-hidden"
-                }`}
+                className="ml-3 font-medium whitespace-nowrap"
+                style={{
+                  opacity: shouldShowText ? 1 : 0,
+                  width: shouldShowText ? 'auto' : '0',
+                  overflow: 'hidden',
+                  transition: 'opacity 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94) 0.34s, width 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94) 0.34s',
+                }}
               >
                 Incentives
               </span>
@@ -274,20 +352,27 @@ const Sidebar = ({
           <li>
             <Link
               href="/admin/users"
-              title={isCollapsed ? "Users" : ""}
-              className={`flex items-center p-3 text-slate-300 hover:bg-slate-700 hover:text-white rounded-lg transition-all duration-200 ${
-                isCollapsed ? "mx-0" : "mx-2"
+              title={effectiveIsCollapsed ? "Users" : ""}
+              onClick={handleLinkClick}
+              className={`flex items-center p-3 rounded-lg transition-all duration-200 ${
+                isActive("/admin/users")
+                  ? "bg-blue-600 text-white shadow-lg"
+                  : "text-slate-300 hover:bg-slate-700 hover:text-white"
+              } ${
+                effectiveIsCollapsed ? "mx-0" : "mx-2"
               } ${
                 shouldShowText ? "" : "justify-center"
               }`}
             >
               <UsersIcon className="h-6 w-6 flex-shrink-0" />
               <span
-                className={`ml-3 font-medium whitespace-nowrap transition-all duration-300 ease-in-out ${
-                  shouldShowText
-                    ? "opacity-100 w-auto"
-                    : "opacity-0 w-0 overflow-hidden"
-                }`}
+                className="ml-3 font-medium whitespace-nowrap"
+                style={{
+                  opacity: shouldShowText ? 1 : 0,
+                  width: shouldShowText ? 'auto' : '0',
+                  overflow: 'hidden',
+                  transition: 'opacity 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94) 0.36s, width 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94) 0.36s',
+                }}
               >
                 Users
               </span>
@@ -296,9 +381,14 @@ const Sidebar = ({
           <li>
             <Link
               href="/admin/delivery-partners"
-              title={isCollapsed ? "Delivery Partners" : ""}
-              className={`flex items-center p-3 text-slate-300 hover:bg-slate-700 hover:text-white rounded-lg transition-all duration-200 ${
-                isCollapsed ? "mx-0" : "mx-2"
+              title={effectiveIsCollapsed ? "Delivery Partners" : ""}
+              onClick={handleLinkClick}
+              className={`flex items-center p-3 rounded-lg transition-all duration-200 ${
+                isActive("/admin/delivery-partners")
+                  ? "bg-blue-600 text-white shadow-lg"
+                  : "text-slate-300 hover:bg-slate-700 hover:text-white"
+              } ${
+                effectiveIsCollapsed ? "mx-0" : "mx-2"
               } ${
                 shouldShowText ? "" : "justify-center"
               }`}
@@ -307,11 +397,13 @@ const Sidebar = ({
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
               </svg>
               <span
-                className={`ml-3 font-medium whitespace-nowrap transition-all duration-300 ease-in-out ${
-                  shouldShowText
-                    ? "opacity-100 w-auto"
-                    : "opacity-0 w-0 overflow-hidden"
-                }`}
+                className="ml-3 font-medium whitespace-nowrap"
+                style={{
+                  opacity: shouldShowText ? 1 : 0,
+                  width: shouldShowText ? 'auto' : '0',
+                  overflow: 'hidden',
+                  transition: 'opacity 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94) 0.38s, width 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94) 0.38s',
+                }}
               >
                 Delivery Partners
               </span>
@@ -320,20 +412,27 @@ const Sidebar = ({
           <li>
             <Link
               href="/admin/delivery-settings"
-              title={isCollapsed ? "Delivery Settings" : ""}
-              className={`flex items-center p-3 text-slate-300 hover:bg-slate-700 hover:text-white rounded-lg transition-all duration-200 ${
-                isCollapsed ? "mx-0" : "mx-2"
+              title={effectiveIsCollapsed ? "Delivery Settings" : ""}
+              onClick={handleLinkClick}
+              className={`flex items-center p-3 rounded-lg transition-all duration-200 ${
+                isActive("/admin/delivery-settings")
+                  ? "bg-blue-600 text-white shadow-lg"
+                  : "text-slate-300 hover:bg-slate-700 hover:text-white"
+              } ${
+                effectiveIsCollapsed ? "mx-0" : "mx-2"
               } ${
                 shouldShowText ? "" : "justify-center"
               }`}
             >
               <Cog6ToothIcon className="h-6 w-6 flex-shrink-0" />
               <span
-                className={`ml-3 font-medium whitespace-nowrap transition-all duration-300 ease-in-out ${
-                  shouldShowText
-                    ? "opacity-100 w-auto"
-                    : "opacity-0 w-0 overflow-hidden"
-                }`}
+                className="ml-3 font-medium whitespace-nowrap"
+                style={{
+                  opacity: shouldShowText ? 1 : 0,
+                  width: shouldShowText ? 'auto' : '0',
+                  overflow: 'hidden',
+                  transition: 'opacity 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94) 0.4s, width 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94) 0.4s',
+                }}
               >
                 Delivery Settings
               </span>
@@ -342,20 +441,27 @@ const Sidebar = ({
           <li>
             <Link
               href="/admin/payouts"
-              title={isCollapsed ? "Payouts" : ""}
-              className={`flex items-center p-3 text-slate-300 hover:bg-slate-700 hover:text-white rounded-lg transition-all duration-200 ${
-                isCollapsed ? "mx-0" : "mx-2"
+              title={effectiveIsCollapsed ? "Payouts" : ""}
+              onClick={handleLinkClick}
+              className={`flex items-center p-3 rounded-lg transition-all duration-200 ${
+                isActive("/admin/payouts")
+                  ? "bg-blue-600 text-white shadow-lg"
+                  : "text-slate-300 hover:bg-slate-700 hover:text-white"
+              } ${
+                effectiveIsCollapsed ? "mx-0" : "mx-2"
               } ${
                 shouldShowText ? "" : "justify-center"
               }`}
             >
               <CreditCardIcon className="h-6 w-6 flex-shrink-0" />
               <span
-                className={`ml-3 font-medium whitespace-nowrap transition-all duration-300 ease-in-out ${
-                  shouldShowText
-                    ? "opacity-100 w-auto"
-                    : "opacity-0 w-0 overflow-hidden"
-                }`}
+                className="ml-3 font-medium whitespace-nowrap"
+                style={{
+                  opacity: shouldShowText ? 1 : 0,
+                  width: shouldShowText ? 'auto' : '0',
+                  overflow: 'hidden',
+                  transition: 'opacity 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94) 0.42s, width 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94) 0.42s',
+                }}
               >
                 Payouts
               </span>
@@ -364,20 +470,27 @@ const Sidebar = ({
           <li>
             <Link
               href="/admin/coupons"
-              title={isCollapsed ? "Coupons" : ""}
-              className={`flex items-center p-3 text-slate-300 hover:bg-slate-700 hover:text-white rounded-lg transition-all duration-200 ${
-                isCollapsed ? "mx-0" : "mx-2"
+              title={effectiveIsCollapsed ? "Coupons" : ""}
+              onClick={handleLinkClick}
+              className={`flex items-center p-3 rounded-lg transition-all duration-200 ${
+                isActive("/admin/coupons")
+                  ? "bg-blue-600 text-white shadow-lg"
+                  : "text-slate-300 hover:bg-slate-700 hover:text-white"
+              } ${
+                effectiveIsCollapsed ? "mx-0" : "mx-2"
               } ${
                 shouldShowText ? "" : "justify-center"
               }`}
             >
               <TicketIcon className="h-6 w-6 flex-shrink-0" />
               <span
-                className={`ml-3 font-medium whitespace-nowrap transition-all duration-300 ease-in-out ${
-                  shouldShowText
-                    ? "opacity-100 w-auto"
-                    : "opacity-0 w-0 overflow-hidden"
-                }`}
+                className="ml-3 font-medium whitespace-nowrap"
+                style={{
+                  opacity: shouldShowText ? 1 : 0,
+                  width: shouldShowText ? 'auto' : '0',
+                  overflow: 'hidden',
+                  transition: 'opacity 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94) 0.44s, width 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94) 0.44s',
+                }}
               >
                 Coupons
               </span>
@@ -386,20 +499,27 @@ const Sidebar = ({
           <li>
             <Link
               href="/admin/newsletter"
-              title={isCollapsed ? "Newsletter" : ""}
-              className={`flex items-center p-3 text-slate-300 hover:bg-slate-700 hover:text-white rounded-lg transition-all duration-200 ${
-                isCollapsed ? "mx-0" : "mx-2"
+              title={effectiveIsCollapsed ? "Newsletter" : ""}
+              onClick={handleLinkClick}
+              className={`flex items-center p-3 rounded-lg transition-all duration-200 ${
+                isActive("/admin/newsletter")
+                  ? "bg-blue-600 text-white shadow-lg"
+                  : "text-slate-300 hover:bg-slate-700 hover:text-white"
+              } ${
+                effectiveIsCollapsed ? "mx-0" : "mx-2"
               } ${
                 shouldShowText ? "" : "justify-center"
               }`}
             >
               <EnvelopeIcon className="h-6 w-6 flex-shrink-0" />
               <span
-                className={`ml-3 font-medium whitespace-nowrap transition-all duration-300 ease-in-out ${
-                  shouldShowText
-                    ? "opacity-100 w-auto"
-                    : "opacity-0 w-0 overflow-hidden"
-                }`}
+                className="ml-3 font-medium whitespace-nowrap"
+                style={{
+                  opacity: shouldShowText ? 1 : 0,
+                  width: shouldShowText ? 'auto' : '0',
+                  overflow: 'hidden',
+                  transition: 'opacity 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94) 0.46s, width 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94) 0.46s',
+                }}
               >
                 Newsletter
               </span>
@@ -408,20 +528,27 @@ const Sidebar = ({
           <li>
             <Link
               href="/admin/settings"
-              title={isCollapsed ? "Settings" : ""}
-              className={`flex items-center p-3 text-slate-300 hover:bg-slate-700 hover:text-white rounded-lg transition-all duration-200 ${
-                isCollapsed ? "mx-0" : "mx-2"
+              title={effectiveIsCollapsed ? "Settings" : ""}
+              onClick={handleLinkClick}
+              className={`flex items-center p-3 rounded-lg transition-all duration-200 ${
+                isActive("/admin/settings")
+                  ? "bg-blue-600 text-white shadow-lg"
+                  : "text-slate-300 hover:bg-slate-700 hover:text-white"
+              } ${
+                effectiveIsCollapsed ? "mx-0" : "mx-2"
               } ${
                 shouldShowText ? "" : "justify-center"
               }`}
             >
               <Cog6ToothIcon className="h-6 w-6 flex-shrink-0" />
               <span
-                className={`ml-3 font-medium whitespace-nowrap transition-all duration-300 ease-in-out ${
-                  shouldShowText
-                    ? "opacity-100 w-auto"
-                    : "opacity-0 w-0 overflow-hidden"
-                }`}
+                className="ml-3 font-medium whitespace-nowrap"
+                style={{
+                  opacity: shouldShowText ? 1 : 0,
+                  width: shouldShowText ? 'auto' : '0',
+                  overflow: 'hidden',
+                  transition: 'opacity 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94) 0.48s, width 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94) 0.48s',
+                }}
               >
                 Settings
               </span>
@@ -430,20 +557,27 @@ const Sidebar = ({
           <li>
             <Link
               href="/admin/audit-logs"
-              title={isCollapsed ? "Audit Logs" : ""}
-              className={`flex items-center p-3 text-slate-300 hover:bg-slate-700 hover:text-white rounded-lg transition-all duration-200 ${
-                isCollapsed ? "mx-0" : "mx-2"
+              title={effectiveIsCollapsed ? "Audit Logs" : ""}
+              onClick={handleLinkClick}
+              className={`flex items-center p-3 rounded-lg transition-all duration-200 ${
+                isActive("/admin/audit-logs")
+                  ? "bg-blue-600 text-white shadow-lg"
+                  : "text-slate-300 hover:bg-slate-700 hover:text-white"
+              } ${
+                effectiveIsCollapsed ? "mx-0" : "mx-2"
               } ${
                 shouldShowText ? "" : "justify-center"
               }`}
             >
               <DocumentTextIcon className="h-6 w-6 flex-shrink-0" />
               <span
-                className={`ml-3 font-medium whitespace-nowrap transition-all duration-300 ease-in-out ${
-                  shouldShowText
-                    ? "opacity-100 w-auto"
-                    : "opacity-0 w-0 overflow-hidden"
-                }`}
+                className="ml-3 font-medium whitespace-nowrap"
+                style={{
+                  opacity: shouldShowText ? 1 : 0,
+                  width: shouldShowText ? 'auto' : '0',
+                  overflow: 'hidden',
+                  transition: 'opacity 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94) 0.5s, width 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94) 0.5s',
+                }}
               >
                 Audit Logs
               </span>
@@ -452,20 +586,27 @@ const Sidebar = ({
           <li>
             <Link
               href="/admin/cod-settings"
-              title={isCollapsed ? "COD Settings" : ""}
-              className={`flex items-center p-3 text-slate-300 hover:bg-slate-700 hover:text-white rounded-lg transition-all duration-200 ${
-                isCollapsed ? "mx-0" : "mx-2"
+              title={effectiveIsCollapsed ? "COD Settings" : ""}
+              onClick={handleLinkClick}
+              className={`flex items-center p-3 rounded-lg transition-all duration-200 ${
+                isActive("/admin/cod-settings")
+                  ? "bg-blue-600 text-white shadow-lg"
+                  : "text-slate-300 hover:bg-slate-700 hover:text-white"
+              } ${
+                effectiveIsCollapsed ? "mx-0" : "mx-2"
               } ${
                 shouldShowText ? "" : "justify-center"
               }`}
             >
               <CreditCardIcon className="h-6 w-6 flex-shrink-0" />
               <span
-                className={`ml-3 font-medium whitespace-nowrap transition-all duration-300 ease-in-out ${
-                  shouldShowText
-                    ? "opacity-100 w-auto"
-                    : "opacity-0 w-0 overflow-hidden"
-                }`}
+                className="ml-3 font-medium whitespace-nowrap"
+                style={{
+                  opacity: shouldShowText ? 1 : 0,
+                  width: shouldShowText ? 'auto' : '0',
+                  overflow: 'hidden',
+                  transition: 'opacity 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94) 0.52s, width 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94) 0.52s',
+                }}
               >
                 COD Settings
               </span>
@@ -482,11 +623,13 @@ const Sidebar = ({
         >
           <ArrowLeftOnRectangleIcon className="h-5 w-5 flex-shrink-0 text-red-500" />
           <span
-            className={`ml-3 font-medium whitespace-nowrap transition-all duration-300 ease-in-out ${
-              shouldShowText
-                ? "opacity-100 w-auto"
-                : "opacity-0 w-0 overflow-hidden"
-            }`}
+            className="ml-3 font-medium whitespace-nowrap"
+            style={{
+              opacity: shouldShowText ? 1 : 0,
+              width: shouldShowText ? 'auto' : '0',
+              overflow: 'hidden',
+              transition: 'opacity 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94) 0.54s, width 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94) 0.54s',
+            }}
           >
             Logout
           </span>

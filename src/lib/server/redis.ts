@@ -13,7 +13,7 @@ const getRedisClient = (): Redis => {
 
   if (!url || !token) {
     throw new Error(
-      "UPSTASH_REDIS_URL/UPSTASH_REDIS_TOKEN are not configured",
+      "UPSTASH_REDIS_URL/UPSTASH_REDIS_TOKEN are not configured. Please add these environment variables to use Redis features like OTP and rate limiting."
     );
   }
 
