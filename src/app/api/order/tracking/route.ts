@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import connectDb from "@/lib/server/db";
 import { Order } from "@/models/order.model";
+import { Store } from "@/models/store.model";
 import { DeliveryAssignment } from "@/models/deliveryAssignment.model";
 import { DeliveryPartner } from "@/models/deliveryPartner.model";
 import { User } from "@/models/user.model";
@@ -16,8 +17,9 @@ export const GET = async (req: NextRequest) => {
   await connectDb();
   const order = await Order.findById(orderId)
     .select(
-      "orderNumber orderStatus deliveryAddress createdAt packedAt confirmedAt shippedAt outForDeliveryAt deliveredAt",
+      "orderNumber orderStatus deliveryAddress storeId createdAt packedAt confirmedAt shippedAt outForDeliveryAt deliveredAt",
     )
+    .populate("storeId", "name location")
     .lean();
 
   if (!order) {
@@ -72,6 +74,14 @@ export const GET = async (req: NextRequest) => {
       orderNumber: order.orderNumber,
       status: order.orderStatus,
       userLocation: order.deliveryAddress?.location || null,
+      storeLocation: order.storeId && (order.storeId as any).location
+        ? {
+            lat: (order.storeId as any).location.coordinates[1],
+            lng: (order.storeId as any).location.coordinates[0],
+            name: (order.storeId as any).name,
+            address: (order.storeId as any).location.address,
+          }
+        : null,
       timeline: {
         ordered: order.createdAt,
         confirmed: order.confirmedAt || null,

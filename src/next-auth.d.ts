@@ -13,6 +13,7 @@ declare module "next-auth" {
       roles?: string[];
       currentRole?: string;
       profileCompleted?: boolean;
+      sessionId?: string;
     };
   }
   interface User {
@@ -34,6 +35,7 @@ declare module "next-auth/jwt" {
     roles?: string; // JSON string of roles array
     currentRole?: string;
     profileCompleted?: boolean;
+    sessionId?: string;
   }
 }
 

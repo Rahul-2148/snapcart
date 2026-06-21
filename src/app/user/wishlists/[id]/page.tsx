@@ -6,7 +6,7 @@ import Link from "next/link";
 import { useParams } from "next/navigation";
 import { Link2, ShieldCheck, Trash2, ArrowRight, ChevronLeft, ChevronRight } from "lucide-react";
 import { toast } from "sonner";
-import Navbar from "@/components/Navbar";
+
 import axios from "axios";
 import { IUser } from "@/models/user.model";
 
@@ -152,15 +152,13 @@ export default function WishlistDetailPage() {
 	if (loading)
 		return (
 			<>
-				<Navbar user={user} />
-				<div className="max-w-6xl mx-auto px-4 py-6 text-sm text-gray-500">Loading…</div>
+				<div className="max-w-6xl mx-auto px-4 pt-2 pb-6 text-sm text-gray-500">Loading…</div>
 			</>
 		);
 	if (!collection)
 		return (
 			<>
-				<Navbar user={user} />
-				<div className="max-w-6xl mx-auto px-4 py-6">Not found</div>
+				<div className="max-w-6xl mx-auto px-4 pt-2 pb-6">Not found</div>
 			</>
 		);
 
@@ -171,8 +169,7 @@ export default function WishlistDetailPage() {
 
 	return (
 		<>
-			<Navbar user={user} />
-			<div className="max-w-6xl mx-auto px-4 py-6">
+			<div className="max-w-6xl mx-auto px-4 pt-2 pb-6">
 			<div className="flex items-center justify-between mb-6">
 				<div>
 					<h1 className="text-2xl font-bold">{collection.name}</h1>

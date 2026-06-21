@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import connectDb from "@/lib/server/db";
+import connectDb, { startDbSession } from "@/lib/server/db";
 import { auth } from "@/auth";
 import { Order } from "@/models/order.model";
 import { User } from "@/models/user.model";
@@ -28,41 +28,50 @@ export const POST = async (req: NextRequest) => {
     return NextResponse.json({ message: "Order ID is required" }, { status: 400 });
   }
 
-  const sessionWithDb = await mongoose.startSession();
-  sessionWithDb.startTransaction();
+  const sessionWithDb = await startDbSession();
 
   try {
     const order = await Order.findById(orderId).session(sessionWithDb);
 
     if (!order) {
-      await sessionWithDb.abortTransaction();
-      sessionWithDb.endSession();
+      if (sessionWithDb) {
+        await sessionWithDb.abortTransaction();
+        sessionWithDb.endSession();
+      }
       return NextResponse.json({ message: "Order not found" }, { status: 404 });
     }
 
     if (order.userId.toString() !== user._id.toString()) {
-      await sessionWithDb.abortTransaction();
-      sessionWithDb.endSession();
+      if (sessionWithDb) {
+        await sessionWithDb.abortTransaction();
+        sessionWithDb.endSession();
+      }
       return NextResponse.json({ message: "Forbidden" }, { status: 403 });
     }
 
     if (order.paymentStatus === 'paid') {
-      await sessionWithDb.abortTransaction();
-      sessionWithDb.endSession();
+      if (sessionWithDb) {
+        await sessionWithDb.abortTransaction();
+        sessionWithDb.endSession();
+      }
       return NextResponse.json({ message: "Order already paid" }, { status: 200 });
     }
     
     if (order.orderStatus === 'cancelled') {
-        await sessionWithDb.abortTransaction();
-        sessionWithDb.endSession();
+        if (sessionWithDb) {
+          await sessionWithDb.abortTransaction();
+          sessionWithDb.endSession();
+        }
         return NextResponse.json({ message: "Order already cancelled" }, { status: 200 });
     }
 
     const orderItems = await OrderItem.find({ order: order._id }).session(sessionWithDb);
     const cart = await Cart.findOne({ user: user._id }).session(sessionWithDb);
     if (!cart) {
-        await sessionWithDb.abortTransaction();
-        sessionWithDb.endSession();
+        if (sessionWithDb) {
+          await sessionWithDb.abortTransaction();
+          sessionWithDb.endSession();
+        }
         return NextResponse.json({ message: "Cart not found" }, { status: 404 });
     }
 
@@ -102,14 +111,20 @@ export const POST = async (req: NextRequest) => {
     await OrderItem.deleteMany({ order: order._id }).session(sessionWithDb);
     await Order.findByIdAndDelete(orderId).session(sessionWithDb);
 
-    await sessionWithDb.commitTransaction();
-    sessionWithDb.endSession();
+    if (sessionWithDb) {
+      await sessionWithDb.commitTransaction();
+      sessionWithDb.endSession();
+    }
 
     return NextResponse.json({ success: true, message: "Order cancelled and cart restored." });
 
   } catch (error: any) {
-    await sessionWithDb.abortTransaction();
-    sessionWithDb.endSession();
+    if (sessionWithDb) {
+      if (sessionWithDb.inTransaction()) {
+        await sessionWithDb.abortTransaction();
+      }
+      sessionWithDb.endSession();
+    }
     return NextResponse.json({ message: error.message }, { status: 500 });
   }
 };

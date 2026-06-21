@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/auth";
-import connectDb from "@/lib/server/db";
+import connectDb, { startDbSession } from "@/lib/server/db";
 import mongoose from "mongoose";
 import { DeliveryAssignment } from "@/models/deliveryAssignment.model";
 import { Order } from "@/models/order.model";
@@ -28,8 +28,7 @@ export const POST = async (
   const { reason } = await req.json();
 
   await connectDb();
-  const dbSession = await mongoose.startSession();
-  dbSession.startTransaction();
+  const dbSession = await startDbSession();
 
   try {
     const assignment = await DeliveryAssignment.findOne({
@@ -38,7 +37,9 @@ export const POST = async (
     }).session(dbSession);
 
     if (!assignment) {
-      await dbSession.abortTransaction();
+      if (dbSession) {
+        await dbSession.abortTransaction();
+      }
       return NextResponse.json(
         { message: "Assignment not found" },
         { status: 404 },
@@ -47,7 +48,9 @@ export const POST = async (
 
     // Can only cancel if in assigned or picked_up status
     if (!["assigned", "picked_up"].includes(assignment.status)) {
-      await dbSession.abortTransaction();
+      if (dbSession) {
+        await dbSession.abortTransaction();
+      }
       return NextResponse.json(
         { message: "Cannot cancel delivery in current status" },
         { status: 400 },
@@ -58,7 +61,9 @@ export const POST = async (
       user: session.user.id,
     }).session(dbSession);
     if (!partner) {
-      await dbSession.abortTransaction();
+      if (dbSession) {
+        await dbSession.abortTransaction();
+      }
       return NextResponse.json(
         { message: "Partner not found" },
         { status: 404 },
@@ -123,7 +128,9 @@ export const POST = async (
     partner.activeAssignment = null;
     await partner.save({ session: dbSession });
 
-    await dbSession.commitTransaction();
+    if (dbSession) {
+      await dbSession.commitTransaction();
+    }
 
     // Re-broadcast order
     await broadcastOrderToPartners(assignment._id.toString());
@@ -138,11 +145,15 @@ export const POST = async (
       },
     });
   } catch (error: any) {
-    if (dbSession.inTransaction()) {
-      await dbSession.abortTransaction();
+    if (dbSession) {
+      if (dbSession.inTransaction()) {
+        await dbSession.abortTransaction();
+      }
     }
     return NextResponse.json({ message: error.message }, { status: 500 });
   } finally {
-    dbSession.endSession();
+    if (dbSession) {
+      dbSession.endSession();
+    }
   }
 };

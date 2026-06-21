@@ -29,6 +29,7 @@ export interface IDeliveryPartner extends Document {
     currentSession: number;
     lastPayoutAt?: Date;
     surgeEarnings?: number; // Earnings from peak hour surges
+    cashInHand: number; // Cash collected from COD deliveries
   };
   activeAssignment?: Types.ObjectId | null;
   kyc?: {
@@ -46,6 +47,14 @@ export interface IDeliveryPartner extends Document {
     aadhaarNumber?: string;
     panNumber?: string;
     licenseNumber?: string;
+  };
+  payoutDetails?: {
+    type: "upi" | "bank";
+    upiId?: string;
+    bankName?: string;
+    accountNumber?: string;
+    ifscCode?: string;
+    holderName?: string;
   };
   // Performance & Penalties
   consecutiveCancellations?: number;
@@ -98,6 +107,7 @@ const deliveryPartnerSchema = new Schema<IDeliveryPartner>(
       currentSession: { type: Number, default: 0 },
       lastPayoutAt: { type: Date },
       surgeEarnings: { type: Number, default: 0 },
+      cashInHand: { type: Number, default: 0 },
       _id: false,
     },
     activeAssignment: {
@@ -133,6 +143,15 @@ const deliveryPartnerSchema = new Schema<IDeliveryPartner>(
       aadhaarNumber: { type: String },
       panNumber: { type: String },
       licenseNumber: { type: String },
+      _id: false,
+    },
+    payoutDetails: {
+      type: { type: String, enum: ["upi", "bank"], default: "upi" },
+      upiId: { type: String },
+      bankName: { type: String },
+      accountNumber: { type: String },
+      ifscCode: { type: String },
+      holderName: { type: String },
       _id: false,
     },
     // Performance & Penalties

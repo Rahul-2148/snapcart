@@ -1,324 +1,214 @@
 "use client";
+
 import { useState, useEffect } from "react";
 import axios from "axios";
 import { IAddress } from "@/models/address.model";
-import { motion } from "framer-motion";
-import { Home, Briefcase, MapPin, Edit, Trash2, Plus, X } from "lucide-react";
+import { motion, AnimatePresence } from "framer-motion";
+import { Home, Briefcase, MapPin, Edit, Trash2, Plus, ArrowLeft } from "lucide-react";
 import { toast } from "sonner";
+import AddressPickerModal from "@/components/location/AddressPickerModal";
+import Link from "next/link";
 
 export default function AddressesPage() {
   const [addresses, setAddresses] = useState<IAddress[]>([]);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingAddress, setEditingAddress] = useState<IAddress | null>(null);
-  const [formData, setFormData] = useState({
-    street: "",
-    city: "",
-    state: "",
-    zipCode: "",
-    country: "",
-    type: "home" as "home" | "work" | "others",
-  });
-
-  useEffect(() => {
-    fetchAddresses();
-  }, []);
 
   const fetchAddresses = async () => {
     try {
       const response = await axios.get("/api/user/addresses");
-      setAddresses(response.data.addresses);
+      setAddresses(response.data.addresses || []);
     } catch (error) {
       console.error("Error fetching addresses:", error);
     }
   };
 
-  const handleInputChange = (
-    e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>
-  ) => {
-    setFormData({ ...formData, [e.target.name]: e.target.value });
-  };
+  useEffect(() => {
+    fetchAddresses();
+  }, []);
 
-  const handleSubmitAddress = async (e: React.FormEvent) => {
-    e.preventDefault();
-    try {
-      if (editingAddress) {
-        const response = await axios.put(
-          `/api/user/addresses/${editingAddress._id}`,
-          formData
-        );
-        setAddresses(
-          addresses.map((addr) =>
-            addr._id === editingAddress._id ? response.data.address : addr
-          )
-        );
-        toast.success("Address updated successfully");
+  const handleConfirmPickerAddress = (savedAddress: any) => {
+    setAddresses((prev) => {
+      const exists = prev.some((a) => a._id === savedAddress._id);
+      if (exists) {
+        return prev.map((a) => (a._id === savedAddress._id ? savedAddress : a));
       } else {
-        const response = await axios.post("/api/user/addresses", formData);
-        setAddresses([...addresses, response.data.address]);
-        toast.success("Address added successfully");
+        return [...prev, savedAddress];
       }
-      handleCloseModal();
-    } catch (error) {
-      console.error("Error saving address:", error);
-      toast.error("Failed to save address");
-    }
-  };
-
-  const handleCloseModal = () => {
+    });
     setIsModalOpen(false);
     setEditingAddress(null);
-    setFormData({
-      street: "",
-      city: "",
-      state: "",
-      zipCode: "",
-      country: "",
-      type: "home",
-    });
   };
 
   const handleEditAddress = (address: IAddress) => {
     setEditingAddress(address);
-    setFormData({
-      street: address.street,
-      city: address.city,
-      state: address.state,
-      zipCode: address.zipCode,
-      country: address.country,
-      type: address.type,
-    });
     setIsModalOpen(true);
   };
 
   const getTypeIcon = (type: string) => {
     switch (type) {
       case "home":
-        return <Home size={20} className="text-blue-500" />;
+        return <Home size={18} className="text-blue-500" />;
       case "work":
-        return <Briefcase size={20} className="text-green-500" />;
+        return <Briefcase size={18} className="text-green-500" />;
       default:
-        return <MapPin size={20} className="text-gray-500" />;
+        return <MapPin size={18} className="text-purple-500" />;
     }
   };
 
-  const getTypeLabel = (type: string) => {
+  const getTypeLabel = (type: string, customLabel?: string) => {
     switch (type) {
       case "home":
         return "Home";
       case "work":
         return "Work";
       default:
-        return "Other";
+        return customLabel || "Other";
     }
   };
 
   const handleDeleteAddress = async (id: any) => {
+    const toastId = toast.loading("Deleting address...");
     try {
       await axios.delete(`/api/user/addresses/${id}`);
-      setAddresses(addresses.filter((address: any) => address._id !== id));
+      setAddresses((prev) => prev.filter((address) => address._id !== id));
+      toast.dismiss(toastId);
+      toast.success("Address deleted successfully");
     } catch (error) {
+      toast.dismiss(toastId);
+      toast.error("Failed to delete address");
       console.error("Error deleting address:", error);
     }
   };
 
   return (
-    <div className="max-w-4xl mx-auto p-6">
-      <div className="flex justify-between items-center mb-6">
-        <h1 className="text-3xl font-bold text-gray-900">My Addresses</h1>
+    <div className="max-w-4xl mx-auto px-6 pt-0 pb-6 relative">
+      {/* Back button */}
+      <Link
+        href="/user/account"
+        className="inline-flex items-center gap-1.5 text-xs font-bold text-slate-500 hover:text-slate-800 mb-6 transition"
+      >
+        <ArrowLeft size={14} />
+        Back to account
+      </Link>
+
+      <div className="flex flex-col sm:flex-row justify-between sm:items-center gap-4 mb-8">
+        <div>
+          <h1 className="text-2xl md:text-3xl font-extrabold text-slate-800 tracking-tight">
+            My Saved Addresses
+          </h1>
+          <p className="text-xs text-slate-400 mt-1">
+            Manage your delivery coordinates and completed details
+          </p>
+        </div>
         <button
-          onClick={() => setIsModalOpen(true)}
-          className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+          onClick={() => {
+            setEditingAddress(null);
+            setIsModalOpen(true);
+          }}
+          className="inline-flex items-center justify-center gap-2 px-5 py-3 bg-green-600 hover:bg-green-700 text-white rounded-2xl text-xs font-bold transition shadow-lg shadow-green-600/10 cursor-pointer"
         >
-          <Plus size={20} />
-          Add Address
+          <Plus size={16} />
+          Add New Address
         </button>
       </div>
 
       {addresses.length === 0 ? (
-        <div className="text-center py-12">
-          <MapPin size={48} className="mx-auto text-gray-400 mb-4" />
-          <h3 className="text-lg font-medium text-gray-900 mb-2">
-            No addresses yet
-          </h3>
-          <p className="text-gray-600">
-            Add your first address to get started with deliveries.
+        <div className="text-center py-20 border-2 border-dashed border-slate-200 rounded-3xl p-6 bg-slate-50/20 max-w-lg mx-auto flex flex-col items-center">
+          <div className="w-14 h-14 rounded-full bg-slate-100 flex items-center justify-center text-slate-400 mb-4 shadow-inner">
+            <MapPin size={26} />
+          </div>
+          <h3 className="text-base font-bold text-slate-700">No Addresses Saved</h3>
+          <p className="text-xs text-slate-400 mt-1 max-w-xs leading-normal">
+            You don't have any saved locations yet. Add an address using the map picker to get started!
           </p>
+          <button
+            onClick={() => {
+              setEditingAddress(null);
+              setIsModalOpen(true);
+            }}
+            className="mt-6 inline-flex items-center gap-1.5 px-4 py-2 bg-green-600 hover:bg-green-700 text-white text-xs font-bold rounded-xl transition cursor-pointer shadow-md shadow-green-600/10"
+          >
+            <Plus size={14} /> Add Address
+          </button>
         </div>
       ) : (
-        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+        <div className="grid gap-4 md:grid-cols-2">
           {addresses.map((address: any) => (
             <div
               key={address._id}
-              className="bg-white border border-gray-200 rounded-lg p-4 shadow-sm hover:shadow-md transition-shadow"
+              className="bg-white border border-slate-150 rounded-2xl p-5 shadow-sm hover:shadow-md hover:border-green-300 transition-all duration-200 text-left flex flex-col justify-between"
             >
-              <div className="flex items-start justify-between mb-3">
-                <div className="flex items-center gap-2">
-                  {getTypeIcon(address.type)}
-                  <span className="font-medium text-gray-900">
-                    {getTypeLabel(address.type)}
+              <div>
+                <div className="flex items-center justify-between mb-3.5">
+                  <span className="px-2.5 py-1 rounded-xl bg-slate-50 text-slate-700 text-[10px] font-bold capitalize flex items-center gap-1.5 border border-slate-100">
+                    {getTypeIcon(address.type)}
+                    {getTypeLabel(address.type, address.customLabel)}
                   </span>
+                  <div className="flex gap-1.5">
+                    <button
+                      onClick={() => handleEditAddress(address)}
+                      className="p-1.5 rounded-lg hover:bg-slate-150 text-slate-400 hover:text-slate-700 transition"
+                      title="Edit Address"
+                    >
+                      <Edit size={14} />
+                    </button>
+                    <button
+                      onClick={() => handleDeleteAddress(address._id)}
+                      className="p-1.5 rounded-lg hover:bg-red-50 text-slate-400 hover:text-red-600 transition"
+                      title="Delete Address"
+                    >
+                      <Trash2 size={14} />
+                    </button>
+                  </div>
                 </div>
-                <div className="flex gap-2">
-                  <button
-                    onClick={() => handleEditAddress(address)}
-                    className="p-1 text-gray-400 hover:text-blue-600 transition-colors"
-                  >
-                    <Edit size={16} />
-                  </button>
-                  <button
-                    onClick={() => handleDeleteAddress(address._id)}
-                    className="p-1 text-gray-400 hover:text-red-600 transition-colors"
-                  >
-                    <Trash2 size={16} />
-                  </button>
+                <div className="space-y-1.5">
+                  {address.fullName && (
+                    <div className="text-xs font-bold text-slate-700">
+                      Receiver: {address.fullName}{address.mobile ? ` (${address.mobile})` : ""}
+                      {address.alternateMobile && (
+                        <span className="text-[10px] font-medium text-slate-500 block mt-0.5">
+                          Alt: {address.alternateMobile}
+                        </span>
+                      )}
+                    </div>
+                  )}
+                  <h4 className="text-sm font-bold text-slate-800 leading-snug">
+                    {address.street}
+                  </h4>
+                  {address.label && (
+                    <p className="text-xs text-green-600 font-semibold">
+                      📍 Landmark: {address.label}
+                    </p>
+                  )}
+                  <p className="text-xs text-slate-500 leading-normal line-clamp-2">
+                    {address.fullAddress}
+                  </p>
                 </div>
               </div>
-              <div className="text-sm text-gray-600 space-y-1">
-                <p className="font-medium text-gray-900">{address.street}</p>
-                <p>
-                  {address.city}, {address.state} {address.zipCode}
-                </p>
-                <p>{address.country}</p>
-              </div>
+              
+              {/* Show coordinates details for clarity */}
+              {address.latitude && address.longitude && (
+                <div className="mt-4 pt-3 border-t border-slate-100 flex items-center justify-between text-[10px] text-slate-400">
+                  <span>📍 Coordinates set</span>
+                  <span>{address.latitude.toFixed(4)}, {address.longitude.toFixed(4)}</span>
+                </div>
+              )}
             </div>
           ))}
         </div>
       )}
 
-      {/* Modal */}
-      {isModalOpen && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <motion.div
-            initial={{ opacity: 0, scale: 0.9 }}
-            animate={{ opacity: 1, scale: 1 }}
-            className="bg-white rounded-xl shadow-2xl w-full max-w-md"
-          >
-            <div className="px-6 py-4 border-b border-gray-200 flex justify-between items-center">
-              <h2 className="text-xl font-bold text-gray-900">
-                {editingAddress ? "Edit Address" : "Add New Address"}
-              </h2>
-              <button
-                onClick={handleCloseModal}
-                className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
-              >
-                <X size={20} />
-              </button>
-            </div>
-
-            <form onSubmit={handleSubmitAddress} className="p-6 space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Address Type *
-                </label>
-                <select
-                  name="type"
-                  value={formData.type}
-                  onChange={handleInputChange}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  required
-                >
-                  <option value="home">🏠 Home</option>
-                  <option value="work">💼 Work</option>
-                  <option value="others">📍 Other</option>
-                </select>
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Street Address *
-                </label>
-                <input
-                  type="text"
-                  name="street"
-                  placeholder="123 Main Street"
-                  value={formData.street}
-                  onChange={handleInputChange}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  required
-                />
-              </div>
-
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    City *
-                  </label>
-                  <input
-                    type="text"
-                    name="city"
-                    placeholder="City"
-                    value={formData.city}
-                    onChange={handleInputChange}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    required
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    State *
-                  </label>
-                  <input
-                    type="text"
-                    name="state"
-                    placeholder="State"
-                    value={formData.state}
-                    onChange={handleInputChange}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    required
-                  />
-                </div>
-              </div>
-
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Zip Code *
-                  </label>
-                  <input
-                    type="text"
-                    name="zipCode"
-                    placeholder="12345"
-                    value={formData.zipCode}
-                    onChange={handleInputChange}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    required
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Country *
-                  </label>
-                  <input
-                    type="text"
-                    name="country"
-                    placeholder="Country"
-                    value={formData.country}
-                    onChange={handleInputChange}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    required
-                  />
-                </div>
-              </div>
-
-              <div className="flex gap-3 pt-4">
-                <button
-                  type="button"
-                  onClick={handleCloseModal}
-                  className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
-                >
-                  {editingAddress ? "Update" : "Add"} Address
-                </button>
-              </div>
-            </form>
-          </motion.div>
-        </div>
-      )}
+      {/* Modern map picker modal */}
+      <AddressPickerModal
+        isOpen={isModalOpen}
+        onClose={() => {
+          setIsModalOpen(false);
+          setEditingAddress(null);
+        }}
+        onConfirm={handleConfirmPickerAddress}
+        editingAddressData={editingAddress}
+      />
     </div>
   );
 }

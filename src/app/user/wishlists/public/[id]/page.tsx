@@ -6,7 +6,7 @@ import Link from "next/link";
 import { useParams } from "next/navigation";
 import { ShieldCheck, Heart } from "lucide-react";
 import { toast } from "sonner";
-import Navbar from "@/components/Navbar";
+
 import axios from "axios";
 import { IUser } from "@/models/user.model";
 import { useSocket } from "@/contexts/SocketContext";
@@ -120,22 +120,19 @@ export default function PublicWishlistPage() {
 	if (loading)
 		return (
 			<>
-				<Navbar user={user} />
-				<div className="max-w-5xl mx-auto px-4 py-6 text-sm text-gray-500">Loading…</div>
+				<div className="max-w-5xl mx-auto px-4 pt-2 pb-6 text-sm text-gray-500">Loading…</div>
 			</>
 		);
 	if (!collection)
 		return (
 			<>
-				<Navbar user={user} />
-				<div className="max-w-5xl mx-auto px-4 py-6">Not found or private</div>
+				<div className="max-w-5xl mx-auto px-4 pt-2 pb-6">Not found or private</div>
 			</>
 		);
 
 	return (
 		<>
-			<Navbar user={user} />
-			<div className="max-w-6xl mx-auto px-4 py-6">				{/* Info Banner */}
+			<div className="max-w-6xl mx-auto px-4 pt-2 pb-6">				{/* Info Banner */}
 				<div className="mb-4 bg-blue-50 border border-blue-200 rounded-xl p-4 flex items-start gap-3">
 					<ShieldCheck className="w-5 h-5 text-blue-600 flex-shrink-0 mt-0.5" />
 					<div className="text-sm text-blue-900">

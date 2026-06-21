@@ -13,7 +13,7 @@ type User = Omit<IUser, "password">;
 export default function UserManagement() {
   const [users, setUsers] = useState<User[]>([]);
   const [loading, setLoading] = useState(true);
-  const [filter, setFilter] = useState<"all" | "pending">("all");
+  const [filter, setFilter] = useState<"all" | "pending" | "pending_kyc">("all");
   const [openRoleMenuUserId, setOpenRoleMenuUserId] = useState<string | null>(null);
   const [menuPosition, setMenuPosition] = useState<{ top: number; right: number } | null>(null);
   const buttonRefs = useRef<{ [key: string]: HTMLButtonElement | null }>({});
@@ -92,6 +92,9 @@ export default function UserManagement() {
     if (filter === "pending") {
       return user.roleChangeRequest === "pending";
     }
+    if (filter === "pending_kyc") {
+      return user.kyc?.status === "pending";
+    }
     return true;
   });
 
@@ -117,22 +120,30 @@ export default function UserManagement() {
         User Management
       </h2>
 
-      <div className="mb-4">
+      <div className="mb-4 flex flex-wrap gap-2">
         <button
           onClick={() => setFilter("all")}
-          className={`mr-2 py-1 px-3 rounded-md ${
-            filter === "all" ? "bg-indigo-600 text-white" : "bg-gray-200"
+          className={`py-1.5 px-3 rounded-md text-xs font-semibold ${
+            filter === "all" ? "bg-indigo-600 text-white" : "bg-gray-200 text-gray-700 hover:bg-gray-300"
           }`}
         >
           All Users
         </button>
         <button
           onClick={() => setFilter("pending")}
-          className={`py-1 px-3 rounded-md ${
-            filter === "pending" ? "bg-indigo-600 text-white" : "bg-gray-200"
+          className={`py-1.5 px-3 rounded-md text-xs font-semibold ${
+            filter === "pending" ? "bg-indigo-600 text-white" : "bg-gray-200 text-gray-700 hover:bg-gray-300"
           }`}
         >
           Pending Requests
+        </button>
+        <button
+          onClick={() => setFilter("pending_kyc")}
+          className={`py-1.5 px-3 rounded-md text-xs font-semibold ${
+            filter === "pending_kyc" ? "bg-indigo-600 text-white" : "bg-gray-200 text-gray-700 hover:bg-gray-300"
+          }`}
+        >
+          Pending KYC Approval
         </button>
       </div>
 
@@ -162,7 +173,7 @@ export default function UserManagement() {
                 scope="col"
                 className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
               >
-                Role
+                Role & KYC
               </th>
               <th
                 scope="col"
@@ -253,6 +264,17 @@ export default function UserManagement() {
                       📝 Requested: {user.requestedRole}
                     </div>
                   )}
+                  {user.kyc && user.kyc.status !== "not_submitted" && (
+                    <div className="mt-2 text-xs">
+                      <span className={`inline-block px-2.5 py-0.5 rounded-full capitalize text-[10px] font-bold ${
+                        user.kyc.status === "approved" ? "bg-green-100 text-green-800 border border-green-200" :
+                        user.kyc.status === "rejected" ? "bg-red-100 text-red-800 border border-red-200" :
+                        "bg-yellow-100 text-yellow-800 border border-yellow-200 animate-pulse"
+                      }`}>
+                        KYC status: {user.kyc.status}
+                      </span>
+                    </div>
+                  )}
                 </td>
                 <td className="px-6 py-4 whitespace-nowrap">
                   {user.isBlocked ? (
@@ -266,32 +288,33 @@ export default function UserManagement() {
                   )}
                 </td>
                 <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                  <div className="flex items-center space-x-2 flex-wrap gap-2">
-                    {/* Approve/Reject role change requests */}
-                    {user.roleChangeRequest === "pending" && (
-                      <>
-                        <button
-                          onClick={() =>
-                            handleUpdateUser(user._id!.toString(), {
-                              roleChangeRequest: "approved",
-                            })
-                          }
-                          className="text-xs px-2 py-1 bg-green-500 text-white rounded hover:bg-green-600"
-                        >
-                          ✓ Approve
-                        </button>
-                        <button
-                          onClick={() =>
-                            handleUpdateUser(user._id!.toString(), {
-                              roleChangeRequest: "rejected",
-                            })
-                          }
-                          className="text-xs px-2 py-1 bg-red-500 text-white rounded hover:bg-red-600"
-                        >
-                          ✕ Reject
-                        </button>
-                      </>
-                    )}
+                  <div className="flex flex-col gap-2">
+                    <div className="flex items-center space-x-2 flex-wrap gap-2">
+                      {/* Approve/Reject role change requests */}
+                      {user.roleChangeRequest === "pending" && (
+                        <>
+                          <button
+                            onClick={() =>
+                              handleUpdateUser(user._id!.toString(), {
+                                roleChangeRequest: "approved",
+                              })
+                            }
+                            className="text-xs px-2 py-1 bg-green-500 text-white rounded hover:bg-green-600"
+                          >
+                            ✓ Approve
+                          </button>
+                          <button
+                            onClick={() =>
+                              handleUpdateUser(user._id!.toString(), {
+                                roleChangeRequest: "rejected",
+                              })
+                            }
+                            className="text-xs px-2 py-1 bg-red-500 text-white rounded hover:bg-red-600"
+                          >
+                            ✕ Reject
+                          </button>
+                        </>
+                      )}
 
                     {/* Add/Remove roles - Admin can add roles - Only show if roles can be added */}
                     {(user.roles?.length || 0) < 2 && (
@@ -342,8 +365,76 @@ export default function UserManagement() {
                       {user.isBlocked ? "🔓 Unblock" : "🔒 Block"}
                     </button>
                   </div>
-                </td>
-              </tr>
+
+                  {/* KYC Pending Document Review */}
+                  {user.kyc?.status === "pending" && (
+                    <div className="mt-2 p-3 bg-indigo-50/50 border border-indigo-100 rounded-xl space-y-2 text-left max-w-xs animate-in slide-in-from-top-1 duration-200">
+                      <div className="text-[11px] text-slate-500 font-semibold space-y-0.5">
+                        <p>🪪 Aadhaar: <span className="text-slate-800 font-bold">{user.kyc.aadhaarNumber || "N/A"}</span></p>
+                        <p>📄 PAN: <span className="text-slate-800 font-bold">{user.kyc.panNumber || "N/A"}</span></p>
+                      </div>
+                      <div className="flex gap-1.5 flex-wrap">
+                        {user.kyc.documents?.map((doc: any, idx: number) => (
+                          <a
+                            key={idx}
+                            href={doc.url}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="text-[10px] text-indigo-600 bg-white border border-indigo-200/50 px-2 py-0.5 rounded font-bold hover:bg-indigo-50"
+                          >
+                            {doc.type.replace("_", " ").toUpperCase()}
+                          </a>
+                        ))}
+                      </div>
+                      <div className="flex items-center gap-2 pt-1">
+                        <button
+                          onClick={async () => {
+                            try {
+                              const res = await axios.patch(`/api/admin/user/${user._id}/kyc`, { action: "approve" });
+                              if (res.data.success) {
+                                toast.success("User KYC Approved successfully!");
+                                // Refresh User List
+                                const response = await axios.get("/api/admin/users");
+                                setUsers(response.data.users);
+                              }
+                            } catch {
+                              toast.error("Failed to approve KYC.");
+                            }
+                          }}
+                          className="text-[10px] font-bold px-2 py-1 bg-green-600 text-white rounded hover:bg-green-700 cursor-pointer transition"
+                        >
+                          Approve KYC
+                        </button>
+                        <button
+                          onClick={async () => {
+                            const reason = prompt("Enter KYC rejection reason:");
+                            if (reason === null) return; // user cancelled
+                            if (!reason.trim()) {
+                              toast.error("Rejection reason is required.");
+                              return;
+                            }
+                            try {
+                              const res = await axios.patch(`/api/admin/user/${user._id}/kyc`, { action: "reject", rejectionReason: reason });
+                              if (res.data.success) {
+                                toast.success("User KYC Rejected");
+                                // Refresh User List
+                                const response = await axios.get("/api/admin/users");
+                                setUsers(response.data.users);
+                              }
+                            } catch {
+                              toast.error("Failed to reject KYC.");
+                            }
+                          }}
+                          className="text-[10px] font-bold px-2 py-1 bg-red-600 text-white rounded hover:bg-red-700 cursor-pointer transition"
+                        >
+                          Reject KYC
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </td>
+            </tr>
             ))}
           </tbody>
         </table>
@@ -365,7 +456,7 @@ export default function UserManagement() {
             className="fixed bg-white border border-gray-200 rounded shadow-xl z-50 min-w-[180px]"
             style={{ top: `${menuPosition.top}px`, right: `${menuPosition.right}px` }}
           >
-            {["user", "deliveryBoy"].map((role: string) => {
+            {["user", "deliveryBoy", "storeManager"].map((role: string) => {
               const user = users.find(u => u._id?.toString() === openRoleMenuUserId);
               if (user?.roles?.includes(role as any)) return null;
               return (
@@ -380,7 +471,7 @@ export default function UserManagement() {
                   }}
                   className="block w-full text-left px-3 py-2 text-sm hover:bg-gray-100 text-gray-700 whitespace-nowrap"
                 >
-                  Add {role === "deliveryBoy" ? "Delivery Partner" : role}
+                  Add {role === "deliveryBoy" ? "Delivery Partner" : role === "storeManager" ? "Store Manager" : role}
                 </button>
               );
             })}

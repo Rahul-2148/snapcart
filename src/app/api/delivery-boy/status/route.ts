@@ -61,6 +61,17 @@ export const PUT = async (req: NextRequest) => {
 
   const partner = await ensurePartner(session.user.id);
   const settings = await getOrCreateDeliverySettings();
+
+  if (isOnline) {
+    const cashInHand = partner.earnings?.cashInHand || 0;
+    if (cashInHand >= 2000) {
+      return NextResponse.json(
+        { message: "Cash In Hand limit exceeded (Max ₹2,000). Please deposit or settle collected cash to go online." },
+        { status: 400 },
+      );
+    }
+  }
+
   if (isOnline && settings.kycRequiredForOnline) {
     const kycStatus = partner.kyc?.status || "not_submitted";
     if (kycStatus !== "approved") {

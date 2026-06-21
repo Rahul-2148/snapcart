@@ -29,9 +29,18 @@ const deliveryIcon = new L.Icon({
   popupAnchor: [0, -40],
 });
 
+const storeIcon = new L.Icon({
+  iconUrl:
+    "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='40' height='40' viewBox='0 0 24 24' fill='%23EF4444'%3E%3Cpath d='M20 4H4v2h16V4zm1 10v-2l-1-5H4L3 12v2c0 1.66 1.34 3 3 3h12c1.66 0 3-1.34 3-3zm-10 0H5v-2h6v2zm8 0h-6v-2h6v2zm-2-8H7V7h10v1z'/%3E%3C/svg%3E",
+  iconSize: [40, 40],
+  iconAnchor: [20, 40],
+  popupAnchor: [0, -40],
+});
+
 interface TrackingMapProps {
   customerLocation: [number, number];
-  deliveryLocation: [number, number];
+  deliveryLocation?: [number, number];
+  storeLocation?: [number, number];
   orderNumber?: string;
   estimatedDistance?: number;
   estimatedTime?: number;
@@ -80,23 +89,26 @@ const AnimatedMarker = ({
   );
 };
 
-// Auto-fit map to show both markers
+// Auto-fit map to show all available markers
 const AutoFitBounds = ({
   customerLocation,
   deliveryLocation,
+  storeLocation,
 }: {
   customerLocation: [number, number];
-  deliveryLocation: [number, number];
+  deliveryLocation?: [number, number];
+  storeLocation?: [number, number];
 }) => {
   const map = useMap();
 
   useEffect(() => {
-    const bounds = L.latLngBounds([
-      customerLocation as LatLngExpression,
-      deliveryLocation as LatLngExpression,
-    ]);
+    const points: LatLngExpression[] = [customerLocation as LatLngExpression];
+    if (deliveryLocation) points.push(deliveryLocation as LatLngExpression);
+    if (storeLocation) points.push(storeLocation as LatLngExpression);
+
+    const bounds = L.latLngBounds(points);
     map.fitBounds(bounds, { padding: [50, 50] });
-  }, [customerLocation, deliveryLocation, map]);
+  }, [customerLocation, deliveryLocation, storeLocation, map]);
 
   return null;
 };
@@ -104,6 +116,7 @@ const AutoFitBounds = ({
 const TrackingMap = ({
   customerLocation,
   deliveryLocation,
+  storeLocation,
   orderNumber,
   estimatedDistance,
   estimatedTime,
@@ -112,20 +125,28 @@ const TrackingMap = ({
   const [routeLoading, setRouteLoading] = useState(false);
   const [routeError, setRouteError] = useState<string | null>(null);
   const [rerouteTick, setRerouteTick] = useState(0);
+
+  const startPoint = deliveryLocation || storeLocation || customerLocation;
+  const endPoint = customerLocation;
+
   const routeKey = useMemo(
     () =>
-      `${customerLocation.join(",")}-${deliveryLocation.join(",")}-${rerouteTick}`,
-    [customerLocation, deliveryLocation, rerouteTick],
+      `${startPoint.join(",")}-${endPoint.join(",")}-${rerouteTick}`,
+    [startPoint, endPoint, rerouteTick],
   );
 
   useEffect(() => {
     const controller = new AbortController();
     const loadRoute = async () => {
+      if (startPoint[0] === endPoint[0] && startPoint[1] === endPoint[1]) {
+        setRoute([]);
+        return;
+      }
       setRouteLoading(true);
       setRouteError(null);
       try {
         // Primary: OpenRouteService (2000 req/day free, best results)
-        const orsUrl = `https://api.openrouteservice.org/v2/directions/driving-car?start=${customerLocation[1]},${customerLocation[0]}&end=${deliveryLocation[1]},${deliveryLocation[0]}`;
+        const orsUrl = `https://api.openrouteservice.org/v2/directions/driving-car?start=${startPoint[1]},${startPoint[0]}&end=${endPoint[1]},${endPoint[0]}`;
         
         try {
           const orsRes = await fetch(orsUrl, { signal: controller.signal });
@@ -145,7 +166,7 @@ const TrackingMap = ({
         }
         
         // Fallback: OSRM (free, no limits)
-        const osrmUrl = `https://router.project-osrm.org/route/v1/driving/${customerLocation[1]},${customerLocation[0]};${deliveryLocation[1]},${deliveryLocation[0]}?overview=full&geometries=geojson`;
+        const osrmUrl = `https://router.project-osrm.org/route/v1/driving/${startPoint[1]},${startPoint[0]};${endPoint[1]},${endPoint[0]}?overview=full&geometries=geojson`;
         const osrmRes = await fetch(osrmUrl, { signal: controller.signal });
         const osrmData = await osrmRes.json();
         
@@ -168,12 +189,17 @@ const TrackingMap = ({
 
     loadRoute();
     return () => controller.abort();
-  }, [routeKey, customerLocation, deliveryLocation]);
+  }, [routeKey, startPoint, endPoint]);
 
-  const center: [number, number] = [
-    (customerLocation[0] + deliveryLocation[0]) / 2,
-    (customerLocation[1] + deliveryLocation[1]) / 2,
-  ];
+  const center: [number, number] = useMemo(() => {
+    const locs: [number, number][] = [customerLocation];
+    if (deliveryLocation) locs.push(deliveryLocation);
+    if (storeLocation) locs.push(storeLocation);
+    
+    const sumLat = locs.reduce((acc, curr) => acc + curr[0], 0);
+    const sumLng = locs.reduce((acc, curr) => acc + curr[1], 0);
+    return [sumLat / locs.length, sumLng / locs.length];
+  }, [customerLocation, deliveryLocation, storeLocation]);
 
   return (
     <div className="relative w-full h-full">
@@ -206,16 +232,17 @@ const TrackingMap = ({
         <AutoFitBounds
           customerLocation={customerLocation}
           deliveryLocation={deliveryLocation}
+          storeLocation={storeLocation}
         />
 
-        {/* Route line between customer and delivery partner */}
+        {/* Route line between source and destination */}
         <Polyline
           positions={
             route.length > 1
               ? (route as LatLngExpression[])
               : ([
-                  customerLocation as LatLngExpression,
-                  deliveryLocation as LatLngExpression,
+                  startPoint as LatLngExpression,
+                  endPoint as LatLngExpression,
                 ] as LatLngExpression[])
           }
           pathOptions={{
@@ -236,20 +263,34 @@ const TrackingMap = ({
           </Popup>
         </Marker>
 
+        {/* Store marker */}
+        {storeLocation && (
+          <Marker position={storeLocation} icon={storeIcon}>
+            <Popup>
+              <div className="text-center">
+                <p className="font-bold text-red-600">🏬 Dark Store Outlet</p>
+                <p className="text-xs text-gray-500 mt-1">Fulfillment Source</p>
+              </div>
+            </Popup>
+          </Marker>
+        )}
+
         {/* Delivery partner marker */}
-        <AnimatedMarker position={deliveryLocation} icon={deliveryIcon}>
-          <Popup>
-            <div className="text-center">
-              <p className="font-bold text-green-600">🚴 Delivery Partner</p>
-              <p className="text-xs text-gray-600">On the way</p>
-              {estimatedDistance && estimatedTime && (
-                <p className="text-xs text-gray-500 mt-1">
-                  {estimatedDistance.toFixed(1)} km · {estimatedTime} min
-                </p>
-              )}
-            </div>
-          </Popup>
-        </AnimatedMarker>
+        {deliveryLocation && (
+          <AnimatedMarker position={deliveryLocation} icon={deliveryIcon}>
+            <Popup>
+              <div className="text-center">
+                <p className="font-bold text-green-600">🚴 Delivery Partner</p>
+                <p className="text-xs text-gray-600">On the way</p>
+                {estimatedDistance && estimatedTime && (
+                  <p className="text-xs text-gray-500 mt-1">
+                    {estimatedDistance.toFixed(1)} km · {estimatedTime} min
+                  </p>
+                )}
+              </div>
+            </Popup>
+          </AnimatedMarker>
+        )}
       </MapContainer>
 
       {/* Floating info card */}
@@ -265,10 +306,14 @@ const TrackingMap = ({
             </div>
             <div>
               <p className="text-sm font-semibold text-gray-800">
-                Delivery Partner is on the way
+                {deliveryLocation
+                  ? "Delivery Partner is on the way"
+                  : "Preparing order in dark store"}
               </p>
               <p className="text-xs text-gray-600">
-                Live tracking updates every 10 seconds
+                {deliveryLocation
+                  ? "Live tracking updates every 10 seconds"
+                  : "Rider assignment pending"}
               </p>
             </div>
           </div>

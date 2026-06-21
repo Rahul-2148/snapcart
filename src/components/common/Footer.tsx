@@ -156,6 +156,7 @@ export default function Footer() {
             <FooterLink href="/login">Login</FooterLink>
             <FooterLink href="/user/orders">My Orders</FooterLink>
             <FooterLink href="/user/returns">Returns</FooterLink>
+            <FooterLink href="/user/careers">Careers</FooterLink>
           </FooterColumn>
 
           {/* Support */}

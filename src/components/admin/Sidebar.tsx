@@ -16,6 +16,8 @@ import {
   Cog6ToothIcon,
   EnvelopeIcon,
   DocumentTextIcon,
+  BuildingStorefrontIcon,
+  IdentificationIcon,
 } from "@heroicons/react/24/outline";
 import { signOut } from "next-auth/react";
 import Link from "next/link";
@@ -143,6 +145,35 @@ const Sidebar = ({
                 }}
               >
                 Dashboard
+              </span>
+            </Link>
+          </li>
+          <li>
+            <Link
+              href="/admin/stores"
+              title={effectiveIsCollapsed ? "Stores" : ""}
+              onClick={handleLinkClick}
+              className={`flex items-center p-3 rounded-lg transition-all duration-200 ${
+                isActive("/admin/stores")
+                  ? "bg-blue-600 text-white shadow-lg"
+                  : "text-slate-300 hover:bg-slate-700 hover:text-white"
+              } ${
+                effectiveIsCollapsed ? "mx-0" : "mx-2"
+              } ${
+                shouldShowText ? "" : "justify-center"
+              }`}
+            >
+              <BuildingStorefrontIcon className="h-6 w-6 flex-shrink-0" />
+              <span
+                className="ml-3 font-medium whitespace-nowrap"
+                style={{
+                  opacity: shouldShowText ? 1 : 0,
+                  width: shouldShowText ? 'auto' : '0',
+                  overflow: 'hidden',
+                  transition: 'opacity 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94) 0.2s, width 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94) 0.2s',
+                }}
+              >
+                Stores
               </span>
             </Link>
           </li>
@@ -380,6 +411,35 @@ const Sidebar = ({
           </li>
           <li>
             <Link
+              href="/admin/staff"
+              title={effectiveIsCollapsed ? "Staff Directory" : ""}
+              onClick={handleLinkClick}
+              className={`flex items-center p-3 rounded-lg transition-all duration-200 ${
+                isActive("/admin/staff")
+                  ? "bg-blue-600 text-white shadow-lg"
+                  : "text-slate-300 hover:bg-slate-700 hover:text-white"
+              } ${
+                effectiveIsCollapsed ? "mx-0" : "mx-2"
+              } ${
+                shouldShowText ? "" : "justify-center"
+              }`}
+            >
+              <IdentificationIcon className="h-6 w-6 flex-shrink-0" />
+              <span
+                className="ml-3 font-medium whitespace-nowrap"
+                style={{
+                  opacity: shouldShowText ? 1 : 0,
+                  width: shouldShowText ? 'auto' : '0',
+                  overflow: 'hidden',
+                  transition: 'opacity 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94) 0.36s, width 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94) 0.36s',
+                }}
+              >
+                Staff Directory
+              </span>
+            </Link>
+          </li>
+          <li>
+            <Link
               href="/admin/delivery-partners"
               title={effectiveIsCollapsed ? "Delivery Partners" : ""}
               onClick={handleLinkClick}
@@ -493,6 +553,35 @@ const Sidebar = ({
                 }}
               >
                 Coupons
+              </span>
+            </Link>
+          </li>
+          <li>
+            <Link
+              href="/admin/gift-cards"
+              title={effectiveIsCollapsed ? "Gift Cards" : ""}
+              onClick={handleLinkClick}
+              className={`flex items-center p-3 rounded-lg transition-all duration-200 ${
+                isActive("/admin/gift-cards")
+                  ? "bg-blue-600 text-white shadow-lg"
+                  : "text-slate-300 hover:bg-slate-700 hover:text-white"
+              } ${
+                effectiveIsCollapsed ? "mx-0" : "mx-2"
+              } ${
+                shouldShowText ? "" : "justify-center"
+              }`}
+            >
+              <TicketIcon className="h-6 w-6 flex-shrink-0" />
+              <span
+                className="ml-3 font-medium whitespace-nowrap"
+                style={{
+                  opacity: shouldShowText ? 1 : 0,
+                  width: shouldShowText ? 'auto' : '0',
+                  overflow: 'hidden',
+                  transition: 'opacity 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94) 0.44s, width 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94) 0.44s',
+                }}
+              >
+                Gift Cards
               </span>
             </Link>
           </li>

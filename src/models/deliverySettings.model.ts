@@ -16,6 +16,12 @@ export interface IDeliverySettings extends Document {
   maxParallelAssignmentsPerPartner: number;
   allowGenderFilter: boolean;
   kycRequiredForOnline: boolean;
+  universalDeliveryMode: boolean;
+  disablePackagingFee: boolean;
+  disableWeightSurcharge: boolean;
+  disableSurgeFee: boolean;
+  disableDeliveryFee: boolean;
+  freeDeliveryThreshold: number;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -37,6 +43,12 @@ const deliverySettingsSchema = new Schema<IDeliverySettings>(
     maxParallelAssignmentsPerPartner: { type: Number, default: 2 },
     allowGenderFilter: { type: Boolean, default: false },
     kycRequiredForOnline: { type: Boolean, default: false },
+    universalDeliveryMode: { type: Boolean, default: false },
+    disablePackagingFee: { type: Boolean, default: false },
+    disableWeightSurcharge: { type: Boolean, default: false },
+    disableSurgeFee: { type: Boolean, default: false },
+    disableDeliveryFee: { type: Boolean, default: false },
+    freeDeliveryThreshold: { type: Number, default: 199 },
   },
   { timestamps: true },
 );

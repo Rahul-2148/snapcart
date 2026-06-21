@@ -1016,9 +1016,9 @@ const CartPage = () => {
                     transition={{ duration: 0.25 }}
                     className="bg-white rounded-xl shadow-sm hover:shadow-md px-4 py-4"
                   >
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-4">
-                      <Link href={`/user/product-details/${item.variant.grocery?._id}`}>
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                    <div className="flex items-start sm:items-center gap-3 sm:gap-4 w-full sm:w-auto">
+                      <Link href={`/user/product-details/${item.variant.grocery?._id}`} className="shrink-0">
                         <Image
                           src={
                             item.variant.grocery?.images?.[0]?.url ||
@@ -1031,8 +1031,8 @@ const CartPage = () => {
                         />
                       </Link>
 
-                      <div>
-                        <h4 className="font-semibold text-gray-800">
+                      <div className="flex-1 min-w-0">
+                        <h4 className="font-semibold text-gray-800 break-words">
                           {item.variant.grocery?.name || "Unknown Item"}
                         </h4>
                         <p className="text-xs text-gray-500">
@@ -1041,7 +1041,7 @@ const CartPage = () => {
                             : item.variant.label}
                         </p>
 
-                        <div className="flex items-center gap-2 mt-1">
+                        <div className="flex flex-wrap items-center gap-2 mt-1">
                           <span className="text-xs line-through text-gray-400">
                             ₹{item.variant.price?.mrp || 0}
                           </span>
@@ -1049,7 +1049,7 @@ const CartPage = () => {
                             ₹{item.variant.price?.selling || 0}
                           </span>
                           {discountPercent > 0 && (
-                            <span className="bg-green-100 text-green-700 text-xs px-2 py-0.5 rounded">
+                            <span className="bg-green-100 text-green-700 text-xs px-2 py-0.5 rounded whitespace-nowrap">
                               {discountPercent}% OFF
                             </span>
                           )}
@@ -1064,14 +1064,14 @@ const CartPage = () => {
 
                         {itemSavings > 0 && (
                           <div className="mt-1">
-                            <div className="flex items-center gap-1">
-                              <span className="text-xs text-green-700 font-medium">
+                            <div className="flex flex-wrap items-center gap-1">
+                              <span className="text-xs text-green-700 font-medium whitespace-nowrap">
                                 You save:
                               </span>
-                              <span className="text-xs font-bold text-green-700">
+                              <span className="text-xs font-bold text-green-700 whitespace-nowrap">
                                 ₹{itemSavings.toFixed(2)}
                               </span>
-                              <span className="text-xs text-gray-500">
+                              <span className="text-xs text-gray-500 whitespace-nowrap">
                                 (on MRP ₹{itemMRP.toFixed(2)})
                               </span>
                             </div>
@@ -1080,7 +1080,7 @@ const CartPage = () => {
                       </div>
                     </div>
 
-                    <div className="flex items-center gap-4">
+                    <div className="flex items-center justify-between sm:justify-end gap-4 w-full sm:w-auto border-t sm:border-t-0 pt-3 sm:pt-0">
                       <div className="flex items-center gap-3 bg-gray-100 px-3 py-1.5 rounded-full">
                         <button
                           disabled={item.quantity === 1}

@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import connectDb from "@/lib/server/db";
+import connectDb, { startDbSession } from "@/lib/server/db";
 import { auth } from "@/auth";
 import { Order } from "@/models/order.model";
 import { OrderItem } from "@/models/orderItem.model";
@@ -119,6 +119,7 @@ const sendConfirmationEmailForOrder = async (orderId: string) => {
   }));
 
   await sendOrderConfirmationEmail(user.email, user.name, {
+    orderId: order._id.toString(),
     orderNumber: order.orderNumber,
     orderDate: new Date(order.createdAt).toLocaleDateString("en-IN", {
       day: "numeric",
@@ -146,8 +147,7 @@ export const POST = async (req: NextRequest) => {
    * ======================================================
    */
   if (stripeSignature) {
-    const dbSession = await mongoose.startSession();
-    dbSession.startTransaction();
+    const dbSession = await startDbSession();
 
     try {
       const body = await req.text();
@@ -189,8 +189,10 @@ export const POST = async (req: NextRequest) => {
         processedOrderId = order._id.toString();
       }
 
-      await dbSession.commitTransaction();
-      dbSession.endSession();
+      if (dbSession) {
+        await dbSession.commitTransaction();
+        dbSession.endSession();
+      }
 
       try {
         if (processedOrderId) {
@@ -210,10 +212,12 @@ export const POST = async (req: NextRequest) => {
 
       return NextResponse.json({ success: true, received: true });
     } catch (error) {
-      if (dbSession.inTransaction()) {
-        await dbSession.abortTransaction();
+      if (dbSession) {
+        if (dbSession.inTransaction()) {
+          await dbSession.abortTransaction();
+        }
+        dbSession.endSession();
       }
-      dbSession.endSession();
 
       console.error("Stripe Webhook Error:", error);
       return NextResponse.json(
@@ -228,13 +232,15 @@ export const POST = async (req: NextRequest) => {
    * RAZORPAY FRONTEND CALLBACK HANDLER
    * ======================================================
    */
-  const dbSession = await mongoose.startSession();
-  dbSession.startTransaction();
+  const dbSession = await startDbSession();
 
   try {
     const session = await auth();
     if (!session?.user?.id) {
-      await dbSession.abortTransaction();
+      if (dbSession) {
+        await dbSession.abortTransaction();
+        dbSession.endSession();
+      }
       return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
     }
 
@@ -258,12 +264,18 @@ export const POST = async (req: NextRequest) => {
       dbSession
     );
     if (!paymentSession) {
-      await dbSession.abortTransaction();
+      if (dbSession) {
+        await dbSession.abortTransaction();
+        dbSession.endSession();
+      }
       return NextResponse.json({ message: "Payment session not found" }, { status: 404 });
     }
 
     if (paymentSession.userId.toString() !== session.user.id) {
-      await dbSession.abortTransaction();
+      if (dbSession) {
+        await dbSession.abortTransaction();
+        dbSession.endSession();
+      }
       return NextResponse.json({ message: "Forbidden" }, { status: 403 });
     }
 
@@ -279,8 +291,8 @@ export const POST = async (req: NextRequest) => {
         throw new Error("Invalid Razorpay signature");
       }
 
-  const razorpay = getRazorpayClient();
-  const payment = await razorpay.payments.fetch(razorpay_payment_id);
+      const razorpay = getRazorpayClient();
+      const payment = await razorpay.payments.fetch(razorpay_payment_id);
 
       try {
         const order = await createOrderFromPaymentSession(
@@ -301,8 +313,10 @@ export const POST = async (req: NextRequest) => {
         processedOrderId = order._id.toString();
       } catch (error: any) {
         if (error?.message?.includes("already processed")) {
-          await dbSession.commitTransaction();
-          dbSession.endSession();
+          if (dbSession) {
+            await dbSession.commitTransaction();
+            dbSession.endSession();
+          }
           return NextResponse.json({
             success: true,
             message: "Already processed",
@@ -312,8 +326,10 @@ export const POST = async (req: NextRequest) => {
       }
     }
 
-    await dbSession.commitTransaction();
-    dbSession.endSession();
+    if (dbSession) {
+      await dbSession.commitTransaction();
+      dbSession.endSession();
+    }
 
     try {
       if (processedOrderId) {
@@ -337,10 +353,12 @@ export const POST = async (req: NextRequest) => {
       orderId: processedOrderId,
     });
   } catch (error: any) {
-    if (dbSession.inTransaction()) {
-      await dbSession.abortTransaction();
+    if (dbSession) {
+      if (dbSession.inTransaction()) {
+        await dbSession.abortTransaction();
+      }
+      dbSession.endSession();
     }
-    dbSession.endSession();
 
     console.error("Payment Callback Error:", error);
     return NextResponse.json(

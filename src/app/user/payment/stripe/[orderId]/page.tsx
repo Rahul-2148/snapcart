@@ -48,6 +48,9 @@ interface OrderData {
   orderItems: OrderItem[];
   subTotal: number;
   deliveryFee: number;
+  packagingFee?: number;
+  weightSurcharge?: number;
+  taxes?: number;
   couponDiscount: number;
   codHandlingCharge?: number;
   finalTotal: number;
@@ -146,6 +149,9 @@ const StripePaymentPage = () => {
           orderItems: items,
           subTotal: session.subTotal,
           deliveryFee: session.deliveryFee,
+          packagingFee: session.packagingFee || 0,
+          weightSurcharge: session.weightSurcharge || 0,
+          taxes: session.taxes || 0,
           couponDiscount: session.couponDiscount || 0,
           codHandlingCharge: 0,
           finalTotal: session.finalTotal,
@@ -357,9 +363,9 @@ const StripePaymentPage = () => {
               Order Summary
             </h2>
             <div className="space-y-3 text-sm mb-6">
-              <div className="flex justify-between">
-                <span className="text-gray-600">Subtotal</span>
-                <span className="font-medium">
+              <div className="flex justify-between font-medium border-t border-dashed border-gray-150 pt-2 text-gray-800">
+                <span>Subtotal</span>
+                <span>
                   ₹{orderData.subTotal.toFixed(2)}
                 </span>
               </div>
@@ -367,14 +373,30 @@ const StripePaymentPage = () => {
                 <span className="text-gray-600">Delivery Fee</span>
                 <span
                   className={
-                    orderData.deliveryFee === 0 ? "text-green-600" : ""
+                    orderData.deliveryFee === 0 ? "text-green-600 font-bold" : ""
                   }
                 >
                   {orderData.deliveryFee === 0
                     ? "FREE"
-                    : `₹${orderData.deliveryFee.toFixed(2)}`}
+                    : `+₹${orderData.deliveryFee.toFixed(2)}`}
                 </span>
               </div>
+              {Number(orderData.packagingFee || 0) > 0 && (
+                <div className="flex justify-between">
+                  <span className="text-gray-600">Packaging Fee</span>
+                  <span>
+                    +₹{Number(orderData.packagingFee).toFixed(2)}
+                  </span>
+                </div>
+              )}
+              {Number(orderData.weightSurcharge || 0) > 0 && (
+                <div className="flex justify-between text-amber-700">
+                  <span>Heavy Surcharge</span>
+                  <span>
+                    +₹{Number(orderData.weightSurcharge).toFixed(2)}
+                  </span>
+                </div>
+              )}
               {orderData.couponDiscount > 0 && (
                 <div className="flex justify-between text-green-600">
                   <span>Coupon Discount</span>

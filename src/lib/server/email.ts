@@ -241,6 +241,7 @@ export async function sendOrderConfirmationEmail(
   email: string,
   name: string,
   orderData: {
+    orderId?: string;
     orderNumber: string;
     orderDate: string;
     items: Array<{
@@ -292,7 +293,7 @@ export async function sendOrderConfirmationEmail(
     <div class="content">
         <h2>Order Confirmed! 🎊</h2>
         <p>Hi ${name},</p>
-        <p>Thank you for your order! We've received it and are getting it ready for delivery.</p>
+        <p>Thank you for your order! We've received it and are getting it ready for delivery. A detailed PDF copy of your Order Summary and Official GST Tax Invoice has been compiled and attached below for your records.</p>
         
         <div class="info-box">
             <strong>Order Number:</strong> #${orderData.orderNumber}<br>
@@ -355,12 +356,28 @@ export async function sendOrderConfirmationEmail(
     </div>
   `;
 
+  const attachments: any[] = [];
+  if (orderData.orderId) {
+    try {
+      const { generateInvoicePdf } = require("./invoice");
+      const pdfBuffer = await generateInvoicePdf(orderData.orderId);
+      attachments.push({
+        filename: `Invoice-${orderData.orderNumber}.pdf`,
+        content: pdfBuffer,
+        contentType: "application/pdf",
+      });
+    } catch (pdfErr) {
+      console.error("Failed to generate and attach PDF invoice to confirmation email:", pdfErr);
+    }
+  }
+
   await transporter.sendMail({
     from: `"SnapCart" <${process.env.EMAIL_USER}>`,
     to: email,
     subject: `Order Confirmation - #${orderData.orderNumber}`,
     html: emailTemplate(content),
     replyTo: NO_REPLY_ADDRESS,
+    attachments,
   });
 }
 
@@ -504,6 +521,133 @@ export async function sendEmailRaw(
   });
 }
 
+// Gift Card Purchase confirmation email
+export async function sendGiftCardPurchaseEmail(
+  email: string,
+  name: string,
+  voucherData: {
+    code: string;
+    pin: string;
+    amount: number;
+    expiresAt: Date;
+  }
+): Promise<void> {
+  const formattedCode = voucherData.code.match(/.{1,4}/g)?.join(" ") || voucherData.code;
+  const content = `
+    <div class="content">
+        <h2>Your SnapCart Gift Voucher is Ready! 🎁</h2>
+        <p>Hi ${name},</p>
+        <p>Thank you for purchasing a SnapCart Gift Voucher. Your payment was verified successfully and your voucher has been generated.</p>
+        
+        <div class="order-details" style="border: 2px dashed #10b981; background-color: #f0fdf4; padding: 25px; text-align: center; border-radius: 12px; margin: 20px 0;">
+            <span style="font-size: 11px; font-weight: 700; color: #047857; text-transform: uppercase; letter-spacing: 1.5px; background-color: #d1fae5; padding: 4px 10px; border-radius: 9999px;">Gift Voucher</span>
+            <div style="font-size: 36px; font-weight: 900; color: #10b981; margin: 15px 0;">₹${voucherData.amount}</div>
+            
+            <div style="background-color: #ffffff; padding: 15px; border-radius: 8px; border: 1px solid #e5e7eb; font-family: monospace; text-align: left; max-width: 350px; margin: 0 auto; box-shadow: 0 1px 3px rgba(0,0,0,0.05);">
+                <div style="display: flex; justify-content: space-between; margin-bottom: 10px;">
+                    <span style="color: #9ca3af; font-size: 11px; font-weight: bold; text-transform: uppercase; margin-right: 15px;">Code:</span>
+                    <strong style="color: #111827; font-size: 14px; letter-spacing: 1px;">${formattedCode}</strong>
+                </div>
+                <div style="display: flex; justify-content: space-between; border-top: 1px solid #f3f4f6; padding-top: 10px;">
+                    <span style="color: #9ca3af; font-size: 11px; font-weight: bold; text-transform: uppercase; margin-right: 15px;">PIN:</span>
+                    <strong style="color: #111827; font-size: 14px; letter-spacing: 2px;">${voucherData.pin}</strong>
+                </div>
+            </div>
+            <p style="font-size: 11px; color: #6b7280; margin-top: 15px; margin-bottom: 0;">
+                Expires on: ${new Date(voucherData.expiresAt).toLocaleDateString("en-IN", { dateStyle: "long" })}
+            </p>
+        </div>
+
+        <h3 style="color: #374151; margin-top: 25px;">How to Redeem:</h3>
+        <ol style="padding-left: 20px; line-height: 1.7; color: #4b5563; text-align: left;">
+            <li>Log in to your account on SnapCart.</li>
+            <li>Navigate to the <strong>Gift Cards</strong> tab in your Wallet dashboard.</li>
+            <li>Click <strong>Have a Gift Card?</strong>, enter the 16-digit voucher code & 6-digit PIN, and click Redeem.</li>
+            <li>Or, share these details with a friend so they can add the voucher value directly to their checkout wallet!</li>
+        </ol>
+        
+        <div style="text-align: center; margin-top: 25px;">
+            <a href="${buildAppUrl("/user/account/wallet")}" class="button">
+                Redeem Voucher Now
+            </a>
+        </div>
+        
+        <p style="margin-top: 30px;">
+            Best regards,<br>
+            <strong>The SnapCart Team</strong>
+        </p>
+    </div>
+  `;
+
+  await transporter.sendMail({
+    from: `"SnapCart" <${process.env.EMAIL_USER}>`,
+    to: email,
+    subject: `Your SnapCart Gift Voucher is Ready! - ₹${voucherData.amount} 🎁`,
+    html: emailTemplate(content),
+    replyTo: NO_REPLY_ADDRESS,
+  });
+}
+
+// Gift Card Redemption confirmation email
+export async function sendGiftCardRedemptionEmail(
+  email: string,
+  name: string,
+  redeemData: {
+    code: string;
+    amount: number;
+    balance: number;
+  }
+): Promise<void> {
+  const maskedCode = `**** **** **** ${redeemData.code.slice(-4)}`;
+  const content = `
+    <div class="content">
+        <h2>Gift Voucher Redeemed Successfully! 🎉</h2>
+        <p>Hi ${name},</p>
+        <p>Your SnapCart Gift Voucher has been successfully redeemed into your checkout wallet balance.</p>
+        
+        <div class="order-details">
+            <h3 style="margin-top: 0; color: #374151;">Redemption Breakdown</h3>
+            <div class="order-item">
+                <span>Voucher Used</span>
+                <span style="font-family: monospace; font-weight: 600;">${maskedCode}</span>
+            </div>
+            <div class="order-item">
+                <span>Amount Redeemed</span>
+                <span style="font-weight: bold; color: #10b981;">+₹${redeemData.amount.toFixed(2)}</span>
+            </div>
+            <div class="order-item total" style="border-top: 2px solid #e5e7eb; margin-top: 15px; padding-top: 15px;">
+                <span>New Wallet Balance</span>
+                <span>₹${redeemData.balance.toFixed(2)}</span>
+            </div>
+        </div>
+
+        <div class="info-box">
+            <strong>🔒 Safe & Secure</strong><br>
+            Your wallet balance is 100% secure and will be automatically applied at the checkout page on your next order.
+        </div>
+        
+        <div style="text-align: center; margin-top: 25px;">
+            <a href="${buildAppUrl()}" class="button">
+                Start Shopping
+            </a>
+        </div>
+        
+        <p style="margin-top: 30px;">
+            Best regards,<br>
+            <strong>The SnapCart Team</strong>
+        </p>
+    </div>
+  `;
+
+  await transporter.sendMail({
+    from: `"SnapCart" <${process.env.EMAIL_USER}>`,
+    to: email,
+    subject: `Voucher Redeemed Successfully! - +₹${redeemData.amount.toFixed(2)} added to Wallet 🎉`,
+    html: emailTemplate(content),
+    replyTo: NO_REPLY_ADDRESS,
+  });
+}
+
 // Strongly-typed default export object
 interface EmailService {
   sendWelcomeEmail(email: string, name: string): Promise<void>;
@@ -540,6 +684,25 @@ interface EmailService {
   ): Promise<void>;
   sendPasswordResetEmail(email: string, name: string): Promise<void>;
   sendEmail(to: string, subject: string, htmlContent: string): Promise<void>;
+  sendGiftCardPurchaseEmail(
+    email: string,
+    name: string,
+    voucherData: {
+      code: string;
+      pin: string;
+      amount: number;
+      expiresAt: Date;
+    }
+  ): Promise<void>;
+  sendGiftCardRedemptionEmail(
+    email: string,
+    name: string,
+    redeemData: {
+      code: string;
+      amount: number;
+      balance: number;
+    }
+  ): Promise<void>;
 }
 
 // Send newsletter campaign to subscribers
@@ -591,6 +754,8 @@ const emailService = {
   sendOrderStatusEmail,
   sendPasswordResetEmail,
   sendEmail,
+  sendGiftCardPurchaseEmail,
+  sendGiftCardRedemptionEmail,
 } satisfies EmailService;
 
 export default emailService;

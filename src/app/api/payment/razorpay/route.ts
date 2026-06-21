@@ -1,6 +1,6 @@
 // src/app/api/payment/razorpay/route.ts
 import { NextRequest, NextResponse } from "next/server";
-import connectDb from "@/lib/server/db";
+import connectDb, { startDbSession } from "@/lib/server/db";
 import { auth } from "@/auth";
 import { Order } from "@/models/order.model";
 import { PaymentSession } from "@/models/paymentSession.model";
@@ -107,6 +107,7 @@ const sendConfirmationEmailForOrder = async (orderId: string) => {
   }));
 
   await sendOrderConfirmationEmail(user.email, user.name, {
+    orderId: order._id.toString(),
     orderNumber: order.orderNumber,
     orderDate: new Date(order.createdAt).toLocaleDateString("en-IN", {
       day: "numeric",
@@ -159,8 +160,7 @@ export const POST = async (req: NextRequest) => {
       );
     }
 
-    const dbSession = await mongoose.startSession();
-    dbSession.startTransaction();
+    const dbSession = await startDbSession();
 
     let assignment: any = null;
     let processedOrderId: string | null = null;
@@ -182,7 +182,9 @@ export const POST = async (req: NextRequest) => {
 
       assignment = await createAssignmentIfNeeded(order, dbSession);
       processedOrderId = order._id.toString();
-      await dbSession.commitTransaction();
+      if (dbSession) {
+        await dbSession.commitTransaction();
+      }
 
       if (assignment?._id) {
         try {
@@ -202,8 +204,10 @@ export const POST = async (req: NextRequest) => {
 
       return NextResponse.json({ status: "success" }, { status: 200 });
     } catch (error: any) {
-      if (dbSession.inTransaction()) {
-        await dbSession.abortTransaction();
+      if (dbSession) {
+        if (dbSession.inTransaction()) {
+          await dbSession.abortTransaction();
+        }
       }
       console.error("Webhook processing error:", error);
       return NextResponse.json(
@@ -211,7 +215,9 @@ export const POST = async (req: NextRequest) => {
         { status: 500 }
       );
     } finally {
-      dbSession.endSession();
+      if (dbSession) {
+        dbSession.endSession();
+      }
     }
   } else {
     // It's a request from our frontend to create a Razorpay order

@@ -6,6 +6,8 @@ import { CartItem } from "@/models/cartItem.model";
 import { GroceryVariant } from "@/models/groceryVariant.model";
 import { PaymentSession } from "@/models/paymentSession.model";
 import { User } from "@/models/user.model";
+import { DeliverySettings } from "@/models/deliverySettings.model";
+import { calculateCheckoutPricing } from "@/lib/server/pricing";
 
 export const POST = async (req: NextRequest) => {
   try {
@@ -21,7 +23,7 @@ export const POST = async (req: NextRequest) => {
       return NextResponse.json({ message: "User not found" }, { status: 404 });
     }
 
-    const { deliveryAddress, onlinePaymentType } = await req.json();
+    const { deliveryAddress, onlinePaymentType, storeId, useWallet } = await req.json();
 
     if (!deliveryAddress || !onlinePaymentType) {
       return NextResponse.json(
@@ -55,76 +57,41 @@ export const POST = async (req: NextRequest) => {
       return NextResponse.json({ message: "Cart is empty" }, { status: 400 });
     }
 
-    let subTotal = 0;
-    let totalMRP = 0;
-
+    // Stock verification
     for (const item of cartItems) {
       const variant: any = item.variant;
-
-      const freshVariant = await GroceryVariant.findById(
-        variant._id,
-        "countInStock"
-      );
-
-      if (
-        !variant ||
-        !variant.grocery?.isActive ||
-        !freshVariant ||
-        freshVariant.countInStock < item.quantity
-      ) {
+      const freshVariant = await GroceryVariant.findById(variant?._id, "countInStock");
+      if (!variant || !variant.grocery?.isActive || !freshVariant || freshVariant.countInStock < item.quantity) {
         return NextResponse.json(
-          {
-            message: `Insufficient or invalid stock for ${
-              variant?.grocery?.name || "item"
-            }`,
-          },
+          { message: `Insufficient or invalid stock for ${variant?.grocery?.name || "item"}` },
           { status: 400 }
         );
       }
-
-      subTotal += item.priceAtAdd.selling * item.quantity;
-      totalMRP += item.priceAtAdd.mrp * item.quantity;
     }
 
-    const savings = totalMRP - subTotal;
-    const deliveryFee = subTotal >= 500 ? 0 : 40;
+    // Call unified pricing engine
+    const pricing = await calculateCheckoutPricing({
+      userId: user._id.toString(),
+      deliveryAddress,
+      paymentMethod: "online",
+      useWallet: !!useWallet,
+      cartItemsInput: cartItems,
+    });
 
-    /* ===== COUPON RE-CALCULATION ===== */
-    let couponDiscount = 0;
-    let couponSnapshot = undefined;
-
-    if (cart.coupon?.discountType) {
-      if (cart.coupon.minCartValue && subTotal < cart.coupon.minCartValue) {
-        // Ignore invalid coupon
-      } else {
-        const discountTypeNormalized = (
-          cart.coupon.discountType || ""
-        ).toLowerCase();
-
-        if (discountTypeNormalized === "flat") {
-          couponDiscount = cart.coupon.discountValue || 0;
-        }
-
-        if (discountTypeNormalized === "percentage") {
-          couponDiscount = Math.floor(
-            (subTotal * (cart.coupon.discountValue || 0)) / 100
-          );
-          if (cart.coupon.maxDiscountAmount) {
-            couponDiscount = Math.min(
-              couponDiscount,
-              cart.coupon.maxDiscountAmount
-            );
-          }
-        }
-        couponSnapshot = {
-          ...cart.coupon.toObject(),
-          discountType: discountTypeNormalized,
-          discountAmount: couponDiscount,
-        };
-      }
+    if (!pricing.serviceable) {
+      return NextResponse.json(
+        { message: pricing.notServiceableReason || "Delivery address is not serviceable." },
+        { status: 400 }
+      );
     }
 
-    const finalTotal = Math.max(subTotal + deliveryFee - couponDiscount, 0);
+    const isKycApproved = user.kyc?.status === "approved";
+    if (!isKycApproved && pricing.baseFinalTotal > 50000) {
+      return NextResponse.json(
+        { message: "Order value exceeds ₹50,000. KYC verification (Aadhaar & PAN) is mandatory for high-value orders." },
+        { status: 403 }
+      );
+    }
 
     const itemsSnapshot = cartItems.map((item: any) => ({
       variantId: item.variant._id,
@@ -146,14 +113,19 @@ export const POST = async (req: NextRequest) => {
 
     const paymentSession = await PaymentSession.create({
       userId: user._id,
+      storeId: pricing.nearestStore?.id || null,
       items: itemsSnapshot,
-      subTotal,
-      totalMRP,
-      savings,
-      deliveryFee,
-      finalTotal,
-      coupon: couponSnapshot,
-      couponDiscount,
+      subTotal: pricing.subTotal,
+      totalMRP: pricing.totalMRP,
+      savings: pricing.savings,
+      deliveryFee: pricing.deliveryFee,
+      packagingFee: pricing.packagingFee,
+      weightSurcharge: pricing.weightSurcharge,
+      taxes: 0, // Stored as 0 to denote inclusive tax model
+      finalTotal: pricing.finalTotal,
+      walletDeduction: pricing.walletDeduction,
+      coupon: pricing.couponSnapshot,
+      couponDiscount: pricing.couponDiscount,
       deliveryAddress,
       paymentMethod: "online",
       onlinePaymentType,

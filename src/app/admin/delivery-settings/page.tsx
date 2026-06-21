@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useEffect, useState } from "react";
+import StoreLocationPickerModal from "@/components/location/StoreLocationPickerModal";
 
 interface DeliverySettings {
   _id: string;
@@ -19,6 +20,12 @@ interface DeliverySettings {
   maxParallelAssignmentsPerPartner: number;
   allowGenderFilter: boolean;
   kycRequiredForOnline: boolean;
+  universalDeliveryMode: boolean;
+  disablePackagingFee?: boolean;
+  disableWeightSurcharge?: boolean;
+  disableSurgeFee?: boolean;
+  disableDeliveryFee?: boolean;
+  freeDeliveryThreshold?: number;
 }
 
 export default function DeliverySettingsPage() {
@@ -27,6 +34,22 @@ export default function DeliverySettingsPage() {
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState("");
   const [formData, setFormData] = useState<DeliverySettings | null>(null);
+  const [isMapPickerOpen, setIsMapPickerOpen] = useState(false);
+  const [simDistance, setSimDistance] = useState(5);
+
+  const handleMapConfirm = (lat: number, lng: number, details: any) => {
+    if (!formData) return;
+    setFormData({
+      ...formData,
+      storeLocation: {
+        address: details.address || formData.storeLocation.address,
+        city: details.city || formData.storeLocation.city,
+        pincode: details.pincode || formData.storeLocation.pincode,
+        lat,
+        lng,
+      }
+    });
+  };
 
   useEffect(() => {
     fetchSettings();
@@ -122,7 +145,16 @@ export default function DeliverySettingsPage() {
 
       <div className="bg-white p-6 rounded-lg shadow space-y-6">
         <div>
-          <h2 className="text-lg font-semibold mb-4">Store Location</h2>
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-lg font-semibold">Store Location</h2>
+            <button
+              type="button"
+              onClick={() => setIsMapPickerOpen(true)}
+              className="px-3 py-1.5 bg-green-50 hover:bg-green-100 text-green-700 border border-green-200 rounded-xl text-xs font-bold transition flex items-center gap-1.5 cursor-pointer shadow-xs"
+            >
+              📍 Pin Location on Map
+            </button>
+          </div>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
               <label className="block text-sm font-medium mb-1">Address</label>
@@ -273,6 +305,57 @@ export default function DeliverySettingsPage() {
             {formData.basePayPerKm} × 5) = ₹
             {formData.basePayFlat + formData.basePayPerKm * 5}
           </div>
+
+          {/* Interactive Payout Simulator */}
+          <div className="mt-6 p-5 bg-gradient-to-r from-slate-50 to-blue-50/50 rounded-2xl border border-slate-150 space-y-4">
+            <div className="flex items-center justify-between">
+              <h3 className="text-xs font-bold text-slate-700 uppercase tracking-wide">
+                🚴 Delivery Partner Payout Simulator
+              </h3>
+              <span className="text-xs font-bold text-blue-700 bg-blue-50 px-2.5 py-1 rounded-lg">
+                Interactive Preview
+              </span>
+            </div>
+            
+            <div className="space-y-2">
+              <div className="flex justify-between text-xs font-bold text-slate-500">
+                <span>Simulated Distance:</span>
+                <span className="text-slate-800 text-sm">{simDistance} km</span>
+              </div>
+              <input
+                type="range"
+                min="0.5"
+                max="15"
+                step="0.5"
+                value={simDistance}
+                onChange={(e) => setSimDistance(parseFloat(e.target.value))}
+                className="w-full h-2 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-blue-600"
+              />
+              <div className="flex justify-between text-[10px] text-slate-400">
+                <span>0.5 km</span>
+                <span>15 km</span>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-3 pt-2">
+              <div className="bg-white p-3 rounded-xl border border-slate-100 shadow-xs">
+                <span className="text-[10px] font-bold text-slate-400 block uppercase">Base Pay</span>
+                <span className="text-base font-extrabold text-slate-800">₹{formData.basePayFlat}</span>
+              </div>
+              <div className="bg-white p-3 rounded-xl border border-slate-100 shadow-xs">
+                <span className="text-[10px] font-bold text-slate-400 block uppercase">Distance Pay</span>
+                <span className="text-base font-extrabold text-slate-800">₹{(formData.basePayPerKm * simDistance).toFixed(1)}</span>
+              </div>
+              <div className="bg-white p-3 rounded-xl border border-slate-100 shadow-xs">
+                <span className="text-[10px] font-bold text-slate-400 block uppercase">Standard Earnings</span>
+                <span className="text-base font-extrabold text-green-700">₹{Math.round(formData.basePayFlat + formData.basePayPerKm * simDistance)}</span>
+              </div>
+              <div className="bg-white p-3 rounded-xl border border-slate-100 shadow-xs">
+                <span className="text-[10px] font-bold text-orange-400 block uppercase">Peak Hours (1.5x)</span>
+                <span className="text-base font-extrabold text-orange-700">₹{Math.round((formData.basePayFlat + formData.basePayPerKm * simDistance) * 1.5)}</span>
+              </div>
+            </div>
+          </div>
         </div>
 
         <hr />
@@ -312,6 +395,115 @@ export default function DeliverySettingsPage() {
             <p className="text-xs text-gray-500 ml-7">
               Keep this off while testing. Turn on for production enforcement.
             </p>
+
+            <label className="flex items-center gap-3 text-sm text-gray-700">
+              <input
+                type="checkbox"
+                name="universalDeliveryMode"
+                checked={formData.universalDeliveryMode}
+                onChange={handleChange}
+                className="h-4 w-4"
+              />
+              <span className="font-medium text-amber-700">
+                Universal Delivery Mode (Bypass Store Proximity Validation for Testing)
+              </span>
+            </label>
+            <p className="text-xs text-gray-500 ml-7">
+              If enabled, strict proximity validation against dark stores is bypassed. Customers can place orders from any location, and the closest active store will be automatically allocated.
+            </p>
+          </div>
+        </div>
+
+        <hr />
+
+        <div>
+          <h2 className="text-lg font-semibold mb-4">Promotional & Checkout Fee Controls</h2>
+          <div className="space-y-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="p-4 bg-slate-50 border border-slate-200 rounded-2xl space-y-2">
+                <label className="flex items-center gap-3 text-sm text-gray-700 font-bold">
+                  <input
+                    type="checkbox"
+                    name="disableDeliveryFee"
+                    checked={formData.disableDeliveryFee || false}
+                    onChange={handleChange}
+                    className="h-4 w-4"
+                  />
+                  <span>Disable Delivery Fee (Free Delivery)</span>
+                </label>
+                <p className="text-xs text-gray-500">
+                  Enable this to waive delivery charges for all checkouts globally. Useful for special weekend promotions.
+                </p>
+              </div>
+
+              <div className="p-4 bg-slate-50 border border-slate-200 rounded-2xl space-y-2">
+                <label className="flex items-center gap-3 text-sm text-gray-700 font-bold">
+                  <input
+                    type="checkbox"
+                    name="disablePackagingFee"
+                    checked={formData.disablePackagingFee || false}
+                    onChange={handleChange}
+                    className="h-4 w-4"
+                  />
+                  <span>Disable Packaging Fee</span>
+                </label>
+                <p className="text-xs text-gray-500">
+                  Enable this to set the fixed packaging bag charge (defaults to ₹4) to ₹0 for all grocery baskets.
+                </p>
+              </div>
+
+              <div className="p-4 bg-slate-50 border border-slate-200 rounded-2xl space-y-2">
+                <label className="flex items-center gap-3 text-sm text-gray-700 font-bold">
+                  <input
+                    type="checkbox"
+                    name="disableSurgeFee"
+                    checked={formData.disableSurgeFee || false}
+                    onChange={handleChange}
+                    className="h-4 w-4"
+                  />
+                  <span>Disable Surge/Peak Charges</span>
+                </label>
+                <p className="text-xs text-gray-500">
+                  Turn off surge fee multiplier calculations (like rainy weather or peak order periods) for a smooth customer experience.
+                </p>
+              </div>
+
+              <div className="p-4 bg-slate-50 border border-slate-200 rounded-2xl space-y-2">
+                <label className="flex items-center gap-3 text-sm text-gray-700 font-bold">
+                  <input
+                    type="checkbox"
+                    name="disableWeightSurcharge"
+                    checked={formData.disableWeightSurcharge || false}
+                    onChange={handleChange}
+                    className="h-4 w-4"
+                  />
+                  <span>Disable Heavy Weight Surcharges</span>
+                </label>
+                <p className="text-xs text-gray-500">
+                  Waive the extra surcharge handling fee applied to heavy items like 10kg flour or 5L oil cans.
+                </p>
+              </div>
+            </div>
+
+            <div className="p-4 bg-slate-50 border border-slate-200 rounded-2xl space-y-3">
+              <label className="block text-sm font-bold text-gray-700">
+                Global Free Delivery Threshold (₹)
+              </label>
+              <div className="relative max-w-xs">
+                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 font-bold text-sm">₹</span>
+                <input
+                  type="number"
+                  name="freeDeliveryThreshold"
+                  value={formData.freeDeliveryThreshold ?? 199}
+                  onChange={handleChange}
+                  className="w-full pl-7 pr-3 py-2 border rounded-lg bg-white"
+                  min="0"
+                />
+              </div>
+              <p className="text-xs text-gray-500">
+                Customers will automatically receive free delivery if their cart subtotal is greater than or equal to this amount. Overrides individual store configurations if lower. Default is ₹199.
+              </p>
+            </div>
           </div>
         </div>
 
@@ -331,6 +523,13 @@ export default function DeliverySettingsPage() {
           </button>
         </div>
       </div>
+
+      <StoreLocationPickerModal
+        isOpen={isMapPickerOpen}
+        onClose={() => setIsMapPickerOpen(false)}
+        initialPosition={formData.storeLocation.lat && formData.storeLocation.lng ? [formData.storeLocation.lat, formData.storeLocation.lng] : [28.6139, 77.209]}
+        onConfirm={handleMapConfirm}
+      />
     </div>
   );
 }

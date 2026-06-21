@@ -11,6 +11,10 @@ import "@/models/adminSettings.model";
 import "@/models/newsletterSubscriber.model";
 import "@/models/wishlist.model";
 import "@/models/wishlistFollow.model";
+import "@/models/store.model";
+import "@/models/storeInventory.model";
+import "@/models/comingSoon.model";
+import "@/models/storeStaff.model";
 
 // Global cached connection across hot reloads (serverless safe)
 let cached = global.mongoose;
@@ -52,4 +56,19 @@ const connectDb = async () => {
   }
 };
 
+export const startDbSession = async (): Promise<mongoose.ClientSession | null> => {
+  await connectDb();
+  let useTransaction = true;
+  const topologyType = (mongoose.connection as any).client?.topology?.description?.type;
+  if (topologyType === "Single" || topologyType === "Unknown") {
+    useTransaction = false;
+  }
+  if (!useTransaction) return null;
+
+  const session = await mongoose.startSession();
+  session.startTransaction();
+  return session;
+};
+
 export default connectDb;
+

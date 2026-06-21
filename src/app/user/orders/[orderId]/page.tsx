@@ -43,6 +43,10 @@ interface Order {
   subTotal: number;
   savings: number;
   deliveryFee: number;
+  packagingFee?: number;
+  weightSurcharge?: number;
+  taxes?: number;
+  walletDeduction?: number;
   couponDiscount?: number;
   codHandlingCharge?: number;
   currency: string;
@@ -799,6 +803,25 @@ export default function OrderDetailPage() {
                   </span>
                 </div>
 
+                {Number(order.packagingFee || 0) > 0 && (
+                  <div className="flex justify-between">
+                    <span className="text-gray-600">Packaging Fee</span>
+                    <span className="font-medium">
+                      +{order.currency} {Number(order.packagingFee).toFixed(2)}
+                    </span>
+                  </div>
+                )}
+
+                {Number(order.weightSurcharge || 0) > 0 && (
+                  <div className="flex justify-between text-amber-700">
+                    <span>Heavy Surcharge</span>
+                    <span className="font-medium">
+                      +{order.currency} {Number(order.weightSurcharge).toFixed(2)}
+                    </span>
+                  </div>
+                )}
+
+
                 {Number(order.codHandlingCharge || 0) > 0 && (
                   <div className="flex justify-between">
                     <span className="text-gray-600">COD Handling Charge</span>
@@ -817,6 +840,15 @@ export default function OrderDetailPage() {
                   </div>
                 )}
 
+                {Number(order.walletDeduction || 0) > 0 && (
+                  <div className="flex justify-between text-green-600 font-semibold border-t border-dashed pt-2">
+                    <span>Wallet Deduction</span>
+                    <span>
+                      -{order.currency} {Number(order.walletDeduction).toFixed(2)}
+                    </span>
+                  </div>
+                )}
+
                 <div className="flex justify-between">
                   <span className="text-gray-600">Savings</span>
                   <span className="font-medium text-green-600">
@@ -826,7 +858,7 @@ export default function OrderDetailPage() {
 
                 <div className="border-t pt-3">
                   <div className="flex justify-between text-lg font-semibold">
-                    <span>Total</span>
+                    <span>{Number(order.walletDeduction || 0) > 0 ? "Remaining Paid" : "Total"}</span>
                     <span>
                       {order.currency} {Number(order.finalTotal || 0).toFixed(2)}
                     </span>

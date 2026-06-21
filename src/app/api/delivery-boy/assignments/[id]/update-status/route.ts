@@ -1,10 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/auth";
-import connectDb from "@/lib/server/db";
+import connectDb, { startDbSession } from "@/lib/server/db";
 import mongoose from "mongoose";
 import { DeliveryAssignment } from "@/models/deliveryAssignment.model";
 import { Order } from "@/models/order.model";
 import { DeliveryPartner } from "@/models/deliveryPartner.model";
+import Wallet from "@/models/wallet.model";
+import WalletTransaction from "@/models/walletTransaction.model";
 import {
   getOrCreateDeliverySettings,
   computePayout,
@@ -34,8 +36,7 @@ export const POST = async (
   }
 
   await connectDb();
-  const dbSession = await mongoose.startSession();
-  dbSession.startTransaction();
+  const dbSession = await startDbSession();
 
   try {
     const assignment = await DeliveryAssignment.findOne({
@@ -44,7 +45,9 @@ export const POST = async (
     }).session(dbSession);
 
     if (!assignment) {
-      await dbSession.abortTransaction();
+      if (dbSession) {
+        await dbSession.abortTransaction();
+      }
       return NextResponse.json(
         { message: "Assignment not found" },
         { status: 404 },
@@ -53,7 +56,9 @@ export const POST = async (
 
     const order = await Order.findById(assignment.order).session(dbSession);
     if (!order) {
-      await dbSession.abortTransaction();
+      if (dbSession) {
+        await dbSession.abortTransaction();
+      }
       return NextResponse.json({ message: "Order missing" }, { status: 404 });
     }
 
@@ -61,7 +66,9 @@ export const POST = async (
       user: session.user.id,
     }).session(dbSession);
     if (!partner) {
-      await dbSession.abortTransaction();
+      if (dbSession) {
+        await dbSession.abortTransaction();
+      }
       return NextResponse.json(
         { message: "Partner not found" },
         { status: 404 },
@@ -110,6 +117,12 @@ export const POST = async (
       }
       partner.stats.totalDeliveries += 1;
 
+      // Handle Cash on Delivery (COD) collection
+      if (order.paymentMethod === "cod") {
+        partner.earnings.cashInHand = (partner.earnings.cashInHand || 0) + order.finalTotal;
+        order.paymentStatus = "paid";
+      }
+
       // Reset consecutive cancellations on successful delivery
       partner.consecutiveCancellations = 0;
 
@@ -125,6 +138,29 @@ export const POST = async (
       partner.activeAssignment = null;
 
       assignment.rewardAmount = totalEarning;
+
+      // Credit to Delivery Partner Wallet
+      let riderWallet = await Wallet.findOne({ user: session.user.id }).session(dbSession);
+      if (!riderWallet) {
+        riderWallet = new Wallet({
+          user: new mongoose.Types.ObjectId(session.user.id),
+          role: "delivery-boy",
+          balance: 0,
+        });
+      }
+      riderWallet.balance += totalEarning;
+      await riderWallet.save({ session: dbSession });
+
+      // Create transaction record
+      const transaction = new WalletTransaction({
+        walletId: riderWallet._id,
+        type: "credit",
+        amount: totalEarning,
+        description: `Order delivery payout (Order ID: ${order._id})`,
+        status: "completed",
+        referenceId: assignment._id.toString(),
+      });
+      await transaction.save({ session: dbSession });
     }
 
     assignment.timeline.push({
@@ -140,7 +176,9 @@ export const POST = async (
     await order.save({ session: dbSession });
     await partner.save({ session: dbSession });
 
-    await dbSession.commitTransaction();
+    if (dbSession) {
+      await dbSession.commitTransaction();
+    }
 
     const ioClient = getIO();
     ioClient?.emit("delivery_status_update", {
@@ -159,11 +197,15 @@ export const POST = async (
       surgeFactor: status === "delivered" ? calculateSurgeFactor() : undefined,
     });
   } catch (error: any) {
-    if (dbSession.inTransaction()) {
-      await dbSession.abortTransaction();
+    if (dbSession) {
+      if (dbSession.inTransaction()) {
+        await dbSession.abortTransaction();
+      }
     }
     return NextResponse.json({ message: error.message }, { status: 500 });
   } finally {
-    dbSession.endSession();
+    if (dbSession) {
+      dbSession.endSession();
+    }
   }
 };

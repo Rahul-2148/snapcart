@@ -1,351 +1,127 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextResponse } from "next/server";
 import { auth } from "@/auth";
 import connectDb from "@/lib/server/db";
-import { Payout } from "@/models/payout.model";
 import { User } from "@/models/user.model";
-import Razorpay from "razorpay";
+import Wallet from "@/models/wallet.model";
+import WalletTransaction from "@/models/walletTransaction.model";
+import Withdrawal from "@/models/withdrawal.model";
 
-export const dynamic = "force-dynamic";
-
-let razorpayClient: Razorpay | null = null;
-const getRazorpayClient = () => {
-  if (razorpayClient) return razorpayClient as any;
-
-  const keyId = process.env.RAZORPAY_KEY_ID;
-  const keySecret = process.env.RAZORPAY_KEY_SECRET;
-
-  if (!keyId || !keySecret) {
-    throw new Error("RAZORPAY_KEY_ID/RAZORPAY_KEY_SECRET not configured");
-  }
-
-  razorpayClient = new Razorpay({ key_id: keyId, key_secret: keySecret });
-  return razorpayClient as any;
-};
-
-export async function GET(req: NextRequest) {
+// GET: List all withdrawal payout requests for admin dashboard
+export async function GET(req: Request) {
   try {
     const session = await auth();
-    if (!session?.user?.email || session.user.currentRole !== "admin") {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
 
-    const status = req.nextUrl.searchParams.get("status") || "pending";
-    const page = parseInt(req.nextUrl.searchParams.get("page") || "1");
-    const limit = parseInt(req.nextUrl.searchParams.get("limit") || "20");
-    const query = req.nextUrl.searchParams.get("q") || "";
-    const startDate = req.nextUrl.searchParams.get("startDate");
-    const endDate = req.nextUrl.searchParams.get("endDate");
-    const minAmount = req.nextUrl.searchParams.get("minAmount");
-    const maxAmount = req.nextUrl.searchParams.get("maxAmount");
-    const exportCsv = req.nextUrl.searchParams.get("export") === "csv";
+    if (!session || !session.user || !session.user.email) {
+      return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
+    }
 
     await connectDb();
 
-    const filter: Record<string, any> = { status };
-
-    if (startDate || endDate) {
-      filter.createdAt = {};
-      if (startDate) {
-        filter.createdAt.$gte = new Date(startDate);
-      }
-      if (endDate) {
-        const end = new Date(endDate);
-        end.setHours(23, 59, 59, 999);
-        filter.createdAt.$lte = end;
-      }
+    const currentUser = await User.findOne({ email: session.user.email });
+    if (!currentUser || !currentUser.roles?.includes("admin")) {
+      return NextResponse.json({ message: "Forbidden: Admin role required" }, { status: 403 });
     }
 
-    if (minAmount || maxAmount) {
-      filter.amount = {};
-      if (minAmount) {
-        filter.amount.$gte = Number(minAmount);
-      }
-      if (maxAmount) {
-        filter.amount.$lte = Number(maxAmount);
-      }
-    }
-
-    if (query.trim()) {
-      const q = query.trim();
-      const users = await User.find({
-        $or: [
-          { name: { $regex: q, $options: "i" } },
-          { email: { $regex: q, $options: "i" } },
-          { mobileNumber: { $regex: q, $options: "i" } },
-        ],
-      }).select("_id");
-
-      const ids = users.map((u) => u._id);
-      if (ids.length === 0) {
-        return NextResponse.json({
-          payouts: [],
-          pagination: { page, limit, total: 0, pages: 0 },
-        });
-      }
-      filter.deliveryPartner = { $in: ids };
-    }
-
-    const baseQuery = Payout.find(filter).populate({
-      path: "deliveryPartner",
-      select: "name email mobileNumber",
-      model: "User",
-    });
-
-    if (exportCsv) {
-      const rows = await baseQuery.sort({ createdAt: -1 });
-
-      const escapeCsv = (value: unknown) => {
-        const str = String(value ?? "");
-        if (/[",\n]/.test(str)) {
-          return `"${str.replace(/"/g, '""')}"`;
-        }
-        return str;
-      };
-
-      const header = [
-        "Partner Name",
-        "Partner Email",
-        "Partner Phone",
-        "Amount",
-        "Status",
-        "Period Start",
-        "Period End",
-        "Created At",
-        "Transaction Id",
-        "Failure Reason",
-        "Notes",
-      ];
-
-      const lines = [header.join(",")];
-
-      for (const payout of rows) {
-        const partner = payout.deliveryPartner as any;
-        lines.push(
-          [
-            escapeCsv(partner?.name),
-            escapeCsv(partner?.email),
-            escapeCsv(partner?.mobileNumber),
-            payout.amount,
-            payout.status,
-            payout.period?.startDate
-              ? new Date(payout.period.startDate).toISOString()
-              : "",
-            payout.period?.endDate
-              ? new Date(payout.period.endDate).toISOString()
-              : "",
-            payout.createdAt ? new Date(payout.createdAt).toISOString() : "",
-            escapeCsv(payout.transactionId),
-            escapeCsv(payout.failureReason),
-            escapeCsv(payout.notes),
-          ].join(","),
-        );
-      }
-
-      return new NextResponse(lines.join("\n"), {
-        status: 200,
-        headers: {
-          "Content-Type": "text/csv; charset=utf-8",
-          "Content-Disposition": "attachment; filename=delivery-payouts.csv",
-        },
-      });
-    }
-
-    const payouts = await baseQuery
+    // Fetch all payouts, populating user details
+    const withdrawals = await Withdrawal.find()
+      .populate("userId", "name email mobileNumber role")
       .sort({ createdAt: -1 })
-      .skip((page - 1) * limit)
-      .limit(limit);
-
-    const total = await Payout.countDocuments(filter);
+      .lean();
 
     return NextResponse.json({
-      payouts,
-      pagination: {
-        page,
-        limit,
-        total,
-        pages: Math.ceil(total / limit),
-      },
-    });
-  } catch (error) {
-    console.error("[Payout Fetch Error]", error);
+      success: true,
+      withdrawals,
+    }, { status: 200 });
+  } catch (error: any) {
+    console.error("GET /api/admin/payouts error:", error);
     return NextResponse.json(
-      { error: "Failed to fetch payouts" },
-      { status: 500 },
+      { message: `Error fetching withdrawals: ${error.message}` },
+      { status: 500 }
     );
   }
 }
 
-export async function POST(req: NextRequest) {
+// PUT: Approve or reject a payout request
+export async function PUT(req: Request) {
   try {
     const session = await auth();
-    if (!session?.user?.email || session.user.currentRole !== "admin") {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
+    if (!session || !session.user || !session.user.email) {
+      return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
     }
 
-    const { action, payoutIds } = await req.json();
-
-    if (!action || !Array.isArray(payoutIds) || payoutIds.length === 0) {
-      return NextResponse.json({ error: "Invalid request" }, { status: 400 });
+    const { withdrawalId, status, adminNote } = await req.json();
+    if (!withdrawalId || !status || !["approved", "rejected"].includes(status)) {
+      return NextResponse.json({ message: "Invalid parameters" }, { status: 400 });
     }
 
     await connectDb();
 
-    if (action === "release") {
-      // Mark payouts as processing
-      const result = await Payout.updateMany(
-        {
-          _id: { $in: payoutIds },
-          status: "pending",
-        },
-        {
-          $set: {
-            status: "processing",
-            processedAt: new Date(),
-          },
-        },
-      );
-
-      return NextResponse.json({
-        message: "Payouts marked for processing",
-        modified: result.modifiedCount,
-      });
+    const currentUser = await User.findOne({ email: session.user.email });
+    if (!currentUser || !currentUser.roles?.includes("admin")) {
+      return NextResponse.json({ message: "Forbidden: Admin role required" }, { status: 403 });
     }
 
-    if (action === "complete") {
-      // Mark payouts as completed with Razorpay payout processing
-      const payouts = await Payout.find({
-        _id: { $in: payoutIds },
-        status: "processing",
-      }).populate("deliveryPartner");
+    const withdrawal = await Withdrawal.findById(withdrawalId);
+    if (!withdrawal) {
+      return NextResponse.json({ message: "Withdrawal request not found" }, { status: 404 });
+    }
 
-      const updateResults = [];
+    if (withdrawal.status !== "pending") {
+      return NextResponse.json({ message: "Withdrawal request has already been processed" }, { status: 400 });
+    }
 
-      for (const payout of payouts) {
-        try {
-          const deliveryPartner = payout.deliveryPartner as any;
+    // Process approval/rejection
+    if (status === "approved") {
+      withdrawal.status = "approved";
+      withdrawal.adminNote = adminNote || "Payout processed successfully";
+      await withdrawal.save();
 
-          // Validate bank details from payout snapshot
-          if (
-            !payout.bankDetails?.accountNumber ||
-            !payout.bankDetails?.ifsc
-          ) {
-            updateResults.push({
-              payoutId: payout._id,
-              status: "failed",
-              error: "Missing bank details",
-            });
-            continue;
-          }
+      // Find original pending transaction and complete it
+      await WalletTransaction.findOneAndUpdate(
+        { referenceId: withdrawalId },
+        { status: "completed", description: `Payout processed successfully` }
+      );
+    } else if (status === "rejected") {
+      withdrawal.status = "rejected";
+      withdrawal.adminNote = adminNote || "Payout request rejected";
+      await withdrawal.save();
 
-          const hasRazorpayKeys =
-            !!process.env.RAZORPAY_KEY_ID &&
-            !!process.env.RAZORPAY_KEY_SECRET &&
-            !!process.env.RAZORPAY_ACCOUNT_NUMBER;
+      // Revert the money back to the rider's wallet
+      const riderWallet = await Wallet.findOne({ user: withdrawal.userId });
+      if (riderWallet) {
+        riderWallet.balance += withdrawal.amount;
+        await riderWallet.save();
 
-          // Process payout via Razorpay if configured, otherwise mark as completed manually
-          try {
-            if (hasRazorpayKeys) {
-              const razorpay = getRazorpayClient();
-              const payoutResponse = await razorpay.payouts.create({
-                account_number: process.env.RAZORPAY_ACCOUNT_NUMBER,
-                amount: payout.amount * 100, // Convert to paise
-                currency: "INR",
-                mode: "NEFT",
-                purpose: "payout",
-                recipient: {
-                  name: deliveryPartner?.name || "Delivery Partner",
-                  email: deliveryPartner?.email,
-                  contact: deliveryPartner?.mobileNumber,
-                  account_number: payout.bankDetails.accountNumber,
-                  ifsc: payout.bankDetails.ifsc,
-                },
-                reference_id: `payout_${payout._id}`,
-                narration: `Snapcart Delivery Earnings - ${payout.period.startDate.toLocaleDateString()}`,
-                notes: {
-                  payoutId: payout._id.toString(),
-                  deliveryPartnerId: deliveryPartner?._id?.toString(),
-                  deliveries: payout.deliveriesCount,
-                },
-              });
+        // Mark the original pending transaction as failed
+        await WalletTransaction.findOneAndUpdate(
+          { referenceId: withdrawalId },
+          { status: "failed", description: `Payout request rejected - Refunded to wallet` }
+        );
 
-              payout.status = "completed";
-              payout.completedAt = new Date();
-              payout.transactionId = payoutResponse.id;
-              await payout.save();
-
-              updateResults.push({
-                payoutId: payout._id,
-                status: "completed",
-                transactionId: payoutResponse.id,
-              });
-            } else {
-              payout.status = "completed";
-              payout.completedAt = new Date();
-              payout.transactionId = `manual_${payout._id}`;
-              await payout.save();
-
-              updateResults.push({
-                payoutId: payout._id,
-                status: "completed",
-                transactionId: payout.transactionId,
-              });
-            }
-          } catch (razorpayError: any) {
-            payout.status = "failed";
-            payout.failureReason = `Razorpay Error: ${razorpayError.message}`;
-            await payout.save();
-
-            updateResults.push({
-              payoutId: payout._id,
-              status: "failed",
-              error: razorpayError.message,
-            });
-          }
-        } catch (error: any) {
-          updateResults.push({
-            payoutId: payout._id,
-            status: "failed",
-            error: error.message,
-          });
-        }
+        // Add a refund transaction for auditing clarity
+        const refundTransaction = new WalletTransaction({
+          walletId: riderWallet._id,
+          type: "credit",
+          amount: withdrawal.amount,
+          description: `Refund: Reversal of rejected payout (ID: ${withdrawalId})`,
+          status: "completed",
+          referenceId: withdrawalId,
+        });
+        await refundTransaction.save();
       }
-
-      return NextResponse.json({
-        message: "Payouts processed",
-        results: updateResults,
-        successful: updateResults.filter((r) => r.status === "completed")
-          .length,
-        failed: updateResults.filter((r) => r.status === "failed").length,
-      });
     }
 
-    if (action === "reject") {
-      const result = await Payout.updateMany(
-        {
-          _id: { $in: payoutIds },
-          status: "pending",
-        },
-        {
-          $set: {
-            status: "failed",
-            failureReason: "Rejected by admin",
-            processedAt: new Date(),
-          },
-        },
-      );
-
-      return NextResponse.json({
-        message: "Payouts rejected",
-        modified: result.modifiedCount,
-      });
-    }
-
-    return NextResponse.json({ error: "Invalid action" }, { status: 400 });
-  } catch (error) {
-    console.error("[Payout Action Error]", error);
+    return NextResponse.json({
+      success: true,
+      message: `Withdrawal request ${status} successfully`,
+      withdrawal,
+    }, { status: 200 });
+  } catch (error: any) {
+    console.error("PUT /api/admin/payouts error:", error);
     return NextResponse.json(
-      { error: "Failed to process payouts" },
-      { status: 500 },
+      { message: `Error processing payout: ${error.message}` },
+      { status: 500 }
     );
   }
 }

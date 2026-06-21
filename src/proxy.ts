@@ -27,6 +27,7 @@ export const proxy = async (req: NextRequest) => {
     "/api/newsletter/track/click",
     "/api/payment/callback",
     "/api/payment/razorpay",
+    "/api/location/notify",
   ];
   if (publicRoutes.some((path) => pathname.startsWith(path))) {
     return NextResponse.next();
@@ -60,7 +61,8 @@ export const proxy = async (req: NextRequest) => {
     pathname.startsWith("/user") &&
     role !== "user" &&
     role !== "admin" &&
-    role !== "deliveryBoy"
+    role !== "deliveryBoy" &&
+    role !== "storeManager"
   ) {
     return NextResponse.redirect(new URL("/unauthorized", req.url));
   }
@@ -85,6 +87,22 @@ export const proxy = async (req: NextRequest) => {
   if (
     pathname.startsWith("/api/delivery-boy") &&
     role !== "deliveryBoy" &&
+    role !== "admin"
+  ) {
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  }
+
+  if (
+    pathname.startsWith("/store-manager") &&
+    role !== "storeManager" &&
+    role !== "admin"
+  ) {
+    return NextResponse.redirect(new URL("/unauthorized", req.url));
+  }
+
+  if (
+    pathname.startsWith("/api/store-manager") &&
+    role !== "storeManager" &&
     role !== "admin"
   ) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });

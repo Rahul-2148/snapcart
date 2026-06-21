@@ -1,7 +1,7 @@
 // src/app/api/order/create/route.ts
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/auth";
-import connectDb from "@/lib/server/db";
+import connectDb, { startDbSession } from "@/lib/server/db";
 import { decrementStock } from "@/lib/utils/decrementStock";
 import { Cart } from "@/models/cart.model";
 import { CartItem } from "@/models/cartItem.model";
@@ -17,20 +17,29 @@ import { DeliveryAssignment } from "@/models/deliveryAssignment.model";
 import { DeliverySettings } from "@/models/deliverySettings.model";
 import { sendNotification } from "@/lib/server/socket";
 import { sendOrderConfirmationEmail } from "@/lib/server/email";
+import { notifyStoreManager } from "@/lib/server/notifications";
 import {
   calculateDistance,
   estimateDeliveryTime,
   broadcastOrderToPartners,
   computePayout,
 } from "@/lib/server/delivery";
+import { calculateCheckoutPricing } from "@/lib/server/pricing";
 import mongoose from "mongoose";
 
 export const POST = async (req: NextRequest) => {
-  const dbSession = await mongoose.startSession();
-  dbSession.startTransaction();
-
+  let dbSession: any = null;
   try {
-    await connectDb();
+    dbSession = await startDbSession();
+
+
+    const abortTx = async () => {
+      if (dbSession) await dbSession.abortTransaction();
+    };
+
+    const commitTx = async () => {
+      if (dbSession) await dbSession.commitTransaction();
+    };
 
     const session = await auth();
     if (!session?.user?.email) {
@@ -44,7 +53,7 @@ export const POST = async (req: NextRequest) => {
       return NextResponse.json({ message: "User not found" }, { status: 404 });
     }
 
-    const { paymentMethod, onlinePaymentType, deliveryAddress } =
+    const { paymentMethod, onlinePaymentType, deliveryAddress, storeId, useWallet } =
       await req.json();
 
     if (!paymentMethod || !deliveryAddress) {
@@ -80,120 +89,74 @@ export const POST = async (req: NextRequest) => {
       return NextResponse.json({ message: "Cart is empty" }, { status: 400 });
     }
 
-    let subTotal = 0;
-    let totalMRP = 0;
-    const chargedProducts = new Set<string>(); // Track unique products for COD charge
-
+    // Stock verification
     for (const item of cartItems) {
       const variant: any = item.variant;
-
-      // Critical: Re-validate stock within the transaction
-      const freshVariant = await GroceryVariant.findById(
-        variant._id,
-        "countInStock cod"
-      ).session(dbSession);
-
-      if (
-        !variant ||
-        !variant.grocery?.isActive ||
-        !freshVariant ||
-        freshVariant.countInStock < item.quantity
-      ) {
-        await dbSession.abortTransaction();
+      const freshVariant = await GroceryVariant.findById(variant?._id, "countInStock").session(dbSession);
+      if (!variant || !variant.grocery?.isActive || !freshVariant || freshVariant.countInStock < item.quantity) {
+        await abortTx();
         return NextResponse.json(
-          {
-            message: `Insufficient or invalid stock for ${
-              variant?.grocery?.name || "item"
-            }`,
-          },
+          { message: `Insufficient or invalid stock for ${variant?.grocery?.name || "item"}` },
           { status: 400 }
         );
       }
-      subTotal += item.priceAtAdd.selling * item.quantity;
-      totalMRP += item.priceAtAdd.mrp * item.quantity;
-
-      // Check COD status
-      const codStatus = freshVariant.cod?.status || "with-charge";
-      
-      if (codStatus === "not-allowed") {
-        if (paymentMethod === "cod") {
-          await dbSession.abortTransaction();
-          return NextResponse.json(
-            {
-              message: `COD is not allowed for ${variant.grocery.name}`,
-            },
-            { status: 400 }
-          );
-        }
-      } else if (codStatus === "with-charge") {
-        // Track product for COD charge (one charge per unique product)
-        chargedProducts.add(freshVariant._id.toString());
-      }
-      // If "free", no charge is added
     }
 
-    const savings = totalMRP - subTotal;
-    const deliveryFee = subTotal >= 500 ? 0 : 40;
+    // Call unified pricing engine
+    const pricing = await calculateCheckoutPricing({
+      userId: user._id.toString(),
+      deliveryAddress,
+      paymentMethod,
+      useWallet: !!useWallet,
+      cartItemsInput: cartItems,
+    });
 
-    // Calculate COD charge based on product status and global settings
-    let totalCodCharge = 0;
-    if (paymentMethod === "cod") {
-      // Fetch COD settings for flat fee
-      const codSettings = await CodSettings.findOne().session(dbSession);
-      const flatCharge = codSettings?.flatCharge || 10;
-
-      // Apply flat charge for each unique "with-charge" product
-      totalCodCharge = chargedProducts.size * flatCharge;
+    if (!pricing.serviceable) {
+      await abortTx();
+      return NextResponse.json(
+        { message: pricing.notServiceableReason || "Delivery address is not serviceable." },
+        { status: 400 }
+      );
     }
 
-    /* ===== COUPON RE-CALCULATION (CRITICAL) ===== */
-    let couponDiscount = 0;
-    let couponSnapshot = undefined;
-
-    if (cart.coupon?.discountType) {
-      // Re-validate coupon server-side before applying
-      if (cart.coupon.minCartValue && subTotal < cart.coupon.minCartValue) {
-        // Coupon is invalid for this cart, ignore it but don't error out
-      } else {
-        const discountTypeNormalized = (
-          cart.coupon.discountType || ""
-        ).toLowerCase();
-
-        if (discountTypeNormalized === "flat") {
-          couponDiscount = cart.coupon.discountValue || 0;
-        }
-
-        if (discountTypeNormalized === "percentage") {
-          couponDiscount = Math.floor(
-            (subTotal * (cart.coupon.discountValue || 0)) / 100
-          );
-          if (cart.coupon.maxDiscountAmount) {
-            couponDiscount = Math.min(
-              couponDiscount,
-              cart.coupon.maxDiscountAmount
-            );
-          }
-        }
-        couponSnapshot = {
-          ...cart.coupon.toObject(),
-          discountType: discountTypeNormalized,
-          discountAmount: couponDiscount,
-        };
-      }
+    if (paymentMethod === "cod" && !pricing.codEligible) {
+      await abortTx();
+      return NextResponse.json(
+        { message: pricing.codDisabledReason || "COD is not eligible for this order." },
+        { status: 400 }
+      );
     }
 
-    const finalTotal = Math.max(subTotal + deliveryFee + totalCodCharge - couponDiscount, 0);
+    const isKycApproved = user.kyc?.status === "approved";
+    if (!isKycApproved && pricing.baseFinalTotal > 50000) {
+      await abortTx();
+      return NextResponse.json(
+        { message: "Order value exceeds ₹50,000. KYC verification (Aadhaar & PAN) is mandatory for high-value orders." },
+        { status: 403 }
+      );
+    }
+
+    let wallet = null;
+    if (pricing.walletDeduction > 0) {
+      const { default: Wallet } = await import("@/models/wallet.model");
+      wallet = await Wallet.findOne({ user: user._id }).session(dbSession);
+    }
 
     const orderPayload = {
       userId: user._id,
-      subTotal,
-      totalMRP,
-      savings,
-      deliveryFee,
-      codHandlingCharge: totalCodCharge,
-      finalTotal,
-      coupon: couponSnapshot,
-      couponDiscount,
+      storeId: pricing.nearestStore?.id || null,
+      subTotal: pricing.subTotal,
+      totalMRP: pricing.totalMRP,
+      savings: pricing.savings,
+      deliveryFee: pricing.deliveryFee,
+      packagingFee: pricing.packagingFee,
+      weightSurcharge: pricing.weightSurcharge,
+      taxes: pricing.serviceGst, // Service GST added to taxes
+      codHandlingCharge: pricing.codHandlingCharge,
+      finalTotal: pricing.finalTotal,
+      walletDeduction: pricing.walletDeduction,
+      coupon: pricing.couponSnapshot,
+      couponDiscount: pricing.couponDiscount,
       deliveryAddress,
       paymentMethod,
       onlinePaymentType,
@@ -228,13 +191,35 @@ export const POST = async (req: NextRequest) => {
     });
     newOrder.orderItems = insertedOrderItems.map((item) => item._id);
 
-    if (paymentMethod === "cod") {
-      // For COD, decrement stock immediately
+    const isFullyPaid = finalTotal === 0;
+
+    // Process wallet debit if applicable
+    if (walletDeduction > 0) {
+      wallet.balance -= walletDeduction;
+      await wallet.save({ session: dbSession });
+
+      const { default: WalletTransaction } = await import("@/models/walletTransaction.model");
+      const walletTx = new WalletTransaction({
+        walletId: wallet._id,
+        type: "debit",
+        amount: walletDeduction,
+        description: `Payment for Order #${newOrder.orderNumber}`,
+        status: "completed",
+        referenceId: newOrder._id.toString(),
+      });
+      await walletTx.save({ session: dbSession });
+    }
+
+    if (paymentMethod === "cod" || isFullyPaid) {
+      // For COD or Fully Paid, decrement stock immediately
       await decrementStock(newOrder._id, dbSession);
       newOrder.orderStatus = "confirmed";
       newOrder.confirmedAt = new Date();
+      if (isFullyPaid) {
+        newOrder.paymentStatus = "paid";
+      }
 
-      // Create coupon usage and increment count for COD
+      // Create coupon usage and increment count
       if (couponSnapshot?.couponId) {
         await CouponUsage.create(
           [
@@ -255,17 +240,21 @@ export const POST = async (req: NextRequest) => {
         );
       }
     }
-    // For online payment, stock will be decremented via webhook after successful payment
-    // Coupon usage will be created in payment callback
 
-    if (paymentMethod === "cod") {
-      // Clear the user's cart only for COD orders
+    if (paymentMethod === "cod" || isFullyPaid) {
+      // Clear the user's cart only
       await CartItem.deleteMany({ cart: cart._id }).session(dbSession);
       cart.coupon = undefined;
       await cart.save({ session: dbSession });
     }
 
     await newOrder.save({ session: dbSession });
+
+    // Award loyalty rewards (coins and scratchcard)
+    if (paymentMethod === "cod" || isFullyPaid) {
+      const { awardLoyaltyRewards } = await import("@/lib/server/rewards");
+      await awardLoyaltyRewards(user._id, newOrder._id.toString(), subTotal, dbSession);
+    }
 
     // ===== CREATE DELIVERY ASSIGNMENT =====
     let deliveryAssignment: any = null;
@@ -289,7 +278,20 @@ export const POST = async (req: NextRequest) => {
       
       if (deliverySettings && newOrder.orderStatus === "confirmed") {
         // Calculate distance from store to delivery location
-        const storeLocation = deliverySettings.storeLocation;
+        let storeLocation = deliverySettings.storeLocation;
+        if (newOrder.storeId) {
+          const { Store } = await import("@/models/store.model");
+          const store = await Store.findById(newOrder.storeId).session(dbSession);
+          if (store && store.location) {
+            storeLocation = {
+              address: store.location.address,
+              lat: store.location.coordinates[1],
+              lng: store.location.coordinates[0],
+              pincode: store.location.pincode,
+            };
+          }
+        }
+
         const distance = calculateDistance(
           storeLocation.lat,
           storeLocation.lng,
@@ -341,7 +343,7 @@ export const POST = async (req: NextRequest) => {
       // Don't block order creation if assignment creation fails
     }
 
-    await dbSession.commitTransaction();
+    await commitTx();
 
     // Notify all admins about the new order
     try {
@@ -359,6 +361,20 @@ export const POST = async (req: NextRequest) => {
           createdAt: new Date(),
         });
         await sendNotification(admin._id, newNotification);
+      }
+
+      // Notify assigned store manager
+      if (newOrder.storeId) {
+        await notifyStoreManager(
+          newOrder.storeId.toString(),
+          {
+            title: "New Order Assigned",
+            message: `New order #${newOrder.orderNumber} placed by ${user.name}. Please confirm and pack the items.`,
+            type: "order",
+            link: `/store-manager/orders`,
+            priority: "high",
+          }
+        );
       }
 
       // If delivery assignment created, start broadcast process
@@ -411,6 +427,7 @@ export const POST = async (req: NextRequest) => {
         }));
 
         await sendOrderConfirmationEmail(user.email, user.name, {
+          orderId: newOrder._id.toString(),
           orderNumber: newOrder.orderNumber,
           orderDate: new Date().toLocaleDateString("en-IN", {
             day: "numeric",
@@ -452,7 +469,7 @@ export const POST = async (req: NextRequest) => {
       { status: 201 }
     );
   } catch (error: any) {
-    if (dbSession.inTransaction()) {
+    if (dbSession && typeof dbSession.inTransaction === "function" && dbSession.inTransaction()) {
       await dbSession.abortTransaction();
     }
     return NextResponse.json(
@@ -460,6 +477,8 @@ export const POST = async (req: NextRequest) => {
       { status: 500 }
     );
   } finally {
-    dbSession.endSession();
+    if (dbSession && typeof dbSession.endSession === "function") {
+      dbSession.endSession();
+    }
   }
 };

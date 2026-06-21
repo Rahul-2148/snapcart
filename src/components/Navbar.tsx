@@ -23,6 +23,7 @@ import { useEffect, useRef, useState } from "react";
 import { useSelector } from "react-redux";
 import { useSocket } from "@/contexts/SocketContext";
 import { useRouter } from "next/navigation";
+import LocationHeader from "@/components/location/LocationHeader";
 import axios from "axios";
 import { toast } from "sonner";
 import { NotificationClient } from "@/types/custom.d";
@@ -73,7 +74,12 @@ const Navbar = ({ user: propUser }: NavbarProps = {}) => {
         window.location.href = newRole === "deliveryBoy" ? "/delivery-boy" : newRole === "admin" ? "/admin" : "/";
       }
     } catch (error: any) {
-      toast.error(error.response?.data?.message || "Failed to switch role");
+      if (error.response?.data?.code === "OTP_REQUIRED" || error.response?.data?.code === "KYC_REQUIRED") {
+        toast.info("Verification required before activating this role.");
+        router.push(`/verify-role?role=${newRole}`);
+      } else {
+        toast.error(error.response?.data?.message || "Failed to switch role");
+      }
     } finally {
       setIsSwitchingRole(false);
     }
@@ -107,7 +113,14 @@ const Navbar = ({ user: propUser }: NavbarProps = {}) => {
   const [showNotifications, setShowNotifications] = useState(false);
   const [notifications, setNotifications] = useState<NotificationClient[]>([]);
   const [unreadCount, setUnreadCount] = useState(0);
+  const [filter, setFilter] = useState<'all' | 'unread' | 'read'>('all');
   const notificationDropdownRef = useRef<HTMLDivElement>(null);
+
+  const filteredNotifications = notifications.filter((n) => {
+    if (filter === 'unread') return !n.read;
+    if (filter === 'read') return n.read;
+    return true;
+  });
 
   const socket = useSocket();
 
@@ -304,14 +317,21 @@ const Navbar = ({ user: propUser }: NavbarProps = {}) => {
   }, [socket, user?._id]);
 
   return (
-    <div className="w-[95%] fixed top-4 left-1/2 -translate-x-1/2 bg-green-600 text-white rounded-2xl shadow-lg shadow-black/30 flex justify-between items-center h-20 px-4 md:px-8 z-50">
-      {/* Logo or website name */}
-      <Link
-        href={"/"}
-        className="font-extrabold text-2xl sm:text-3xl tracking-wide hover:scale-105 transition-transform"
-      >
-        Snapcart
-      </Link>
+    <div className="w-[95%] fixed top-4 left-1/2 -translate-x-1/2 bg-green-600 text-white rounded-2xl shadow-lg shadow-black/30 flex justify-between items-start md:items-center h-20 px-4 py-2.5 md:py-0 md:px-8 z-50">
+      {/* Left side: Logo & Address stacked on mobile, inline on desktop */}
+      <div className="flex flex-col items-start justify-start md:flex-row md:items-center gap-0 md:gap-4 leading-none flex-grow md:flex-grow-0 min-w-0 mr-2 md:mr-0 pt-1 md:pt-0">
+        <Link
+          href={"/"}
+          className="font-extrabold text-xl sm:text-2xl md:text-3xl tracking-wide hover:scale-105 transition-transform whitespace-nowrap"
+        >
+          Snapcart
+        </Link>
+
+        {/* Location Header - Show for guests and users */}
+        {(!authenticatedUser ||
+          authenticatedUser.currentRole === "user" ||
+          authenticatedUser.roles?.includes("user")) && <LocationHeader />}
+      </div>
 
       {/* Desktop Search Bar - Show for guests and users */}
       {!authenticatedUser ||
@@ -465,22 +485,22 @@ const Navbar = ({ user: propUser }: NavbarProps = {}) => {
           </div>
         ) : null}
 
-      <div className="flex items-center gap-3 md:gap-6">
+      <div className="flex items-center gap-2 sm:gap-3 md:gap-6 pt-1 md:pt-0 flex-shrink-0">
         {/* search, notifications & cart for user and guests */}
         {!authenticatedUser || authenticatedUser?.currentRole === "user" ? (
           <>
             <div
-              className="bg-white rounded-full w-11 h-11 flex items-center justify-center shadow-md hover:scale-105 transition md:hidden"
+              className="bg-white rounded-full w-9 h-9 sm:w-10 sm:h-10 md:w-11 md:h-11 flex items-center justify-center shadow-md hover:scale-105 transition md:hidden cursor-pointer"
               onClick={() => setSearchBarOpen((prev) => !prev)}
             >
-              <Search className="text-green-600 w-6 h-6" />
+              <Search className="text-green-600 w-5 h-5 md:w-6 md:h-6" />
             </div>
             <Link
               href={"/user/cart"}
-              className="relative bg-white rounded-full w-11 h-11 flex items-center justify-center shadow-md hover:scale-105 transition"
+              className="relative bg-white rounded-full w-9 h-9 sm:w-10 sm:h-10 md:w-11 md:h-11 flex items-center justify-center shadow-md hover:scale-105 transition"
             >
-              <ShoppingCartIcon className="text-green-600 w-6 h-6" />
-              <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs w-5 h-5 flex items-center justify-center rounded-full font-semibold shadow">
+              <ShoppingCartIcon className="text-green-600 w-5 h-5 md:w-6 md:h-6" />
+              <span className="absolute -top-1 -right-1 bg-red-500 text-white text-[9px] md:text-xs w-4 h-4 md:w-5 md:h-5 flex items-center justify-center rounded-full font-semibold shadow">
                 {totalItems || 0}
               </span>
             </Link>
@@ -495,18 +515,18 @@ const Navbar = ({ user: propUser }: NavbarProps = {}) => {
           ref={notificationDropdownRef} // Keep ref on the parent container for better hover area
         >
           <div
-            className="relative bg-white rounded-full w-11 h-11 flex items-center justify-center shadow-md hover:scale-105 transition-transform cursor-pointer" // Added cursor-pointer
-            // onClick={() => setShowNotifications((prev) => !prev)} // Removed onClick
+            className="relative bg-white rounded-full w-9 h-9 sm:w-10 sm:h-10 md:w-11 md:h-11 flex items-center justify-center shadow-md hover:scale-105 transition-transform cursor-pointer" // Added cursor-pointer
+            onClick={() => setShowNotifications((prev) => !prev)}
           >
-            <Bell className="text-green-600 w-6 h-6" />
+            <Bell className="text-green-600 w-5 h-5 md:w-6 md:h-6" />
             {unreadCount > 0 && (
-              <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs w-5 h-5 flex items-center justify-center rounded-full font-semibold shadow">
+              <span className="absolute -top-1 -right-1 bg-red-500 text-white text-[9px] md:text-xs w-4 h-4 md:w-5 md:h-5 flex items-center justify-center rounded-full font-semibold shadow">
                 {unreadCount}
               </span>
             )}
           </div>
           <AnimatePresence>
-            {showNotifications && authenticatedUser?._id && (
+            {showNotifications && (
               <motion.div
                 initial={{ opacity: 0, y: -10, scale: 0.8 }}
                 animate={{ opacity: 1, y: 0, scale: 1 }}
@@ -516,12 +536,50 @@ const Navbar = ({ user: propUser }: NavbarProps = {}) => {
                 <h3 className="font-semibold text-lg mb-3 text-gray-800">
                   Notifications
                 </h3>
-                {notifications.length === 0 ? (
-                  <p className="text-gray-500 text-sm">No new notifications.</p>
+                
+                {!authenticatedUser?._id ? (
+                  <div className="flex flex-col items-center justify-center py-6 text-center">
+                    <div className="bg-green-50 p-4 rounded-full mb-3">
+                      <Bell className="w-8 h-8 text-green-500 opacity-80" />
+                    </div>
+                    <h4 className="text-gray-800 font-semibold mb-1">Welcome to Snapcart! 👋</h4>
+                    <p className="text-gray-500 text-sm mb-4 px-2">
+                      Please log in to view your personalized notifications, track orders, and discover exclusive offers.
+                    </p>
+                    <Link
+                      href="/login"
+                      className="bg-green-600 text-white px-6 py-2 rounded-xl text-sm font-semibold hover:bg-green-700 transition shadow-sm"
+                      onClick={() => setShowNotifications(false)}
+                    >
+                      Log In / Sign Up
+                    </Link>
+                  </div>
                 ) : (
                   <>
-                    <button
-                      onClick={async () => {
+                    {/* Filter Tabs */}
+                    <div className="flex gap-1.5 border-b border-gray-100 pb-2 mb-3">
+                      {(["all", "unread", "read"] as const).map((t) => (
+                        <button
+                          type="button"
+                          key={t}
+                          onClick={() => setFilter(t)}
+                          className={`px-3 py-1.5 text-[10px] font-bold rounded-xl transition uppercase tracking-wider cursor-pointer ${
+                            filter === t
+                              ? "bg-green-600 text-white shadow-sm shadow-green-600/10"
+                              : "bg-gray-100 text-gray-500 hover:bg-gray-200 hover:text-gray-800"
+                          }`}
+                        >
+                          {t}
+                        </button>
+                      ))}
+                    </div>
+
+                    {filteredNotifications.length === 0 ? (
+                      <p className="text-gray-500 text-sm py-4 text-center">No notifications found.</p>
+                    ) : (
+                      <>
+                        <button
+                          onClick={async () => {
                         try {
                           await axios.put("/api/notifications/read-all");
                           setNotifications(
@@ -532,11 +590,11 @@ const Navbar = ({ user: propUser }: NavbarProps = {}) => {
                           console.error("Error marking all as read:", error);
                         }
                       }}
-                      className="w-full text-right text-sm text-green-600 hover:text-green-800 mb-2"
+                      className="w-full text-right text-sm text-green-600 hover:text-green-800 mb-2 cursor-pointer font-semibold"
                     >
                       Mark all as read
                     </button>
-                    {notifications.map((notification) => (
+                    {filteredNotifications.map((notification) => (
                       <div
                         key={notification._id as any}
                         onClick={async () => {
@@ -564,24 +622,26 @@ const Navbar = ({ user: propUser }: NavbarProps = {}) => {
                             window.location.href = notification.link;
                           }
                         }}
-                        className={`p-2 rounded-lg mb-2 cursor-pointer ${
+                        className={`p-2.5 rounded-xl mb-2 cursor-pointer ${
                           notification.read
-                            ? "bg-gray-50 text-gray-600"
-                            : "bg-green-50 text-gray-800 font-medium"
-                        } hover:bg-green-100 transition-all`}
+                            ? "bg-gray-50 text-gray-600 border border-gray-100"
+                            : "bg-green-50/50 text-gray-800 font-medium border border-green-100/50"
+                        } hover:bg-green-100/50 transition-all`}
                       >
                         <div className="flex justify-between items-center mb-1">
                           <p className="text-sm">{notification.message}</p>
-                          <span className="text-green-600 bg-green-100 px-2 py-1 rounded-full uppercase font-semibold">
+                          <span className="text-[9px] text-green-600 bg-green-100 px-2 py-0.5 rounded-full uppercase font-bold tracking-wider">
                             {notification.type}
                           </span>
                         </div>
 
-                        <p className="text-xs text-gray-400 mt-1">
+                        <p className="text-[10px] text-gray-400 mt-1">
                           {new Date(notification.createdAt).toLocaleString()}
                         </p>
                       </div>
                     ))}
+                  </>
+                )}
                   </>
                 )}
               </motion.div>
@@ -606,19 +666,21 @@ const Navbar = ({ user: propUser }: NavbarProps = {}) => {
         {/* profile dropdown */}
         <div className="relative" ref={profileDropdown}>
           <div
-            className="bg-white rounded-full w-11 h-11 flex items-center justify-center overflow-hidden shadow-md hover:scale-105 transition-transform cursor-pointer"
+            className="bg-white rounded-full w-9 h-9 sm:w-10 sm:h-10 md:w-11 md:h-11 flex items-center justify-center overflow-hidden shadow-md hover:scale-105 transition-transform cursor-pointer"
             onClick={() => setOpen((prev) => !prev)}
           >
             {authenticatedUser?.image?.url || session?.user?.image ? (
-              <Image
-                src={authenticatedUser?.image?.url || session?.user?.image || ""}
-                alt="user"
-                width={44}
-                height={44}
-                className="object-cover rounded-full"
-              />
+              <div className="relative w-full h-full">
+                <Image
+                  src={authenticatedUser?.image?.url || session?.user?.image || ""}
+                  alt="user"
+                  fill
+                  className="object-cover rounded-full"
+                  unoptimized
+                />
+              </div>
             ) : (
-              <User className="text-green-600" />
+              <User className="text-green-600 w-5 h-5 md:w-6 md:h-6" />
             )}
           </div>
 

@@ -35,7 +35,6 @@ import PriceComparisonInfo from "@/components/common/PriceComparisonInfo";
 import PriceDisplay from "@/components/common/PriceDisplay";
 import VariantSelector from "@/components/common/VariantSelector";
 import GroceryItemCard from "@/components/GroceryItemCard";
-import Navbar from "@/components/Navbar";
 import ReviewSection from "@/components/ReviewSection";
 import {
   addGuestCartApi,
@@ -1116,8 +1115,7 @@ const ProductDetailsPage = () => {
   if (loading) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-emerald-50 via-white to-lime-50">
-        {userData && <Navbar user={userData} />}
-        <div className="max-w-6xl mx-auto px-4 pt-4 pb-16">
+        <div className="max-w-6xl mx-auto px-4 pt-2 pb-16">
           <div className="animate-pulse grid lg:grid-cols-2 gap-10">
             <div className="h-[420px] rounded-3xl bg-gradient-to-br from-white to-emerald-50" />
             <div className="space-y-6">
@@ -1166,9 +1164,7 @@ const ProductDetailsPage = () => {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-emerald-50 via-white to-lime-50">
-      {userData && <Navbar user={userData} />}
-
-      <div className="max-w-6xl mx-auto px-4 pt-4 pb-16">
+      <div className="max-w-6xl mx-auto px-4 pt-2 pb-16">
         <div className="flex flex-col gap-4 mb-6">
           <div className="flex flex-wrap items-center gap-2 text-sm text-gray-600">
             <Link

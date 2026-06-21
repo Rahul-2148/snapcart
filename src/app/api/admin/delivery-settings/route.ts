@@ -23,6 +23,12 @@ export const GET = async () => {
       maxParallelAssignmentsPerPartner: 2,
       allowGenderFilter: false,
       kycRequiredForOnline: false,
+      universalDeliveryMode: false,
+      disablePackagingFee: false,
+      disableWeightSurcharge: false,
+      disableSurgeFee: false,
+      disableDeliveryFee: false,
+      freeDeliveryThreshold: 199,
     });
   }
 

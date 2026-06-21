@@ -15,6 +15,7 @@ interface TrackingData {
   orderNumber: string;
   status: string;
   userLocation?: { lat: number; lng: number };
+  storeLocation?: { lat: number; lng: number; name?: string; address?: string } | null;
   timeline: any;
   assignment?: any;
   deliveryPartnerLocation?: { lat: number; lng: number; updatedAt: string };
@@ -232,14 +233,16 @@ function OrderTrackingContent() {
         </div>
       )}
 
-      {tracking.userLocation && tracking.deliveryPartnerLocation && (
+      {tracking.userLocation && (
         <div className="bg-white rounded-lg shadow overflow-hidden">
           <div className="p-4 bg-gradient-to-r from-green-500 to-blue-500">
             <h2 className="font-semibold text-lg text-white">
               📍 Live Tracking Map
             </h2>
             <p className="text-sm text-white/90">
-              Real-time delivery partner location
+              {tracking.deliveryPartnerLocation
+                ? "Real-time delivery partner location"
+                : "Order processing - preparing from nearest dark store"}
             </p>
           </div>
 
@@ -250,10 +253,19 @@ function OrderTrackingContent() {
                 tracking.userLocation.lat,
                 tracking.userLocation.lng,
               ]}
-              deliveryLocation={[
-                tracking.deliveryPartnerLocation.lat,
-                tracking.deliveryPartnerLocation.lng,
-              ]}
+              deliveryLocation={
+                tracking.deliveryPartnerLocation
+                  ? [
+                      tracking.deliveryPartnerLocation.lat,
+                      tracking.deliveryPartnerLocation.lng,
+                    ]
+                  : undefined
+              }
+              storeLocation={
+                tracking.storeLocation
+                  ? [tracking.storeLocation.lat, tracking.storeLocation.lng]
+                  : undefined
+              }
               orderNumber={tracking.orderNumber}
               estimatedDistance={tracking.assignment?.estimatedDistance}
               estimatedTime={tracking.assignment?.estimatedTime}
@@ -271,30 +283,42 @@ function OrderTrackingContent() {
                 Lng: {tracking.userLocation.lng.toFixed(6)}
               </p>
             </div>
-            <div className="bg-green-50 p-4 rounded-lg border border-green-200">
-              <p className="text-sm text-green-600 font-semibold mb-2">
-                🚴 Delivery Partner Location
-              </p>
-              <p className="text-xs text-gray-700">
-                Lat: {tracking.deliveryPartnerLocation.lat.toFixed(6)} <br />
-                Lng: {tracking.deliveryPartnerLocation.lng.toFixed(6)}
-              </p>
-              {tracking.deliveryPartnerLocation.updatedAt && (
-                <p className="text-xs text-gray-500 mt-2 flex items-center gap-1">
-                  <span
-                    className={`w-2 h-2 rounded-full ${
-                      isStale ? "bg-orange-500" : "bg-green-500 animate-pulse"
-                    }`}
-                  ></span>
-                  Updated: {new Date(
-                    tracking.deliveryPartnerLocation.updatedAt,
-                  ).toLocaleTimeString()}
-                  {isStale && (
-                    <span className="text-orange-600">(stale)</span>
-                  )}
+            {tracking.deliveryPartnerLocation ? (
+              <div className="bg-green-50 p-4 rounded-lg border border-green-200">
+                <p className="text-sm text-green-600 font-semibold mb-2">
+                  🚴 Delivery Partner Location
                 </p>
-              )}
-            </div>
+                <p className="text-xs text-gray-700">
+                  Lat: {tracking.deliveryPartnerLocation.lat.toFixed(6)} <br />
+                  Lng: {tracking.deliveryPartnerLocation.lng.toFixed(6)}
+                </p>
+                {tracking.deliveryPartnerLocation.updatedAt && (
+                  <p className="text-xs text-gray-500 mt-2 flex items-center gap-1">
+                    <span
+                      className={`w-2 h-2 rounded-full ${
+                        isStale ? "bg-orange-500" : "bg-green-500 animate-pulse"
+                      }`}
+                    ></span>
+                    Updated: {new Date(
+                      tracking.deliveryPartnerLocation.updatedAt,
+                    ).toLocaleTimeString()}
+                    {isStale && (
+                      <span className="text-orange-600">(stale)</span>
+                    )}
+                  </p>
+                )}
+              </div>
+            ) : (
+              <div className="bg-yellow-50 p-4 rounded-lg border border-yellow-200">
+                <p className="text-sm text-yellow-700 font-semibold mb-2">
+                  🏬 Preparing Dark Store Branch
+                </p>
+                <p className="text-xs text-gray-700 font-medium">
+                  {tracking.storeLocation?.name || "SnapCart Store"} <br />
+                  {tracking.storeLocation?.address || "Locating nearest fulfillment branch..."}
+                </p>
+              </div>
+            )}
           </div>
         </div>
       )}

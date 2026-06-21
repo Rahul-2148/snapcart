@@ -21,6 +21,9 @@ export interface IGroceryVariant {
   cod?: {
     status: "not-allowed" | "with-charge" | "free";
   };
+  freeDelivery?: boolean;
+  gstRate?: number;
+  handlingSurcharge?: number;
   createdAt?: Date;
   updatedAt?: Date;
 }
@@ -92,6 +95,23 @@ const groceryVariantSchema = new mongoose.Schema<IGroceryVariant>(
         enum: ["not-allowed", "with-charge", "free"],
         default: "with-charge" 
       },
+    },
+
+    freeDelivery: {
+      type: Boolean,
+      default: false,
+    },
+
+    gstRate: {
+      type: Number,
+      default: 5, // 5% default GST on groceries
+      min: 0,
+    },
+
+    handlingSurcharge: {
+      type: Number,
+      default: 0, // 0 default surcharge unless explicitly set
+      min: 0,
     },
   },
   { timestamps: true }

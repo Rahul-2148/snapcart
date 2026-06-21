@@ -1,7 +1,6 @@
 // This is a server component - Blinkit-style: Guest-first homepage
 import { auth } from "@/auth";
 import EditRoleMobile from "@/components/EditRoleMobile";
-import Navbar from "@/components/Navbar";
 import UserDashboard from "@/components/UserDashboard";
 import Welcome from "@/components/Welcome";
 import connectDb from "@/lib/server/db";
@@ -16,7 +15,6 @@ const Home = async () => {
   if (!session?.user?.id) {
     return (
       <>
-        <Navbar user={null} />
         {/* Guest landing: show shopping UI directly */}
         <UserDashboard />
       </>
@@ -30,7 +28,6 @@ const Home = async () => {
   if (!user) {
     return (
       <>
-        <Navbar user={null} />
         <UserDashboard />
       </>
     );
@@ -49,17 +46,19 @@ const Home = async () => {
     redirect("/delivery-boy");
   }
 
+  // Store manager redirect
+  if (userRole === "storeManager") {
+    redirect("/store-manager");
+  }
+
   // Incomplete profile - check if mobile number is missing
   const inComplete = !user.mobileNumber;
   if (inComplete) {
     return <EditRoleMobile />;
   }
 
-  // Full authenticated user with complete profile
-  const plainUser = JSON.parse(JSON.stringify(user));
   return (
     <>
-      <Navbar user={plainUser} />
       <UserDashboard />
     </>
   );

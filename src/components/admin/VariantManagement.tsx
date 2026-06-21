@@ -39,6 +39,8 @@ interface VariantManagementProps {
   allowedUnits: string[];
 }
 
+const generateUniqueId = () => Date.now().toString();
+
 const VariantManagement = ({
   variants,
   onVariantsChange,
@@ -110,7 +112,7 @@ const VariantManagement = ({
       // Add new variant - generate new ID
       const newVariant: IVariant = {
         ...variantToSave,
-        id: Date.now().toString(),
+        id: generateUniqueId(),
       };
       onVariantsChange([...variants, newVariant]);
       toast.success("Variant added");
@@ -146,7 +148,7 @@ const VariantManagement = ({
     const newVariant: IVariant = {
       ...variant,
       _id: undefined,
-      id: Date.now().toString(),
+      id: generateUniqueId(),
     };
     onVariantsChange([...variants, newVariant]);
     toast.success("Variant duplicated");

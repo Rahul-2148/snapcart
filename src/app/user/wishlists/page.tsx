@@ -15,7 +15,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import EditWishlistModal from "@/components/EditWishlistModal";
-import Navbar from "@/components/Navbar";
+
 import axios from "axios";
 import { IUser } from "@/models/user.model";
 import { useSocket } from "@/contexts/SocketContext";
@@ -497,8 +497,7 @@ export default function WishlistsPage() {
 
   return (
     <>
-      <Navbar user={user} />
-      <div className="max-w-5xl mx-auto px-4 py-6">
+      <div className="max-w-5xl mx-auto px-4 pt-2 pb-6">
         <h1 className="text-2xl font-bold mb-2">Wishlist & Collections</h1>
         <p className="text-sm text-gray-600 mb-6">
           Make collections{" "}

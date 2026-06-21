@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, useRef, useEffect } from "react";
+import { useState } from "react";
+import AdvancedOTPInput from "@/components/common/AdvancedOTPInput";
 
 interface OTPVerificationProps {
   assignmentId: string;
@@ -50,9 +51,9 @@ export function OTPVerification({
     }
   };
 
-  const handleVerifyOTP = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (otp.length !== 4) {
+  const handleVerifyOTP = async (otpToVerify?: string) => {
+    const otpValue = otpToVerify || otp;
+    if (otpValue.length !== 4) {
       setError("Please enter a valid 4-digit OTP");
       return;
     }
@@ -68,7 +69,7 @@ export function OTPVerification({
         body: JSON.stringify({
           action: "verify",
           assignmentId,
-          otp,
+          otp: otpValue,
         }),
       });
 
@@ -127,34 +128,28 @@ export function OTPVerification({
           </button>
         </div>
       ) : (
-        <form onSubmit={handleVerifyOTP} className="space-y-4">
-          <div>
-            <label
-              htmlFor="otp"
-              className="block text-sm font-medium text-gray-700 mb-2"
-            >
-              Enter OTP from Customer
-            </label>
-            <input
-              id="otp"
-              type="text"
-              inputMode="numeric"
-              value={otp}
-              onChange={(e) => {
-                const val = e.target.value.replace(/\D/g, "").slice(0, 4);
-                setOtp(val);
-              }}
-              placeholder="0000"
-              maxLength={4}
-              className="w-full px-4 py-3 border-2 border-gray-300 rounded-lg text-center text-2xl font-bold tracking-widest focus:border-blue-500 focus:outline-none"
-            />
-            <p className="text-xs text-gray-600 mt-2">
-              Ask customer to read the OTP sent to their phone
-            </p>
-          </div>
+        <div className="space-y-4">
+          <label className="block text-sm font-medium text-gray-700 mb-2">
+            Enter OTP from Customer
+          </label>
+          <AdvancedOTPInput
+            length={4}
+            onComplete={(code) => {
+              setOtp(code);
+              // Auto-verify when all 4 digits are entered
+              handleVerifyOTP(code);
+            }}
+            onValueChange={(code) => setOtp(code)}
+            error={!!error}
+            disabled={loading}
+          />
+          <p className="text-xs text-gray-600 mt-2 text-center">
+            Ask customer to read the OTP sent to their phone
+          </p>
 
           <button
-            type="submit"
+            type="button"
+            onClick={() => handleVerifyOTP()}
             disabled={loading || otp.length !== 4}
             className="w-full px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50 font-medium"
           >
@@ -171,7 +166,7 @@ export function OTPVerification({
           >
             Back
           </button>
-        </form>
+        </div>
       )}
     </div>
   );

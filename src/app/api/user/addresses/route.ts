@@ -48,7 +48,23 @@ export async function POST(req: Request) {
       return NextResponse.json({ message: "User not found" }, { status: 404 });
     }
 
-    const { street, city, state, zipCode, country, type } = await req.json();
+    const {
+      street,
+      city,
+      state,
+      zipCode,
+      country,
+      type,
+      fullAddress,
+      label,
+      latitude,
+      longitude,
+      fullName,
+      mobile,
+      alternateMobile,
+      customLabel,
+      landmark,
+    } = await req.json();
 
     const newAddress = new Address({
       user: user._id,
@@ -58,6 +74,15 @@ export async function POST(req: Request) {
       zipCode,
       country,
       type,
+      fullAddress,
+      label,
+      latitude,
+      longitude,
+      fullName,
+      mobile,
+      alternateMobile,
+      customLabel,
+      landmark,
     });
 
     await newAddress.save();

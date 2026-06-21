@@ -27,6 +27,7 @@ export const GET = async () => {
       currentSessionEarnings: partner.earnings.currentSession,
       deliveryCount: partner.stats.totalDeliveries,
       tipEarnings: 0,
+      cashInHand: partner.earnings.cashInHand || 0,
     },
     partner,
   });

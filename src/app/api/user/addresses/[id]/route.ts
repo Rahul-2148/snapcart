@@ -26,11 +26,44 @@ export async function PUT(
     }
 
     const body = await req.json();
-    const { street, city, state, zipCode, country, type } = body;
+    const {
+      street,
+      city,
+      state,
+      zipCode,
+      country,
+      type,
+      fullAddress,
+      label,
+      latitude,
+      longitude,
+      fullName,
+      mobile,
+      alternateMobile,
+      customLabel,
+      landmark,
+    } = body;
 
     const address = await Address.findByIdAndUpdate(
       id,
-      { user: user._id, street, city, state, zipCode, country, type },
+      {
+        user: user._id,
+        street,
+        city,
+        state,
+        zipCode,
+        country,
+        type,
+        fullAddress,
+        label,
+        latitude,
+        longitude,
+        fullName,
+        mobile,
+        alternateMobile,
+        customLabel,
+        landmark,
+      },
       { new: true }
     );
 

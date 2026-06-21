@@ -3,6 +3,7 @@ import mongoose, { Types } from "mongoose";
 
 export interface ICart {
   user: mongoose.Types.ObjectId;
+  storeId?: mongoose.Types.ObjectId;
   coupon?: {
     couponId?: Types.ObjectId;
     code?: string;
@@ -25,6 +26,12 @@ const cartSchema = new mongoose.Schema<ICart>(
       unique: true,
       required: true,
       index: true,
+    },
+
+    storeId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Store",
+      default: null,
     },
 
     coupon: {

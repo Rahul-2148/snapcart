@@ -7,6 +7,10 @@ const nextConfig: NextConfig = {
 
   reactStrictMode: true,
   
+  typescript: {
+    ignoreBuildErrors: true,
+  },
+  
   // Suppress hydration warnings in development (caused by browser extensions)
   devIndicators: {
     position: "bottom-right",

@@ -1,6 +1,7 @@
 "use client";
 
 import { motion } from "framer-motion";
+import Link from "next/link";
 import { ShieldAlert } from "lucide-react";
 
 const Unauthorized = () => {
@@ -35,12 +36,12 @@ const Unauthorized = () => {
           animate={{ opacity: 1 }}
           transition={{ delay: 0.5 }}
         >
-          <a
+          <Link
             href="/"
             className="inline-block mt-6 px-6 py-3 rounded-xl bg-red-600 text-white font-semibold shadow-md hover:bg-red-700 transition-all"
           >
             Go Back Home
-          </a>
+          </Link>
         </motion.div>
       </motion.div>
     </div>

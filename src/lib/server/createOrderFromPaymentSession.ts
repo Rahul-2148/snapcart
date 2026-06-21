@@ -8,6 +8,8 @@ import { decrementStock } from "@/lib/utils/decrementStock";
 import { Cart } from "@/models/cart.model";
 import { CartItem } from "@/models/cartItem.model";
 import { User } from "@/models/user.model";
+import { notifyStoreManager } from "@/lib/server/notifications";
+import { awardLoyaltyRewards } from "@/lib/server/rewards";
 
 export interface PaymentDetailsInput {
   provider: "stripe" | "razorpay";
@@ -22,7 +24,7 @@ export interface PaymentDetailsInput {
 export const createOrderFromPaymentSession = async (
   paymentSessionId: string,
   paymentDetails: PaymentDetailsInput,
-  dbSession: mongoose.ClientSession
+  dbSession?: any
 ) => {
   const paymentSession = await PaymentSession.findOneAndUpdate(
     { _id: paymentSessionId, status: "pending" },
@@ -61,8 +63,12 @@ export const createOrderFromPaymentSession = async (
     totalMRP: paymentSession.totalMRP,
     savings: paymentSession.savings,
     deliveryFee: paymentSession.deliveryFee,
+    packagingFee: paymentSession.packagingFee || 0,
+    weightSurcharge: paymentSession.weightSurcharge || 0,
+    taxes: paymentSession.taxes || 0,
     codHandlingCharge: 0,
     finalTotal: paymentSession.finalTotal,
+    walletDeduction: paymentSession.walletDeduction || 0,
     coupon: paymentSession.coupon,
     couponDiscount: paymentSession.couponDiscount,
     deliveryAddress: paymentSession.deliveryAddress,
@@ -72,6 +78,7 @@ export const createOrderFromPaymentSession = async (
     orderStatus: "confirmed",
     confirmedAt: new Date(),
     currency: paymentSession.currency,
+    storeId: paymentSession.storeId || null,
   });
 
   newOrder.orderNumber = `ORD-${Date.now()}-${newOrder._id
@@ -103,6 +110,56 @@ export const createOrderFromPaymentSession = async (
   newOrder.paymentDetails.push(paymentDetails);
 
   await newOrder.save({ session: dbSession });
+
+  // If payment session had a wallet deduction, process it now
+  if (paymentSession.walletDeduction && paymentSession.walletDeduction > 0) {
+    const { default: Wallet } = await import("@/models/wallet.model");
+    const { default: WalletTransaction } = await import("@/models/walletTransaction.model");
+
+    const wallet = await Wallet.findOne({ user: paymentSession.userId }).session(dbSession);
+    if (wallet) {
+      const actualDeduction = Math.min(wallet.balance, paymentSession.walletDeduction);
+      wallet.balance = Math.max(wallet.balance - actualDeduction, 0);
+      await wallet.save({ session: dbSession });
+
+      // Log transaction
+      const walletTx = new WalletTransaction({
+        walletId: wallet._id,
+        type: "debit",
+        amount: actualDeduction,
+        description: `Payment for Order #${newOrder.orderNumber}`,
+        status: "completed",
+        referenceId: newOrder._id.toString(),
+      });
+      await walletTx.save({ session: dbSession });
+    }
+  }
+
+  // Award loyalty rewards (coins and scratchcard)
+  try {
+    await awardLoyaltyRewards(newOrder.userId, newOrder._id.toString(), newOrder.subTotal, dbSession);
+  } catch (rewardsError) {
+    console.error("Failed to award loyalty rewards for online order:", rewardsError);
+  }
+
+  // Notify assigned store manager of new online order
+  if (newOrder.storeId) {
+    try {
+      await notifyStoreManager(
+        newOrder.storeId.toString(),
+        {
+          title: "New Order Assigned",
+          message: `New order #${newOrder.orderNumber} placed by ${user.name || "Customer"}. Please confirm and pack the items.`,
+          type: "order",
+          link: `/store-manager/orders`,
+          priority: "high",
+        },
+        dbSession
+      );
+    } catch (err) {
+      console.error("Failed to notify store manager:", err);
+    }
+  }
 
   await decrementStock(newOrder._id, dbSession);
 

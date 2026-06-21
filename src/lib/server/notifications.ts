@@ -185,3 +185,58 @@ export const notifyAdmin = async (
     console.error("Admin notification error:", error);
   }
 };
+
+// Notify store manager
+export const notifyStoreManager = async (
+  storeId: string,
+  payload: {
+    title: string;
+    message: string;
+    type: "order" | "promotion" | "system" | "role_change";
+    link?: string;
+    priority?: "low" | "normal" | "high";
+  },
+  dbSession?: any
+) => {
+  try {
+    const { Store } = await import("@/models/store.model");
+    const { default: Notification } = await import("@/models/notification.model");
+    const { sendNotification } = await import("./socket");
+
+    const storeQuery = Store.findById(storeId);
+    if (dbSession) {
+      storeQuery.session(dbSession);
+    }
+    const store = await storeQuery;
+    if (store && store.manager) {
+      const notificationData = {
+        recipient: store.manager,
+        recipientRole: "storeManager",
+        title: payload.title,
+        message: payload.message,
+        type: payload.type,
+        read: false,
+        priority: payload.priority || "normal",
+        createdAt: new Date(),
+        link: payload.link,
+      };
+
+      let newNotification: any;
+      if (dbSession) {
+        const created = await Notification.create([notificationData], { session: dbSession });
+        newNotification = created[0];
+      } else {
+        newNotification = await Notification.create(notificationData);
+      }
+
+      await sendNotification(store.manager.toString(), newNotification);
+      return newNotification;
+    } else {
+      console.log(`Store ${storeId} not found or has no manager assigned.`);
+    }
+  } catch (error) {
+    console.error("Error notifying store manager:", error);
+  }
+  return null;
+};
+

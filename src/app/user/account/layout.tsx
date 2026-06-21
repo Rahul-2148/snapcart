@@ -17,9 +17,11 @@ export default function AccountLayout({
 
   const mobilePageTitle = useMemo(() => {
     if (!pathname) return "Profile";
+    if (pathname.includes("/wallet")) return "Wallet & Rewards";
     if (pathname.includes("/addresses")) return "Addresses";
     if (pathname.includes("/orders")) return "Orders";
     if (pathname.includes("/notifications")) return "Notifications";
+    if (pathname.includes("/sessions")) return "Devices & Sessions";
     return "Profile";
   }, [pathname]);
 
@@ -74,7 +76,7 @@ export default function AccountLayout({
   };
 
   return (
-    <div className="container mx-auto px-3 sm:px-4 md:px-6 py-4 sm:py-6 md:py-8">
+    <div className="container mx-auto px-3 sm:px-4 md:px-6 pt-3 pb-6 sm:pb-8 md:pb-12">
       <div className="md:hidden mb-4 rounded-xl border border-gray-200 bg-white shadow-sm px-3 py-2.5 flex items-center justify-between">
         <div>
           <p className="text-sm font-semibold text-gray-900">{mobilePageTitle}</p>

@@ -32,7 +32,7 @@ export async function PATCH(
     let notificationMessage = ""; // Initialize notification message
 
     // Handle adding a new role (multi-role support)
-    if (role && ["user", "deliveryBoy"].includes(role)) {
+    if (role && ["user", "deliveryBoy", "storeManager"].includes(role)) {
       if (!user.roles?.includes(role)) {
         // Add role to roles array
         if (!Array.isArray(user.roles)) {
@@ -40,12 +40,12 @@ export async function PATCH(
         }
         user.roles.push(role);
         updateData.roles = user.roles;
-        notificationMessage = `A ${role === "deliveryBoy" ? "Delivery Partner" : role} role has been added to your account by an admin.`;
+        notificationMessage = `A ${role === "storeManager" ? "Store Manager" : role === "deliveryBoy" ? "Delivery Partner" : role} role has been added to your account by an admin.`;
       }
     }
 
     // Handle removing a role (if more than one role remains)
-    if (removeRole && ["user", "deliveryBoy"].includes(removeRole)) {
+    if (removeRole && ["user", "deliveryBoy", "storeManager"].includes(removeRole)) {
       if (user.roles?.includes(removeRole) && user.roles.length > 1) {
         user.roles = user.roles.filter((r: string) => r !== removeRole);
         // If currentRole is being removed, switch to another available role
@@ -53,7 +53,7 @@ export async function PATCH(
           updateData.currentRole = user.roles[0];
         }
         updateData.roles = user.roles;
-        notificationMessage = `The ${removeRole === "deliveryBoy" ? "Delivery Partner" : removeRole} role has been removed from your account by an admin.`;
+        notificationMessage = `The ${removeRole === "storeManager" ? "Store Manager" : removeRole === "deliveryBoy" ? "Delivery Partner" : removeRole} role has been removed from your account by an admin.`;
       }
     }
 

@@ -3,7 +3,7 @@
 
 import "keen-slider/keen-slider.min.css";
 import { useKeenSlider } from "keen-slider/react";
-import { Minus, Plus, ShoppingCart, Star, Heart } from "lucide-react";
+import { Minus, Plus, ShoppingCart, Star, Heart, Info, Layers, X } from "lucide-react";
 import { motion } from "motion/react";
 import Image from "next/image";
 import Link from "next/link";
@@ -69,6 +69,7 @@ const GroceryItemCard = ({
   const variantBubbleRef = useRef<HTMLDivElement | null>(null);
   const totalInCartRef = useRef<HTMLDivElement | null>(null);
   const [variantSheetOpen, setVariantSheetOpen] = useState(false);
+  const [infoSheetOpen, setInfoSheetOpen] = useState(false);
   const [selectedVariantId, setSelectedVariantId] = useState<string | null>(
     null,
   );
@@ -597,84 +598,123 @@ const GroceryItemCard = ({
       }`}
     >
       {/* IMAGE */}
-      <Link
-        href={`/user/product-details/${grocery?._id}`}
-        className={`block relative overflow-hidden ${
+      <div
+        className={`relative overflow-hidden ${
           isListView
             ? "md:w-64 md:flex-shrink-0 md:rounded-l-2xl md:rounded-r-none"
             : "rounded-t-2xl"
         }`}
-        aria-label={`${grocery?.name} details`}
       >
-        <div
-          ref={sliderRef}
-          onMouseEnter={handleMouseEnter}
-          onMouseLeave={handleMouseLeave}
-          className={`keen-slider relative bg-gray-50 h-32 sm:h-36 md:h-40 ${
-            isListView ? "w-full md:w-64" : "w-full"
-          }`}
+        <Link
+          href={`/user/product-details/${grocery?._id}`}
+          className="block w-full h-full"
+          aria-label={`${grocery?.name} details`}
         >
-          {badgeData && (
-            <div
-              className={`absolute top-2 left-2 z-20 px-2 py-1 rounded-full text-[10px] font-semibold text-white bg-gradient-to-r ${badgeData.color} shadow-sm`}
-            >
-              {badgeData.label}
-            </div>
-          )}
+          <div
+            ref={sliderRef}
+            onMouseEnter={handleMouseEnter}
+            onMouseLeave={handleMouseLeave}
+            className={`keen-slider relative bg-gray-50 h-32 sm:h-36 md:h-40 ${
+              isListView ? "w-full md:w-64" : "w-full"
+            }`}
+          >
+            {grocery?.images?.map((img) => (
+              <div key={img.publicId} className="keen-slider__slide relative">
+                <Image
+                  src={img.url}
+                  alt={grocery?.name}
+                  fill
+                  className="object-contain p-4"
+                />
+              </div>
+            ))}
+          </div>
+        </Link>
 
-          {/* WISHLIST HEART BUTTON - Top Right Corner */}
-          <motion.button
-            whileTap={{ scale: 0.9 }}
+        {/* DISCOUNT RIBBON - Top Left Corner */}
+        {mrpPrice > 0 && mrpPrice > (sellingPrice as number) && (
+          <div className="discount-ribbon">
+            {Math.round(((mrpPrice - (sellingPrice as number)) / mrpPrice) * 100)}% OFF
+          </div>
+        )}
+
+        {badgeData && (
+          <div
+            className={`absolute ${mrpPrice > (sellingPrice as number) ? 'top-10' : 'top-2'} left-2 z-20 px-2 py-1 rounded-full text-[10px] font-semibold text-white bg-gradient-to-r ${badgeData.color} shadow-sm`}
+          >
+            {badgeData.label}
+          </div>
+        )}
+
+        {/* WISHLIST HEART BUTTON - Top Right Corner */}
+        <motion.button
+          whileTap={{ scale: 0.9 }}
+          onClick={(e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            openWishlistSheet();
+          }}
+          disabled={wishlistLoading}
+          className="absolute top-2 right-2 z-20 p-1.5 rounded-full bg-white/90 backdrop-blur-sm shadow-md hover:bg-white transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+          title={isWishlisted ? "Saved in wishlist" : "Add to wishlist"}
+        >
+          {wishlistLoading ? (
+            <div className="w-4 h-4 border-2 border-gray-300 border-t-red-500 rounded-full animate-spin" />
+          ) : (
+            <Heart
+              className={`w-4 h-4 transition-all ${
+                isWishlisted
+                  ? "fill-red-500 text-red-500 scale-110"
+                  : "text-gray-600 hover:text-red-500 hover:scale-110"
+              }`}
+            />
+          )}
+        </motion.button>
+
+        {/* SIMILAR ITEMS & INFO BUTTONS - Bottom Left Corner */}
+        <div className="absolute bottom-2 left-2 z-20 flex items-center gap-1.5">
+          <button
+            type="button"
             onClick={(e) => {
               e.preventDefault();
               e.stopPropagation();
-              openWishlistSheet();
+              setInfoSheetOpen(true);
             }}
-            disabled={wishlistLoading}
-            className="absolute top-2 right-2 z-20 p-1.5 rounded-full bg-white/90 backdrop-blur-sm shadow-md hover:bg-white transition-all disabled:opacity-50 disabled:cursor-not-allowed"
-            title={isWishlisted ? "Saved in wishlist" : "Add to wishlist"}
+            className="p-1 rounded-full bg-white/90 backdrop-blur-sm shadow-md hover:bg-white text-gray-600 hover:text-emerald-600 hover:scale-105 transition-all"
+            title="Product Details"
           >
-            {wishlistLoading ? (
-              <div className="w-4 h-4 border-2 border-gray-300 border-t-red-500 rounded-full animate-spin" />
-            ) : (
-              <Heart
-                className={`w-4 h-4 transition-all ${
-                  isWishlisted
-                    ? "fill-red-500 text-red-500 scale-110"
-                    : "text-gray-600 hover:text-red-500 hover:scale-110"
-                }`}
-              />
-            )}
-          </motion.button>
-          {grocery?.images?.map((img) => (
-            <div key={img.publicId} className="keen-slider__slide relative">
-              <Image
-                src={img.url}
-                alt={grocery?.name}
-                fill
-                className="object-contain p-4"
-              />
-            </div>
-          ))}
-          {/* RATING OVERLAY - Flipkart style at bottom of image */}
-          {typeof computedRating === "number" && computedRating > 0 && (
-            <div className="absolute bottom-2 right-2 z-10 bg-white/95 backdrop-blur-sm rounded px-2 py-0.5 flex items-center gap-1 shadow-sm">
-              <div className="flex items-center gap-0.5">
-                <span className="text-xs font-bold text-gray-800">
-                  {computedRating.toFixed(1)}
-                </span>
-                <Star className="w-2.5 h-2.5 fill-yellow-400 text-yellow-400" />
-              </div>
-              <span className="text-gray-300 text-[8px]">|</span>
-              <span className="text-[11px] font-semibold text-gray-800">
-                {reviewCount >= 1000
-                  ? (reviewCount / 1000).toFixed(1) + "k+"
-                  : reviewCount + "+"}
-              </span>
-            </div>
+            <Info className="w-3.5 h-3.5" />
+          </button>
+          {grocery?.category?._id && (
+            <Link
+              href={`/user/products?category=${grocery.category._id}`}
+              onClick={(e) => e.stopPropagation()}
+              className="p-1 rounded-full bg-white/90 backdrop-blur-sm shadow-md hover:bg-white text-gray-600 hover:text-emerald-600 hover:scale-105 transition-all"
+              title="Similar Items"
+            >
+              <Layers className="w-3.5 h-3.5" />
+            </Link>
           )}
         </div>
-      </Link>
+
+        {/* RATING OVERLAY - Flipkart style at bottom of image */}
+        {typeof computedRating === "number" && computedRating > 0 && (
+          <div className="absolute bottom-2 right-2 z-10 bg-white/95 backdrop-blur-sm rounded px-2 py-0.5 flex items-center gap-1 shadow-sm">
+            <div className="flex items-center gap-0.5">
+              <span className="text-xs font-bold text-gray-800">
+                {computedRating.toFixed(1)}
+              </span>
+              <Star className="w-2.5 h-2.5 fill-yellow-400 text-yellow-400" />
+            </div>
+            <span className="text-gray-300 text-[8px]">|</span>
+            <span className="text-[11px] font-semibold text-gray-800">
+              {reviewCount >= 1000
+                ? (reviewCount / 1000).toFixed(1) + "k+"
+                : reviewCount + "+"}
+            </span>
+          </div>
+        )}
+      </div>
 
       {/* INFO */}
       <div className="p-3 flex flex-col flex-1 md:p-4">
@@ -835,7 +875,7 @@ const GroceryItemCard = ({
               {isAddingToCart
                 ? "Adding..."
                 : hasMultipleVariants
-                  ? "Select variant"
+                ? `${grocery?.variants?.length || 0} Options`
                   : "Add to cart"}
             </motion.button>
           ) : (
@@ -997,6 +1037,170 @@ const GroceryItemCard = ({
         productTitle={grocery.name}
         productImage={grocery.images?.[0]?.url}
       />
+
+      {/* Product Info Bottom Sheet / Modal */}
+      {infoSheetOpen && (
+        <div
+          className="fixed inset-0 z-[150] bg-black/50 backdrop-blur-sm flex items-end sm:items-center justify-center p-0 sm:p-4"
+          onClick={() => setInfoSheetOpen(false)}
+        >
+          <motion.div
+            initial={{ opacity: 0, y: 100 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ type: "spring", damping: 25, stiffness: 200 }}
+            className="w-full sm:max-w-lg bg-white rounded-t-3xl sm:rounded-2xl shadow-2xl overflow-hidden flex flex-col max-h-[85vh] sm:max-h-[90vh]"
+            onClick={(event) => event.stopPropagation()}
+          >
+            {/* Header */}
+            <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100 bg-gray-50/50">
+              <span className="text-xs font-semibold text-emerald-800 tracking-wider uppercase">
+                Product Information
+              </span>
+              <button
+                type="button"
+                onClick={() => setInfoSheetOpen(false)}
+                className="p-1 rounded-full hover:bg-gray-200 text-gray-400 hover:text-gray-600 transition-colors"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Scrollable Content */}
+            <div className="flex-1 overflow-y-auto premium-scroll p-5 space-y-6">
+              {/* Product Card Info */}
+              <div className="flex gap-4 items-start">
+                <div className="relative w-28 h-28 bg-gray-50 border border-gray-100 rounded-xl overflow-hidden flex-shrink-0 flex items-center justify-center p-2">
+                  {grocery?.images?.[0]?.url ? (
+                    <Image
+                      src={grocery.images[0].url}
+                      alt={grocery.name}
+                      fill
+                      className="object-contain p-2"
+                    />
+                  ) : (
+                    <span className="text-xs text-gray-400">No Image</span>
+                  )}
+                </div>
+                <div className="flex-1 min-w-0">
+                  {grocery?.brand && (
+                    <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">
+                      {grocery.brand}
+                    </span>
+                  )}
+                  <h4 className="text-base font-bold text-gray-800 leading-snug mt-0.5">
+                    {grocery.name}
+                  </h4>
+                  <p className="text-xs text-gray-500 mt-1">{grocery?.category?.name}</p>
+
+                  <div className="flex items-center gap-2 mt-2">
+                    <span className="text-green-700 font-bold text-lg">
+                      ₹{sellingPrice}
+                    </span>
+                    {mrpPrice && mrpPrice > (sellingPrice as number) && (
+                      <span className="line-through text-gray-400 text-xs">
+                        ₹{mrpPrice}
+                      </span>
+                    )}
+                    {mrpPrice && mrpPrice > (sellingPrice as number) && (
+                      <span className="text-xs font-semibold bg-red-50 text-red-500 px-1.5 py-0.5 rounded">
+                        {Math.round(
+                          ((mrpPrice - (sellingPrice as number)) / mrpPrice) * 100,
+                        )}
+                        % OFF
+                      </span>
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              {/* Description Section */}
+              <div className="bg-emerald-50/45 border border-emerald-100/50 rounded-2xl p-4 space-y-2">
+                <h5 className="text-xs font-bold text-emerald-800 uppercase tracking-wide">
+                  Description
+                </h5>
+                <p className="text-xs text-gray-600 leading-relaxed whitespace-pre-line">
+                  {grocery?.description ||
+                    "This fresh and high-quality product is handpicked and stored under optimal conditions to ensure maximum freshness and quality. Product details are verified for accuracy."}
+                </p>
+              </div>
+
+              {/* Specifications / Highlights */}
+              <div className="space-y-3">
+                <h5 className="text-xs font-bold text-gray-800 uppercase tracking-wide">
+                  Product Details & Highlights
+                </h5>
+                <div className="border border-gray-100 rounded-xl overflow-hidden text-xs divide-y divide-gray-100">
+                  <div className="flex justify-between p-3 bg-gray-50/50">
+                    <span className="text-gray-500">Brand</span>
+                    <span className="font-semibold text-gray-800">{grocery?.brand || "Ordinary"}</span>
+                  </div>
+                  <div className="flex justify-between p-3">
+                    <span className="text-gray-500">Category</span>
+                    <span className="font-semibold text-gray-800">{grocery?.category?.name}</span>
+                  </div>
+                  <div className="flex justify-between p-3 bg-gray-50/50">
+                    <span className="text-gray-500">Selected Unit / Weight</span>
+                    <span className="font-semibold text-gray-800">{activeVariantLabel}</span>
+                  </div>
+                  <div className="flex justify-between p-3">
+                    <span className="text-gray-500">Tax Information</span>
+                    <span className="font-semibold text-gray-800 text-emerald-700">Inclusive of all taxes (GST)</span>
+                  </div>
+                  <div className="flex justify-between p-3 bg-gray-50/50">
+                    <span className="text-gray-500">Shelf Life / Quality check</span>
+                    <span className="font-semibold text-gray-800">Fresh & Premium standard</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Sticky Footer Cart Action */}
+            <div className="p-4 border-t border-gray-100 bg-white flex items-center justify-between gap-4">
+              <div className="flex flex-col">
+                <span className="text-[10px] text-gray-400">Total Price</span>
+                <span className="text-lg font-bold text-emerald-700">
+                  ₹{sellingPrice}
+                </span>
+              </div>
+              <div className="w-48 flex-shrink-0">
+                {quantity === 0 ? (
+                  <button
+                    type="button"
+                    disabled={isOutOfStock || isAddingToCart}
+                    onClick={handleCardAddClick}
+                    className="w-full flex items-center justify-center gap-2 bg-green-600 hover:bg-green-700 disabled:bg-gray-300 text-white rounded-full py-2.5 text-xs font-semibold transition-all"
+                  >
+                    <ShoppingCart className="w-4 h-4" />
+                    {isAddingToCart ? "Adding..." : "Add to cart"}
+                  </button>
+                ) : (
+                  <div className="flex items-center justify-between bg-green-50 border border-green-600 rounded-full px-2 py-1.5">
+                    <button
+                      type="button"
+                      onClick={handleDecrease}
+                      disabled={isUpdatingQuantity}
+                      className="p-1 rounded-full hover:bg-green-100 disabled:opacity-50"
+                    >
+                      <Minus className="w-3.5 h-3.5 text-green-700" />
+                    </button>
+                    <span className="text-green-700 font-semibold text-xs">
+                      {quantity}
+                    </span>
+                    <button
+                      type="button"
+                      disabled={isMaxReached || isUpdatingQuantity}
+                      onClick={handleIncrease}
+                      className="p-1 rounded-full hover:bg-green-100 disabled:opacity-40"
+                    >
+                      <Plus className="w-3.5 h-3.5 text-green-700" />
+                    </button>
+                  </div>
+                )}
+              </div>
+            </div>
+          </motion.div>
+        </div>
+      )}
     </motion.div>
   );
 };

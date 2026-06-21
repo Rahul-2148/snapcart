@@ -4,7 +4,7 @@
 import React, { Suspense, useEffect, useState, useCallback } from "react";
 import axios from "axios";
 import { useSearchParams } from "next/navigation";
-import Navbar from "@/components/Navbar";
+
 import GroceryItemCard from "@/components/GroceryItemCard";
 import ProductFilters from "@/components/products/ProductFilters";
 import ProductSort from "@/components/products/ProductSort";
@@ -355,9 +355,7 @@ const ProductsPageContent = () => {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      {user && <Navbar user={user} />}
-
-      <div className="pt-4 pb-8 px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto">
+      <div className="pt-2 pb-8 px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto">
         {/* Breadcrumb */}
         <div className="flex items-center gap-2 text-sm text-gray-600 mb-8 flex-wrap">
           <Link

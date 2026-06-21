@@ -421,7 +421,7 @@ const EditCouponModal = ({ coupon, onClose }: EditCouponModalProps) => {
           </div>
 
           {/* Stats */}
-          {coupon?.usageCount! > 0 && (
+          {(coupon?.usageCount ?? 0) > 0 && (
             <div className="p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
               <div className="flex items-center gap-2 text-yellow-800 mb-2">
                 <AlertCircle size={20} />

@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/auth";
-import connectDb from "@/lib/server/db";
+import connectDb, { startDbSession } from "@/lib/server/db";
 import mongoose from "mongoose";
 import { DeliveryAssignment } from "@/models/deliveryAssignment.model";
 import { DeliveryPartner } from "@/models/deliveryPartner.model";
@@ -22,15 +22,16 @@ export const POST = async (
   }
 
   await connectDb();
-  const dbSession = await mongoose.startSession();
-  dbSession.startTransaction();
+  const dbSession = await startDbSession();
 
   try {
     const partner = await DeliveryPartner.findOne({
       user: session.user.id,
     }).session(dbSession);
     if (!partner) {
-      await dbSession.abortTransaction();
+      if (dbSession) {
+        await dbSession.abortTransaction();
+      }
       return NextResponse.json(
         { message: "Partner profile missing" },
         { status: 404 },
@@ -38,7 +39,9 @@ export const POST = async (
     }
 
     if (!partner.isOnline) {
-      await dbSession.abortTransaction();
+      if (dbSession) {
+        await dbSession.abortTransaction();
+      }
       return NextResponse.json(
         { message: "Go online to accept orders" },
         { status: 400 },
@@ -71,7 +74,9 @@ export const POST = async (
     );
 
     if (!assignment) {
-      await dbSession.abortTransaction();
+      if (dbSession) {
+        await dbSession.abortTransaction();
+      }
       return NextResponse.json(
         { message: "Assignment already taken" },
         { status: 409 },
@@ -90,7 +95,9 @@ export const POST = async (
       { session: dbSession },
     );
 
-    await dbSession.commitTransaction();
+    if (dbSession) {
+      await dbSession.commitTransaction();
+    }
 
     const ioClient = getIO();
     ioClient?.emit("delivery_request_accepted", {
@@ -101,11 +108,15 @@ export const POST = async (
 
     return NextResponse.json({ success: true, assignment });
   } catch (error: any) {
-    if (dbSession.inTransaction()) {
-      await dbSession.abortTransaction();
+    if (dbSession) {
+      if (dbSession.inTransaction()) {
+        await dbSession.abortTransaction();
+      }
     }
     return NextResponse.json({ message: error.message }, { status: 500 });
   } finally {
-    dbSession.endSession();
+    if (dbSession) {
+      dbSession.endSession();
+    }
   }
 };

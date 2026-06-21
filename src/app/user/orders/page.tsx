@@ -336,7 +336,7 @@ export default function OrdersPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 py-8">
+    <div className="min-h-screen bg-gray-50 pt-2 pb-8">
       {/* Filter Drawer Overlay */}
       {showFilters && (
         <div

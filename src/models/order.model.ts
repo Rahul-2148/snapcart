@@ -33,8 +33,12 @@ export interface IOrder extends Document {
   totalMRP: number;
   savings: number;
   deliveryFee: number;
+  packagingFee?: number;
+  weightSurcharge?: number;
+  taxes?: number;
   codHandlingCharge?: number;
   finalTotal: number;
+  walletDeduction?: number;
   coupon?: {
     couponId?: mongoose.Types.ObjectId;
     code?: string;
@@ -50,6 +54,9 @@ export interface IOrder extends Document {
     state: string;
     pincode: string;
     fullAddress: string;
+    street?: string;
+    landmark?: string;
+    alternateMobile?: string;
     location?: {
       lat: number;
       lng: number;
@@ -63,6 +70,7 @@ export interface IOrder extends Document {
   paymentDetails: IPaymentDetails[];
   orderStatus: OrderStatus;
   currency: string;
+  storeId?: mongoose.Types.ObjectId;
   assignment?: mongoose.Types.ObjectId;
   assignedDeliveryPartner?: mongoose.Types.ObjectId;
   packedAt?: Date;
@@ -104,8 +112,12 @@ const OrderSchema = new Schema<IOrder>(
     totalMRP: { type: Number, required: true },
     savings: { type: Number, required: true },
     deliveryFee: { type: Number, required: true, default: 0 },
+    packagingFee: { type: Number, default: 0 },
+    weightSurcharge: { type: Number, default: 0 },
+    taxes: { type: Number, default: 0 },
     codHandlingCharge: { type: Number, default: 0, min: 0 },
     finalTotal: { type: Number, required: true },
+    walletDeduction: { type: Number, default: 0 },
     coupon: {
       couponId: { type: Schema.Types.ObjectId, ref: "Coupon" },
       code: String,
@@ -121,6 +133,9 @@ const OrderSchema = new Schema<IOrder>(
       state: { type: String, required: true },
       pincode: { type: String, required: true },
       fullAddress: { type: String, required: true },
+      street: { type: String },
+      landmark: { type: String },
+      alternateMobile: { type: String },
       location: {
         lat: Number,
         lng: Number,
@@ -161,6 +176,12 @@ const OrderSchema = new Schema<IOrder>(
       enum: CURRENCY_CODES,
       default: DEFAULT_CURRENCY,
       required: true,
+    },
+    storeId: {
+      type: Schema.Types.ObjectId,
+      ref: "Store",
+      default: null,
+      index: true,
     },
     assignment: {
       type: Schema.Types.ObjectId,

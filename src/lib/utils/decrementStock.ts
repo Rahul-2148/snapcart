@@ -11,7 +11,7 @@ import mongoose from "mongoose";
  */
 export const decrementStock = async (
   orderId: mongoose.Types.ObjectId,
-  session: mongoose.ClientSession
+  session?: any
 ) => {
   // 1. Get all items from the order
   const orderItems = await OrderItem.find({ order: orderId }).session(session);

@@ -10,6 +10,7 @@ export const NotificationDropdown = ({ userId, fullName }: { userId: string; ful
     const [showNotifications, setShowNotifications] = useState(false);
     const [notifications, setNotifications] = useState<NotificationClient[]>([]);
     const [unreadCount, setUnreadCount] = useState(0);
+    const [filter, setFilter] = useState<'all' | 'unread' | 'read'>('all');
     const dropdownRef = useRef<HTMLDivElement>(null);
 
     const socket = useSocket();
@@ -73,6 +74,12 @@ export const NotificationDropdown = ({ userId, fullName }: { userId: string; ful
         }
     };
 
+    const filteredNotifications = notifications.filter((n) => {
+        if (filter === 'unread') return !n.read;
+        if (filter === 'read') return n.read;
+        return true;
+    });
+
     if (!userId) return null;
 
     return (
@@ -104,16 +111,34 @@ export const NotificationDropdown = ({ userId, fullName }: { userId: string; ful
                         <div className="flex justify-between items-center mb-2">
                              <h3 className="font-semibold text-lg">Notifications</h3>
                              {notifications.length > 0 && (
-                                <button onClick={handleReadAll} className="text-sm text-blue-600 hover:underline">
+                                <button onClick={handleReadAll} className="text-xs text-blue-600 hover:underline">
                                     Mark all as read
                                 </button>
                              )}
                         </div>
-                        {notifications.length === 0 ? (
-                            <p className="text-gray-500 text-sm p-4 text-center">No new notifications.</p>
+
+                        {/* Filter Tabs */}
+                        <div className="flex gap-1.5 border-b border-gray-100 pb-2 mb-2">
+                            {(['all', 'unread', 'read'] as const).map((t) => (
+                                <button
+                                    key={t}
+                                    onClick={() => setFilter(t)}
+                                    className={`px-2.5 py-1 text-[10px] font-bold rounded-lg transition uppercase tracking-wider ${
+                                        filter === t
+                                            ? 'bg-green-600 text-white shadow-sm'
+                                            : 'bg-gray-100 text-gray-500 hover:bg-gray-200 hover:text-gray-800'
+                                    }`}
+                                >
+                                    {t}
+                                </button>
+                            ))}
+                        </div>
+
+                        {filteredNotifications.length === 0 ? (
+                            <p className="text-gray-500 text-sm p-4 text-center">No notifications found.</p>
                         ) : (
                             <div>
-                                {notifications.map((notification) => (
+                                {filteredNotifications.map((notification) => (
                                     <div
                                         key={notification._id as any}
                                         onClick={() => handleNotificationClick(notification)}

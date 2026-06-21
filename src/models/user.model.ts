@@ -8,8 +8,8 @@ export interface IUser extends Document {
   password?: string;
   mobileNumber?: string;
   gender?: "male" | "female" | "other" | "prefer-not-to-say";
-  roles?: ("user" | "deliveryBoy" | "admin")[];
-  currentRole?: "user" | "deliveryBoy" | "admin"; // Active role in current session
+  roles?: ("user" | "deliveryBoy" | "admin" | "storeManager")[];
+  currentRole?: "user" | "deliveryBoy" | "admin" | "storeManager"; // Active role in current session
   image?: {
     url: string;
     publicId: string;
@@ -19,11 +19,29 @@ export interface IUser extends Document {
   createdAt?: Date;
   updatedAt?: Date;
   roleChangeRequest?: "none" | "pending" | "approved" | "rejected";
-  requestedRole?: "user" | "deliveryBoy" | "admin";
+  requestedRole?: "user" | "deliveryBoy" | "admin" | "storeManager";
   roleChangeRequestTimestamp?: Date;
   hasPassword?: boolean;
   isLoginedWithGoogle?: boolean;
   profileCompleted?: boolean; // Flag to check if Google user completed profile
+  roleOtp?: string;
+  roleOtpExpires?: Date;
+  isRoleOtpVerified?: boolean;
+  kyc?: {
+    status: "not_submitted" | "pending" | "approved" | "rejected";
+    documents: Array<{
+      type: "aadhaar_front" | "aadhaar_back" | "pan" | "selfie";
+      url: string;
+      publicId: string;
+      uploadedAt: Date;
+    }>;
+    submittedAt?: Date;
+    reviewedAt?: Date;
+    rejectionReason?: string;
+    aadhaarNumber?: string;
+    panNumber?: string;
+    verificationType?: "manual" | "digilocker";
+  };
 }
 
 const userSchema = new mongoose.Schema<IUser>(
@@ -51,12 +69,12 @@ const userSchema = new mongoose.Schema<IUser>(
     },
     roles: {
       type: [String],
-      enum: ["user", "deliveryBoy", "admin"],
+      enum: ["user", "deliveryBoy", "admin", "storeManager"],
       default: ["user"],
     },
     currentRole: {
       type: String,
-      enum: ["user", "deliveryBoy", "admin"],
+      enum: ["user", "deliveryBoy", "admin", "storeManager"],
       default: "user",
     },
     image: {
@@ -82,7 +100,7 @@ const userSchema = new mongoose.Schema<IUser>(
     },
     requestedRole: {
       type: String,
-      enum: ["user", "deliveryBoy", "admin"],
+      enum: ["user", "deliveryBoy", "admin", "storeManager"],
     },
     roleChangeRequestTimestamp: {
       type: Date,
@@ -94,6 +112,46 @@ const userSchema = new mongoose.Schema<IUser>(
     profileCompleted: {
       type: Boolean,
       default: true, // Default true for non-Google users
+    },
+    roleOtp: {
+      type: String,
+      default: null,
+    },
+    roleOtpExpires: {
+      type: Date,
+      default: null,
+    },
+    isRoleOtpVerified: {
+      type: Boolean,
+      default: false,
+    },
+    kyc: {
+      status: {
+        type: String,
+        enum: ["not_submitted", "pending", "approved", "rejected"],
+        default: "not_submitted",
+        index: true,
+      },
+      documents: [
+        {
+          type: {
+            type: String,
+            enum: ["aadhaar_front", "aadhaar_back", "pan", "selfie"],
+            required: true,
+          },
+          url: { type: String, required: true },
+          publicId: { type: String, required: true },
+          uploadedAt: { type: Date, default: Date.now },
+          _id: false,
+        },
+      ],
+      submittedAt: { type: Date },
+      reviewedAt: { type: Date },
+      rejectionReason: { type: String },
+      aadhaarNumber: { type: String },
+      panNumber: { type: String },
+      verificationType: { type: String, enum: ["manual", "digilocker"], default: "manual" },
+      _id: false,
     },
   },
   { timestamps: true },

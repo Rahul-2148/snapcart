@@ -11,6 +11,9 @@ import { SocketProvider } from "@/contexts/SocketContext";
 import InitUser from "@/InitUser";
 import Provider from "@/Provider";
 import StoreProvider from "@/redux/StoreProvider";
+import LocationInitializer from "@/components/location/LocationInitializer";
+import ServiceabilityBanner from "@/components/location/ServiceabilityBanner";
+import ServiceabilityGate from "@/components/location/ServiceabilityGate";
 
 interface ClientLayoutProps {
   children: React.ReactNode;
@@ -62,16 +65,27 @@ export default function ClientLayout({ children }: ClientLayoutProps) {
     pathname?.startsWith("/forgot-password") ||
     pathname?.startsWith("/verify-otp") ||
     pathname?.startsWith("/reset-password") ||
-    pathname?.startsWith("/admin");
-  const hideFooter = pathname?.startsWith("/admin");
+    pathname?.startsWith("/admin") ||
+    pathname?.startsWith("/store-manager") ||
+    pathname?.startsWith("/deliveryBoy") ||
+    pathname?.startsWith("/delivery-boy");
+  const hideFooter = 
+    pathname?.startsWith("/admin") ||
+    pathname?.startsWith("/store-manager") ||
+    pathname?.startsWith("/deliveryBoy") ||
+    pathname?.startsWith("/delivery-boy");
   const hideChatbot =
     pathname?.startsWith("/login") ||
     pathname?.startsWith("/register") ||
     pathname?.startsWith("/forgot-password") ||
     pathname?.startsWith("/verify-otp") ||
-    pathname?.startsWith("/reset-password");
+    pathname?.startsWith("/reset-password") ||
+    pathname?.startsWith("/admin") ||
+    pathname?.startsWith("/store-manager") ||
+    pathname?.startsWith("/deliveryBoy") ||
+    pathname?.startsWith("/delivery-boy");
   const hideChatbotLauncher = pathname === "/";
-  const contentOffset = hideNavbar ? "" : "pt-28"; // space for fixed navbar + gap
+  const contentOffset = hideNavbar ? "" : "pt-28"; // space for fixed navbar (96px) + 16px gap
 
   return (
     <Provider>
@@ -82,9 +96,13 @@ export default function ClientLayout({ children }: ClientLayoutProps) {
         <StoreProvider>
           <SocketProvider>
             <InitUser />
+            <LocationInitializer />
             <div className="min-h-screen flex flex-col">
               {!hideNavbar && <Navbar />}
-              <main className={`flex-1 ${contentOffset}`}>{children}</main>
+              <main className={`flex-1 ${contentOffset}`}>
+                {!hideNavbar && <ServiceabilityBanner />}
+                <ServiceabilityGate>{children}</ServiceabilityGate>
+              </main>
               {!hideFooter && <Footer />}
               {!hideChatbot && <SnapcartAIChatbot showLauncher={!hideChatbotLauncher} />}
             </div>

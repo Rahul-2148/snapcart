@@ -1,6 +1,6 @@
 // src/app/api/payment/stripe-verify/route.ts
 import { NextRequest, NextResponse } from "next/server";
-import connectDb from "@/lib/server/db";
+import connectDb, { startDbSession } from "@/lib/server/db";
 import { Order } from "@/models/order.model";
 import { PaymentSession } from "@/models/paymentSession.model";
 import Stripe from "stripe";
@@ -106,6 +106,7 @@ const sendConfirmationEmailForOrder = async (orderId: string) => {
   }));
 
   await sendOrderConfirmationEmail(user.email, user.name, {
+    orderId: order._id.toString(),
     orderNumber: order.orderNumber,
     orderDate: new Date(order.createdAt).toLocaleDateString("en-IN", {
       day: "numeric",
@@ -125,15 +126,16 @@ const sendConfirmationEmailForOrder = async (orderId: string) => {
 };
 
 export const POST = async (req: NextRequest) => {
-  const dbSession = await mongoose.startSession();
+  const dbSession = await startDbSession();
   let sessionId: string | undefined;
   let paymentSessionId: string | undefined;
   try {
-    dbSession.startTransaction();
-
     const body = await req.json();
     sessionId = body?.sessionId;
     if (!sessionId) {
+      if (dbSession) {
+        await dbSession.abortTransaction();
+      }
       return NextResponse.json({ message: "Session ID is required" }, { status: 400 });
     }
 
@@ -145,6 +147,9 @@ export const POST = async (req: NextRequest) => {
     });
 
     if (!session || !session.metadata?.paymentSessionId) {
+      if (dbSession) {
+        await dbSession.abortTransaction();
+      }
       return NextResponse.json(
         { message: "Invalid session or payment session ID missing" },
         { status: 400 }
@@ -155,7 +160,9 @@ export const POST = async (req: NextRequest) => {
 
     if (session.payment_status !== "paid") {
       // Nothing to create if payment not completed
-      await dbSession.abortTransaction();
+      if (dbSession) {
+        await dbSession.abortTransaction();
+      }
       return NextResponse.json({ success: false, message: "Payment not completed" }, { status: 400 });
     }
 
@@ -177,7 +184,9 @@ export const POST = async (req: NextRequest) => {
 
     const assignment = await createAssignmentIfNeeded(order, dbSession);
 
-    await dbSession.commitTransaction();
+    if (dbSession) {
+      await dbSession.commitTransaction();
+    }
 
     // non-transactional post-processing
     try {
@@ -200,7 +209,7 @@ export const POST = async (req: NextRequest) => {
       order,
     });
   } catch (error) {
-    if (dbSession.inTransaction()) await dbSession.abortTransaction();
+    if (dbSession && dbSession.inTransaction()) await dbSession.abortTransaction();
     const errorMessage = error instanceof Error ? error.message : String(error);
     if (errorMessage.includes("being processed") || errorMessage.includes("already processed")) {
       try {
@@ -229,6 +238,8 @@ export const POST = async (req: NextRequest) => {
       { status: 500 }
     );
   } finally {
-    dbSession.endSession();
+    if (dbSession) {
+      dbSession.endSession();
+    }
   }
 };

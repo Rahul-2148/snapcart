@@ -1,8 +1,9 @@
 // src/components/common/AdvancedOTPInput.tsx
 "use client";
 
-import React, { useRef, useState, useEffect } from "react";
+import React, { useRef, useState, useEffect, useCallback } from "react";
 import { motion } from "motion/react";
+import { Smartphone } from "lucide-react";
 
 interface AdvancedOTPInputProps {
   length?: number;
@@ -24,6 +25,70 @@ export default function AdvancedOTPInput({
   const [otp, setOtp] = useState<string[]>(Array(length).fill(""));
   const inputRefs = useRef<(HTMLInputElement | null)[]>(Array(length).fill(null));
   const [focusedIndex, setFocusedIndex] = useState<number | null>(null);
+  const [isAutoReading, setIsAutoReading] = useState(false);
+  const abortControllerRef = useRef<AbortController | null>(null);
+
+  // Fill OTP from a string (used by auto-read and paste)
+  const fillOtpFromString = useCallback(
+    (otpString: string) => {
+      const digits = otpString.replace(/\D/g, "").split("").slice(0, length);
+      if (digits.length === 0) return;
+
+      const newOtp = Array(length).fill("");
+      digits.forEach((digit, index) => {
+        if (index < length) {
+          newOtp[index] = digit;
+        }
+      });
+
+      setOtp(newOtp);
+      const joined = newOtp.join("");
+      onValueChange?.(joined);
+
+      if (digits.length >= length) {
+        onComplete(joined);
+      } else {
+        inputRefs.current[digits.length]?.focus();
+      }
+    },
+    [length, onComplete, onValueChange],
+  );
+
+  // Web OTP API: Auto-read OTP from SMS
+  useEffect(() => {
+    if (disabled) return;
+    if (typeof window === "undefined") return;
+
+    // Check if Web OTP API is available
+    if (!("OTPCredential" in window)) return;
+
+    const ac = new AbortController();
+    abortControllerRef.current = ac;
+    setIsAutoReading(true);
+
+    (navigator.credentials as any)
+      .get({
+        otp: { transport: ["sms"] },
+        signal: ac.signal,
+      })
+      .then((otpCredential: any) => {
+        if (otpCredential?.code) {
+          fillOtpFromString(otpCredential.code);
+        }
+      })
+      .catch(() => {
+        // Silently fail — user can still type manually
+      })
+      .finally(() => {
+        setIsAutoReading(false);
+      });
+
+    return () => {
+      ac.abort();
+      abortControllerRef.current = null;
+      setIsAutoReading(false);
+    };
+  }, [disabled, fillOtpFromString]);
 
   const handleChange = (index: number, value: string) => {
     if (disabled) return;
@@ -89,29 +154,7 @@ export default function AdvancedOTPInput({
 
     event.preventDefault();
     const pastedData = event.clipboardData.getData("text");
-
-    // Extract only digits
-    const digits = pastedData.replace(/\D/g, "").split("").slice(0, length);
-
-    if (digits.length > 0) {
-      const newOtp = [...otp];
-      digits.forEach((digit, index) => {
-        if (index < length) {
-          newOtp[index] = digit;
-        }
-      });
-
-      setOtp(newOtp);
-      const otpString = newOtp.join("");
-      onValueChange?.(otpString);
-
-      // Focus the last filled input
-      if (digits.length < length) {
-        inputRefs.current[digits.length]?.focus();
-      } else {
-        onComplete(otpString);
-      }
-    }
+    fillOtpFromString(pastedData);
   };
 
   const handleFocus = (index: number) => {
@@ -138,6 +181,7 @@ export default function AdvancedOTPInput({
               }}
               type="text"
               inputMode="numeric"
+              autoComplete="one-time-code"
               maxLength={1}
               value={value}
               onChange={(e) => handleChange(index, e.target.value)}
@@ -179,8 +223,22 @@ export default function AdvancedOTPInput({
         </motion.div>
       )}
 
-      <div className="text-center text-sm text-gray-500">
-        {otp.filter((val) => val !== "").length}/{length} digits entered
+      <div className="text-center text-sm text-gray-500 flex items-center justify-center gap-2">
+        {isAutoReading && (
+          <motion.span
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            className="inline-flex items-center gap-1 text-green-600 text-xs font-medium"
+          >
+            <Smartphone className="w-3.5 h-3.5 animate-pulse" />
+            Auto-reading OTP...
+          </motion.span>
+        )}
+        {!isAutoReading && (
+          <span>
+            {otp.filter((val) => val !== "").length}/{length} digits entered
+          </span>
+        )}
       </div>
     </div>
   );
