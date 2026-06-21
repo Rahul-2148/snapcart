@@ -335,19 +335,30 @@ const StripePaymentPage = () => {
               Delivery Address
             </h3>
             <div className="bg-blue-50 p-4 rounded-lg text-sm text-gray-700 border border-blue-200">
-              <p className="font-medium">
-                {orderData.deliveryAddress.fullName}
+              <p className="font-bold text-gray-800 flex items-center gap-2">
+                <span>{orderData.deliveryAddress.fullName}</span>
+                <span className="px-2 py-0.5 rounded bg-blue-100 text-blue-800 text-[10px] font-bold uppercase tracking-wider">
+                  {orderData.deliveryAddress.type === "others" ? (orderData.deliveryAddress.customLabel || "Other") : (orderData.deliveryAddress.type || "Delivery Location")}
+                </span>
               </p>
+              {orderData.deliveryAddress.street && (
+                <p className="text-gray-800 font-extrabold mt-2 text-[14px]">
+                  🏢 {orderData.deliveryAddress.street}
+                </p>
+              )}
+              {orderData.deliveryAddress.landmark && (
+                <p className="text-green-700 text-xs font-semibold mt-1">
+                  📍 Landmark: {orderData.deliveryAddress.landmark}
+                </p>
+              )}
               <p className="text-gray-600 mt-1">
                 {orderData.deliveryAddress.fullAddress}
               </p>
-              <p className="text-gray-600">
-                {orderData.deliveryAddress.city},{" "}
-                {orderData.deliveryAddress.state}{" "}
-                {orderData.deliveryAddress.pincode}
+              <p className="text-gray-600 font-medium">
+                {orderData.deliveryAddress.city}, {orderData.deliveryAddress.state} - {orderData.deliveryAddress.pincode}
               </p>
-              <p className="text-gray-600 mt-1">
-                {orderData.deliveryAddress.mobile}
+              <p className="text-gray-800 font-bold mt-2 pt-2 border-t border-blue-100 flex items-center gap-1">
+                📞 Contact: {orderData.deliveryAddress.mobile}
               </p>
             </div>
           </div>

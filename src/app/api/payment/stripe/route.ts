@@ -44,35 +44,19 @@ export const POST = async (req: NextRequest) => {
       );
     }
 
-    const line_items = paymentSession.items.map((item: any) => {
-      return {
+    const line_items = [
+      {
         price_data: {
           currency: paymentSession.currency.toLowerCase(),
           product_data: {
-            name: item.groceryName,
-            metadata: {
-              variantLabel: item.variantLabel,
-            },
+            name: "Snapcart Order Payment",
+            description: `Payment for Order Session #${paymentSession._id.toString().slice(-6)}`,
           },
-          unit_amount: Math.round(item.price.sellingPrice * 100),
-        },
-        quantity: item.quantity,
-      };
-    });
-
-    // Add delivery fee as a line item if it exists
-    if (paymentSession.deliveryFee > 0) {
-      line_items.push({
-        price_data: {
-          currency: paymentSession.currency.toLowerCase(),
-          product_data: {
-            name: "Delivery Fee",
-          },
-          unit_amount: Math.round(paymentSession.deliveryFee * 100),
+          unit_amount: Math.round(paymentSession.finalTotal * 100),
         },
         quantity: 1,
-      });
-    }
+      },
+    ];
 
     let sessionConfig: Stripe.Checkout.SessionCreateParams = {
       payment_method_types: ["card"],
@@ -84,17 +68,6 @@ export const POST = async (req: NextRequest) => {
         paymentSessionId: paymentSession._id.toString(),
       },
     };
-
-    // Handle coupon discount
-    if (paymentSession.couponDiscount && paymentSession.couponDiscount > 0) {
-      const coupon = await stripe.coupons.create({
-        amount_off: Math.round(paymentSession.couponDiscount * 100),
-        currency: paymentSession.currency.toLowerCase(),
-        duration: "once",
-        name: `Coupon: ${paymentSession.coupon?.code}`,
-      });
-      sessionConfig.discounts = [{ coupon: coupon.id }];
-    }
 
     const session = await stripe.checkout.sessions.create(sessionConfig);
 

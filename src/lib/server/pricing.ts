@@ -93,20 +93,20 @@ export async function calculateCheckoutPricing({
   let items: any[] = [];
   let cartObj: any = null;
 
+  if (userId) {
+    cartObj = await Cart.findOne({ user: userId });
+  }
+
   if (cartItemsInput) {
     items = cartItemsInput;
-  } else {
-    const cart = await Cart.findOne({ user: userId });
-    if (cart) {
-      cartObj = cart;
-      items = await CartItem.find({ cart: cart._id }).populate({
-        path: "variant",
-        populate: {
-          path: "grocery",
-          select: "name isActive",
-        },
-      });
-    }
+  } else if (cartObj) {
+    items = await CartItem.find({ cart: cartObj._id }).populate({
+      path: "variant",
+      populate: {
+        path: "grocery",
+        select: "name isActive",
+      },
+    });
   }
 
   // Calculate base item totals

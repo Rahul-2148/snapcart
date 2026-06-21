@@ -57,8 +57,17 @@ export const POST = async (req: NextRequest) => {
       await req.json();
 
     if (!paymentMethod || !deliveryAddress) {
+      await abortTx();
       return NextResponse.json(
         { message: "paymentMethod & deliveryAddress required" },
+        { status: 400 }
+      );
+    }
+
+    if (!deliveryAddress.street || !deliveryAddress.street.trim()) {
+      await abortTx();
+      return NextResponse.json(
+        { message: "Delivery address is incomplete. Flat, House, or Building details are required." },
         { status: 400 }
       );
     }

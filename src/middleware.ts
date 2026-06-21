@@ -1,11 +1,11 @@
-// It is a middleware used to protect routes and redirect unauthenticated users to the login page.
-
+// src/middleware.ts
 import { getToken } from "next-auth/jwt";
 import { NextRequest, NextResponse } from "next/server";
 
-export const proxy = async (req: NextRequest) => {
+export async function middleware(req: NextRequest) {
   const { pathname } = req.nextUrl;
-  // Allow homepage and key public APIs (guest cart, catalog) without auth
+  
+  // Public routes accessible without logging in
   const publicRoutes = [
     "/",
     "/login",
@@ -16,6 +16,7 @@ export const proxy = async (req: NextRequest) => {
     "/newsletter",
     "/newsletter/verified",
     "/newsletter/unsubscribed",
+    "/user/careers",
     "/api/auth",
     "/api/guest-cart",
     "/api/groceries",
@@ -28,10 +29,25 @@ export const proxy = async (req: NextRequest) => {
     "/api/payment/callback",
     "/api/payment/razorpay",
     "/api/location/notify",
+    "/api/location/check-pincode",
+    "/api/location/current",
+    "/api/geocode",
+    "/api/stores/nearby",
+    "/api/stores/serviceable",
+    "/api/delivery/eta",
+    "/api/careers/apply",
   ];
-  if (publicRoutes.some((path) => pathname.startsWith(path))) {
+
+  if (
+    publicRoutes.some(
+      (path) =>
+        pathname === path ||
+        pathname.startsWith(path + "/")
+    )
+  ) {
     return NextResponse.next();
   }
+
   const token = await getToken({ req, secret: process.env.NEXTAUTH_SECRET });
   if (!token) {
     if (pathname.startsWith("/api")) {
@@ -109,8 +125,8 @@ export const proxy = async (req: NextRequest) => {
   }
 
   return NextResponse.next();
-};
-// this matcher is used to match all the routes except the static files like images and css
+}
+
 export const config = {
   matcher: ["/((?!_next/static|_next/image|favicon.ico).*)"],
 };

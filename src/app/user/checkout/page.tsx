@@ -98,6 +98,11 @@ const Checkout = () => {
   const [addressValidated, setAddressValidated] = useState(false);
   const [savedAddresses, setSavedAddresses] = useState<any[]>([]);
   const [selectedSavedAddress, setSelectedSavedAddress] = useState<string | null>(null);
+  const isAddressComplete =
+    addressValidated &&
+    !!address.street &&
+    address.street.trim() !== "" &&
+    selectedSavedAddress !== null;
   const [walletBalance, setWalletBalance] = useState<number>(0);
   const [useWallet, setUseWallet] = useState<boolean>(false);
   const [isKycModalOpen, setIsKycModalOpen] = useState(false);
@@ -251,7 +256,28 @@ const Checkout = () => {
       if (!userData || userData.currentRole !== "user") return;
       try {
         const response = await axios.get("/api/user/addresses");
-        setSavedAddresses(response.data.addresses || []);
+        const list = response.data.addresses || [];
+        setSavedAddresses(list);
+        if (list.length > 0) {
+          const defaultAddr = list.find((addr: any) => addr.isDefault) || list[0];
+          setSelectedSavedAddress(defaultAddr._id);
+          setAddress({
+            fullName: defaultAddr.fullName || userData?.name || "",
+            mobile: defaultAddr.mobile || userData?.mobileNumber || "",
+            alternateMobile: defaultAddr.alternateMobile || "",
+            city: defaultAddr.city,
+            state: defaultAddr.state,
+            pincode: defaultAddr.zipCode,
+            fullAddress: defaultAddr.fullAddress || defaultAddr.street,
+            street: defaultAddr.street,
+            landmark: defaultAddr.label || "",
+            type: defaultAddr.type || "home",
+            customLabel: defaultAddr.customLabel || "",
+          });
+          if (defaultAddr.latitude && defaultAddr.longitude) {
+            setPosition([defaultAddr.latitude, defaultAddr.longitude]);
+          }
+        }
       } catch (error) {
         console.error("Error fetching saved addresses:", error);
       }
@@ -302,6 +328,7 @@ const Checkout = () => {
 
   /* ================= Pre-fill location from Redux ================= */
   useEffect(() => {
+    if (selectedSavedAddress) return;
     if (reduxLocation.latitude && reduxLocation.longitude) {
       setPosition([reduxLocation.latitude, reduxLocation.longitude]);
       setAddress((prev: any) => ({
@@ -312,7 +339,7 @@ const Checkout = () => {
         fullAddress: reduxLocation.fullAddress || prev.fullAddress,
       }));
     }
-  }, [reduxLocation]);
+  }, [reduxLocation, selectedSavedAddress]);
 
   /* ================= Handle Saved Address Selection ================= */
   const handleSelectSavedAddress = async (addressId: string) => {
@@ -380,6 +407,23 @@ const Checkout = () => {
     setIsAddressDrawerOpen(false);
   };
 
+  const handleCompleteCurrentAddress = () => {
+    setEditingAddress({
+      fullName: address.fullName || userData?.name || "",
+      mobile: address.mobile || userData?.mobileNumber || "",
+      alternateMobile: address.alternateMobile || "",
+      city: address.city,
+      state: address.state,
+      zipCode: address.pincode,
+      street: address.street || "",
+      label: address.landmark || "",
+      fullAddress: address.fullAddress,
+      latitude: position ? position[0] : undefined,
+      longitude: position ? position[1] : undefined,
+    });
+    setIsPickerModalOpen(true);
+  };
+
   /* ================= Create Order (COD or Fully Paid with Wallet) ================= */
   const createOrder = async () => {
     try {
@@ -440,8 +484,8 @@ const Checkout = () => {
 
   /* ================= Handle Payment ================= */
   const handlePayment = async () => {
-    if (!addressValidated) {
-      toast.error("Please fill all address fields correctly");
+    if (!isAddressComplete) {
+      toast.error("Please complete your delivery address details first");
       return;
     }
 
@@ -566,6 +610,26 @@ const Checkout = () => {
           <div className="space-y-4">
             {addressValidated ? (
               <div className="p-5 border border-slate-100 bg-slate-50/50 rounded-2xl relative overflow-hidden transition-all duration-200 text-left">
+                {/* Warning for Incomplete Address */}
+                {!isAddressComplete && (
+                  <div className="mb-4 p-4 bg-rose-50 rounded-2xl border border-rose-200 flex gap-3 text-left">
+                    <AlertCircle className="w-5.5 h-5.5 text-rose-600 flex-shrink-0 mt-0.5" />
+                    <div className="flex-1">
+                      <h4 className="text-xs font-bold text-rose-900 uppercase tracking-wider">Address Details Incomplete</h4>
+                      <p className="text-[11px] text-rose-700 mt-1 leading-normal">
+                        House / Flat / Floor / Building details are required to deliver your order. Please complete and save this address.
+                      </p>
+                      <button
+                        type="button"
+                        onClick={handleCompleteCurrentAddress}
+                        className="mt-2.5 px-3 py-1.5 bg-rose-600 hover:bg-rose-700 text-white font-bold text-[10px] rounded-lg transition-all cursor-pointer shadow-md shadow-rose-600/10"
+                      >
+                        Complete & Save Address Details
+                      </button>
+                    </div>
+                  </div>
+                )}
+
                 {/* Type Badge */}
                 <div className="flex items-center gap-2 mb-3">
                   <span className="px-2.5 py-1 rounded-xl bg-green-50 text-green-700 text-xs font-bold capitalize flex items-center gap-1.5 border border-green-100/50">
@@ -595,21 +659,34 @@ const Checkout = () => {
                 </h4>
 
                 {/* Address details */}
-                <p className="text-sm font-bold text-slate-700 mt-2">
-                  {address.street}
-                </p>
+                {address.street && (
+                  <p className="text-sm font-bold text-slate-700 mt-2">
+                    {address.street}
+                  </p>
+                )}
                 <p className="text-xs text-slate-500 mt-1 leading-relaxed">
                   {address.fullAddress}
                 </p>
 
                 {/* Change button */}
-                <button
-                  type="button"
-                  onClick={() => setIsAddressDrawerOpen(true)}
-                  className="mt-4 inline-flex items-center gap-1.5 px-4.5 py-2 rounded-2xl bg-green-600 hover:bg-green-700 text-white text-xs font-bold transition shadow-md shadow-green-600/10 cursor-pointer"
-                >
-                  Change Address
-                </button>
+                <div className="mt-4 flex gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setIsAddressDrawerOpen(true)}
+                    className="inline-flex items-center gap-1.5 px-4.5 py-2 rounded-2xl bg-green-600 hover:bg-green-700 text-white text-xs font-bold transition shadow-md shadow-green-600/10 cursor-pointer"
+                  >
+                    Change Address
+                  </button>
+                  {!isAddressComplete && (
+                    <button
+                      type="button"
+                      onClick={handleCompleteCurrentAddress}
+                      className="inline-flex items-center gap-1.5 px-4.5 py-2 rounded-2xl bg-rose-600 hover:bg-rose-700 text-white text-xs font-bold transition shadow-md shadow-rose-600/10 cursor-pointer"
+                    >
+                      Complete Details
+                    </button>
+                  )}
+                </div>
               </div>
             ) : (
               <div className="p-6 border border-dashed border-slate-300 bg-slate-50/50 rounded-2xl text-center flex flex-col items-center justify-center">
@@ -1085,12 +1162,12 @@ const Checkout = () => {
             <motion.button
               whileTap={{ scale: 0.95 }}
               className={`mt-6 w-full ${
-                addressValidated && checkoutServiceableStatus === "serviceable"
+                isAddressComplete && checkoutServiceableStatus === "serviceable"
                   ? "bg-green-600 hover:bg-green-700"
                   : "bg-gray-400 cursor-not-allowed"
               } text-white py-3 rounded-full font-semibold transition-all flex items-center justify-center`}
               onClick={handlePayment}
-              disabled={!addressValidated || checkoutServiceableStatus !== "serviceable" || loading}
+              disabled={!isAddressComplete || checkoutServiceableStatus !== "serviceable" || loading}
             >
               {loading ? (
                 <Loader2 className="animate-spin w-5 h-5" />
@@ -1098,6 +1175,8 @@ const Checkout = () => {
                 "Checking Serviceability..."
               ) : checkoutServiceableStatus === "not_serviceable" ? (
                 "Out of Delivery Area"
+              ) : !isAddressComplete ? (
+                "Complete Address to Order"
               ) : remainingTotalToPay === 0 ? (
                 "Pay with Wallet & Place Order"
               ) : paymentMethod === "cod" ? (
@@ -1109,11 +1188,17 @@ const Checkout = () => {
 
             {!addressValidated && (
               <p className="text-red-500 text-sm text-center mt-2">
-                Please fill all address fields correctly
+                Please select a delivery address location
               </p>
             )}
 
-            {addressValidated && checkoutServiceableStatus === "not_serviceable" && (
+            {addressValidated && !isAddressComplete && (
+              <p className="text-rose-600 text-sm text-center mt-2 font-medium">
+                House / Flat / Floor / Building details are required to place your order.
+              </p>
+            )}
+
+            {addressValidated && isAddressComplete && checkoutServiceableStatus === "not_serviceable" && (
               <p className="text-rose-600 text-sm text-center mt-2 font-medium">
                 SnapCart is not available at this address location yet
               </p>

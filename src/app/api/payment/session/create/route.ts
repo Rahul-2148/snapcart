@@ -32,6 +32,13 @@ export const POST = async (req: NextRequest) => {
       );
     }
 
+    if (!deliveryAddress.street || !deliveryAddress.street.trim()) {
+      return NextResponse.json(
+        { message: "Delivery address is incomplete. Flat, House, or Building details are required." },
+        { status: 400 }
+      );
+    }
+
     if (!["stripe", "razorpay"].includes(onlinePaymentType)) {
       return NextResponse.json(
         { message: "Invalid onlinePaymentType" },
