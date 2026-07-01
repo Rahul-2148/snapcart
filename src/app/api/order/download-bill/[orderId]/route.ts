@@ -56,7 +56,7 @@ export const GET = async (
     const pdfBuffer = await generateInvoicePdf(orderId);
 
     // Return PDF as response
-    return new NextResponse(pdfBuffer, {
+    return new NextResponse(new Uint8Array(pdfBuffer), {
       headers: {
         "Content-Type": "application/pdf",
         "Content-Disposition": `attachment; filename="bill-${order.orderNumber}.pdf"`,

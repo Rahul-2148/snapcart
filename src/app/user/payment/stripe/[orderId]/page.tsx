@@ -82,7 +82,7 @@ const StripePaymentPage = () => {
       toast.loading("Cancelling order...");
       await axios.post("/api/payment/session/cancel", { paymentSessionId });
       const cart = await fetchCartApi();
-      
+
       // Preserve coupon if it exists
       let appliedCoupon: AppliedCoupon | null = null;
       if (cart.coupon) {
@@ -95,7 +95,7 @@ const StripePaymentPage = () => {
           minCartValue: cart.coupon.minCartValue,
         };
       }
-      
+
       dispatch(
         setCart({
           items: cart.items,
@@ -311,7 +311,7 @@ const StripePaymentPage = () => {
                           {Math.round(
                             ((item.price.mrpPrice - item.price.sellingPrice) /
                               item.price.mrpPrice) *
-                              100
+                            100
                           )}
                           % OFF
                         </span>

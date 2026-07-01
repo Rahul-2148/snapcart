@@ -3,6 +3,7 @@ import { NextRequest, NextResponse } from "next/server";
 import mongoose from "mongoose";
 import connectDb from "@/lib/server/db";
 import { Grocery } from "@/models/grocery.model";
+import { generateGeminiEmbedding } from "@/lib/server/ai/rag";
 
 // 🔥 register related models
 import "@/models/category.model";
@@ -25,11 +26,52 @@ export async function GET(req: NextRequest) {
 
     // Text search (optional) - allow category/brand filters without search
     if (search && search.trim()) {
-      query.$or = [
-        { name: { $regex: search.trim(), $options: "i" } },
-        { description: { $regex: search.trim(), $options: "i" } },
-        { brand: { $regex: search.trim(), $options: "i" } },
-      ];
+      const embedding = await generateGeminiEmbedding(search.trim());
+      if (embedding) {
+        try {
+          const vectorResults = await Grocery.aggregate([
+            {
+              $vectorSearch: {
+                index: "default",
+                path: "vectorEmbedding",
+                queryVector: embedding,
+                numCandidates: 100,
+                limit: limit,
+              },
+            },
+            {
+              $project: {
+                _id: 1,
+              },
+            },
+          ]);
+
+          if (vectorResults.length > 0) {
+            const candidateIds = vectorResults.map((doc: any) => doc._id);
+            query._id = { $in: candidateIds };
+          } else {
+            // fallback if vector returns zero items
+            query.$or = [
+              { name: { $regex: search.trim(), $options: "i" } },
+              { description: { $regex: search.trim(), $options: "i" } },
+              { brand: { $regex: search.trim(), $options: "i" } },
+            ];
+          }
+        } catch (vectorError) {
+          console.warn("MongoDB Vector Search failed in search API, using fallback:", vectorError);
+          query.$or = [
+            { name: { $regex: search.trim(), $options: "i" } },
+            { description: { $regex: search.trim(), $options: "i" } },
+            { brand: { $regex: search.trim(), $options: "i" } },
+          ];
+        }
+      } else {
+        query.$or = [
+          { name: { $regex: search.trim(), $options: "i" } },
+          { description: { $regex: search.trim(), $options: "i" } },
+          { brand: { $regex: search.trim(), $options: "i" } },
+        ];
+      }
     } else if (!category && !brand) {
       // If no search or filters, return empty to avoid heavy query
       return NextResponse.json({

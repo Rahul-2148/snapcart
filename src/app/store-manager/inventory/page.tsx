@@ -8,7 +8,11 @@ import {
   Loader2, 
   Check,
   AlertTriangle,
-  RotateCcw
+  RotateCcw,
+  Sparkles,
+  X,
+  Sliders,
+  TrendingUp
 } from "lucide-react";
 import axios from "axios";
 import { toast } from "sonner";
@@ -37,6 +41,99 @@ export default function StoreManagerInventory() {
 
   // Buffer to store individual unsaved stock entries before hitting save
   const [stockInput, setStockInput] = useState<Record<string, string>>({});
+
+  // AI Pricing Modal State
+  const [selectedOptimizeItem, setSelectedOptimizeItem] = useState<InventoryItem | null>(null);
+  const [demandSurge, setDemandSurge] = useState(1.0);
+  const [weatherMultiplier, setWeatherMultiplier] = useState(1.0);
+  const [competitorPrice, setCompetitorPrice] = useState("");
+  const [optimizingPrice, setOptimizingPrice] = useState(false);
+  const [optimizedPriceResult, setOptimizedPriceResult] = useState<number | null>(null);
+
+  const handleOpenOptimizer = (item: InventoryItem) => {
+    setSelectedOptimizeItem(item);
+    setDemandSurge(1.0);
+    setWeatherMultiplier(1.0);
+    setCompetitorPrice("");
+    setOptimizedPriceResult(null);
+  };
+
+  const handleCalculateAiPrice = async () => {
+    if (!selectedOptimizeItem) return;
+    setOptimizingPrice(true);
+    try {
+      const response = await axios.post("/api/store-manager/inventory/ai-price", {
+        variantId: selectedOptimizeItem.variantId,
+        basePrice: selectedOptimizeItem.defaultSelling,
+        stock: selectedOptimizeItem.storeStock,
+        demandSurge,
+        weatherMultiplier,
+        competitorPrice: competitorPrice ? Number(competitorPrice) : null,
+      });
+
+      if (response.data.success) {
+        setOptimizedPriceResult(response.data.dynamicPrice);
+        toast.success(`Dynamic price calculated: ₹${response.data.dynamicPrice}`);
+      }
+    } catch {
+      toast.error("Failed to run dynamic pricing forecast");
+    } finally {
+      setOptimizingPrice(false);
+    }
+  };
+
+  const handleApplyAiPrice = async () => {
+    if (!selectedOptimizeItem || optimizedPriceResult === null) return;
+    setUpdatingId(selectedOptimizeItem.variantId);
+    try {
+      await axios.put("/api/store-manager/inventory", {
+        variantId: selectedOptimizeItem.variantId,
+        groceryId: selectedOptimizeItem.groceryId,
+        priceOverride: {
+          mrp: selectedOptimizeItem.defaultMrp,
+          selling: optimizedPriceResult
+        }
+      });
+
+      setItems(prevItems => 
+        prevItems.map(prev => 
+          prev.variantId === selectedOptimizeItem.variantId 
+            ? { ...prev, storeMrp: selectedOptimizeItem.defaultMrp, storeSelling: optimizedPriceResult } 
+            : prev
+        )
+      );
+      toast.success(`Successfully applied AI optimized price: ₹${optimizedPriceResult}`);
+      setSelectedOptimizeItem(null);
+    } catch {
+      toast.error("Failed to save price override");
+    } finally {
+      setUpdatingId(null);
+    }
+  };
+
+  const handleResetPriceOverride = async (item: InventoryItem) => {
+    setUpdatingId(item.variantId);
+    try {
+      await axios.put("/api/store-manager/inventory", {
+        variantId: item.variantId,
+        groceryId: item.groceryId,
+        priceOverride: null
+      });
+
+      setItems(prevItems => 
+        prevItems.map(prev => 
+          prev.variantId === item.variantId 
+            ? { ...prev, storeMrp: null, storeSelling: null } 
+            : prev
+        )
+      );
+      toast.success(`Restored default price for ${item.name}`);
+    } catch {
+      toast.error("Failed to restore default price");
+    } finally {
+      setUpdatingId(null);
+    }
+  };
 
   useEffect(() => {
     fetchInventory();
@@ -234,14 +331,33 @@ export default function StoreManagerInventory() {
 
                       {/* Overridden / Normal Price */}
                       <td className="px-6 py-4">
-                        <div>
-                          <p className="text-slate-700 font-semibold">₹{selling}</p>
-                          <p className="text-[10px] text-slate-400">MRP: ₹{mrp}</p>
-                          {hasPriceOverride && (
-                            <span className="inline-block text-[9px] font-bold text-green-700 bg-green-50 px-1.5 py-0.5 rounded border border-green-200 mt-1">
-                              Override Active
-                            </span>
-                          )}
+                        <div className="flex flex-col gap-1.5">
+                          <div>
+                            <p className="text-slate-700 font-semibold">₹{selling}</p>
+                            <p className="text-[10px] text-slate-400">MRP: ₹{mrp}</p>
+                          </div>
+                          {hasPriceOverride ? (
+                            <div className="flex flex-col gap-1">
+                              <span className="inline-block text-[9px] font-bold text-green-700 bg-green-50 px-1.5 py-0.5 rounded border border-green-200 w-max">
+                                Override Active
+                              </span>
+                              <button
+                                type="button"
+                                onClick={() => handleResetPriceOverride(item)}
+                                className="text-[10px] text-red-600 hover:text-red-700 font-semibold hover:underline text-left cursor-pointer"
+                              >
+                                Reset Price
+                              </button>
+                            </div>
+                          ) : null}
+                          <button
+                            type="button"
+                            onClick={() => handleOpenOptimizer(item)}
+                            className="inline-flex items-center gap-1 text-[11px] font-bold text-emerald-600 hover:text-emerald-700 mt-1 hover:underline cursor-pointer"
+                          >
+                            <Sparkles className="w-3 h-3 animate-pulse text-emerald-500" />
+                            Optimize Price
+                          </button>
                         </div>
                       </td>
 
@@ -291,6 +407,192 @@ export default function StoreManagerInventory() {
                 })}
               </tbody>
             </table>
+          </div>
+        </div>
+      )}
+
+      {/* AI Dynamic Pricing Modal */}
+      {selectedOptimizeItem && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm transition-opacity animate-in fade-in duration-200">
+          <div className="relative bg-white rounded-3xl shadow-xl w-full max-w-lg border border-slate-100 overflow-hidden animate-in zoom-in-95 duration-200">
+            {/* Header */}
+            <div className="bg-gradient-to-r from-emerald-600 to-teal-600 px-6 py-5 text-white flex justify-between items-center">
+              <div className="flex items-center gap-2">
+                <Sparkles className="w-5 h-5 animate-pulse" />
+                <h3 className="font-bold text-lg">AI Price Optimizer</h3>
+              </div>
+              <button
+                type="button"
+                onClick={() => setSelectedOptimizeItem(null)}
+                className="text-white/80 hover:text-white transition cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Content */}
+            <div className="p-6 space-y-6 max-h-[70vh] overflow-y-auto snapcart-scrollbar">
+              {/* Product Info Card */}
+              <div className="bg-slate-50 p-4 rounded-2xl flex items-center gap-4 border border-slate-100">
+                <div className="relative w-12 h-12 bg-white rounded-lg border border-slate-100 flex-shrink-0 flex items-center justify-center">
+                  {selectedOptimizeItem.image ? (
+                    <Image 
+                      src={selectedOptimizeItem.image} 
+                      alt={selectedOptimizeItem.name} 
+                      fill
+                      sizes="48px"
+                      className="object-contain p-1"
+                    />
+                  ) : (
+                    <Boxes className="w-6 h-6 text-slate-300" />
+                  )}
+                </div>
+                <div>
+                  <h4 className="font-bold text-slate-800 text-sm line-clamp-1">{selectedOptimizeItem.name}</h4>
+                  <span className="inline-block text-[10px] text-emerald-800 font-bold px-2 py-0.5 bg-emerald-50 rounded border border-emerald-100 mt-1">
+                    {selectedOptimizeItem.variantLabel}
+                  </span>
+                </div>
+              </div>
+
+              {/* Current Metrics */}
+              <div className="grid grid-cols-2 gap-4">
+                <div className="bg-slate-50/50 p-3 rounded-xl border border-slate-100">
+                  <span className="text-[10px] uppercase font-bold text-slate-400">Current Price</span>
+                  <p className="text-base font-bold text-slate-800 mt-0.5">₹{selectedOptimizeItem.storeSelling ?? selectedOptimizeItem.defaultSelling}</p>
+                </div>
+                <div className="bg-slate-50/50 p-3 rounded-xl border border-slate-100">
+                  <span className="text-[10px] uppercase font-bold text-slate-400">Stock Count</span>
+                  <p className="text-base font-bold text-slate-800 mt-0.5">{selectedOptimizeItem.storeStock} items</p>
+                </div>
+              </div>
+
+              {/* Sliders and Inputs */}
+              <div className="space-y-4 pt-2">
+                {/* Demand Surge Slider */}
+                <div>
+                  <div className="flex justify-between items-center mb-1.5">
+                    <label className="text-xs font-bold text-slate-600 flex items-center gap-1">
+                      <Sliders className="w-3.5 h-3.5 text-emerald-600" />
+                      Demand Surge Multiplier
+                    </label>
+                    <span className="text-xs font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded">
+                      {demandSurge}x
+                    </span>
+                  </div>
+                  <input
+                    type="range"
+                    min="1.0"
+                    max="2.5"
+                    step="0.1"
+                    value={demandSurge}
+                    onChange={(e) => setDemandSurge(parseFloat(e.target.value))}
+                    className="w-full h-1.5 bg-slate-100 rounded-lg appearance-none cursor-pointer accent-emerald-600"
+                  />
+                  <p className="text-[10px] text-slate-400 mt-1">
+                    Simulate high demand periods (e.g. festivals, weekends, peak hours).
+                  </p>
+                </div>
+
+                {/* Weather Multiplier Slider */}
+                <div>
+                  <div className="flex justify-between items-center mb-1.5">
+                    <label className="text-xs font-bold text-slate-600 flex items-center gap-1">
+                      <TrendingUp className="w-3.5 h-3.5 text-emerald-600" />
+                      Weather Surge Multiplier
+                    </label>
+                    <span className="text-xs font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded">
+                      {weatherMultiplier}x
+                    </span>
+                  </div>
+                  <input
+                    type="range"
+                    min="1.0"
+                    max="1.5"
+                    step="0.05"
+                    value={weatherMultiplier}
+                    onChange={(e) => setWeatherMultiplier(parseFloat(e.target.value))}
+                    className="w-full h-1.5 bg-slate-100 rounded-lg appearance-none cursor-pointer accent-emerald-600"
+                  />
+                  <p className="text-[10px] text-slate-400 mt-1">
+                    Adjust pricing due to bad weather conditions affecting delivery availability.
+                  </p>
+                </div>
+
+                {/* Competitor Price Input */}
+                <div>
+                  <label htmlFor="competitorPrice" className="block text-xs font-bold text-slate-600 mb-1.5">
+                    Competitor Price (Optional)
+                  </label>
+                  <div className="relative">
+                    <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 text-sm font-semibold">₹</span>
+                    <input
+                      id="competitorPrice"
+                      type="number"
+                      placeholder="e.g. 120"
+                      value={competitorPrice}
+                      onChange={(e) => setCompetitorPrice(e.target.value)}
+                      className="w-full pl-7 pr-4 py-2 bg-white border border-slate-200 rounded-xl text-sm focus:border-green-500 outline-none transition"
+                    />
+                  </div>
+                  <p className="text-[10px] text-slate-400 mt-1">
+                    Optional target competitor selling price to calculate parity boundaries.
+                  </p>
+                </div>
+              </div>
+
+              {/* Run Calculation Trigger */}
+              <button
+                type="button"
+                onClick={handleCalculateAiPrice}
+                disabled={optimizingPrice}
+                className="w-full flex items-center justify-center gap-2 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white font-bold text-sm py-3 rounded-2xl shadow-lg shadow-emerald-500/10 hover:shadow-emerald-500/20 active:scale-98 transition disabled:opacity-50 cursor-pointer"
+              >
+                {optimizingPrice ? (
+                  <>
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                    Optimizing Price...
+                  </>
+                ) : (
+                  <>
+                    <Sparkles className="w-4 h-4 animate-pulse" />
+                    Compute AI Dynamic Price
+                  </>
+                )}
+              </button>
+
+              {/* Results View */}
+              {optimizedPriceResult !== null && (
+                <div className="bg-emerald-50 border border-emerald-100 rounded-2xl p-4 space-y-3 animate-in fade-in duration-300">
+                  <div className="flex justify-between items-center">
+                    <span className="text-xs font-semibold text-emerald-800">Calculated Dynamic Price:</span>
+                    <span className="text-xl font-extrabold text-emerald-950">₹{optimizedPriceResult}</span>
+                  </div>
+                  <p className="text-[10px] text-emerald-700 leading-relaxed">
+                    This price has been computed based on supply elasticity, remaining stock ({selectedOptimizeItem.storeStock}), and simulated surge parameters.
+                  </p>
+                  
+                  <div className="flex gap-2.5 pt-1">
+                    <button
+                      type="button"
+                      onClick={handleApplyAiPrice}
+                      disabled={updatingId === selectedOptimizeItem.variantId}
+                      className="flex-1 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white font-bold text-xs py-2 px-3 rounded-xl active:scale-95 transition cursor-pointer flex items-center justify-center gap-1.5"
+                    >
+                      <Check className="w-3.5 h-3.5" />
+                      Apply Price
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setOptimizedPriceResult(null)}
+                      className="px-3.5 py-2 border border-emerald-300 text-emerald-800 font-semibold text-xs rounded-xl hover:bg-emerald-100/50 transition cursor-pointer"
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
           </div>
         </div>
       )}

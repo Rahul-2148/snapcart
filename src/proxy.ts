@@ -1,8 +1,8 @@
-// src/middleware.ts
+// src/proxy.ts
 import { getToken } from "next-auth/jwt";
 import { NextRequest, NextResponse } from "next/server";
 
-export async function middleware(req: NextRequest) {
+export async function proxy(req: NextRequest) {
   const { pathname } = req.nextUrl;
   
   // Public routes accessible without logging in
@@ -22,6 +22,8 @@ export async function middleware(req: NextRequest) {
     "/api/groceries",
     "/api/categories",
     "/api/banners",
+    "/api/vision/search",
+    "/api/vision/health",
     "/api/newsletter/verify",
     "/api/newsletter/unsubscribe",
     "/api/newsletter/track/open",

@@ -94,7 +94,7 @@ export async function PUT(req: NextRequest) {
     }
 
     const body = await req.json();
-    const { variantId, groceryId, stock, isAvailable } = body;
+    const { variantId, groceryId, stock, isAvailable, priceOverride } = body;
 
     if (!variantId || !groceryId) {
       return NextResponse.json(
@@ -112,6 +112,9 @@ export async function PUT(req: NextRequest) {
     if (override) {
       if (stock !== undefined) override.stock = Number(stock);
       if (isAvailable !== undefined) override.isAvailable = Boolean(isAvailable);
+      if (priceOverride !== undefined) {
+        override.priceOverride = priceOverride;
+      }
       await override.save();
     } else {
       const newOverride = new StoreInventory({
@@ -120,6 +123,7 @@ export async function PUT(req: NextRequest) {
         variant: variantId,
         stock: stock !== undefined ? Number(stock) : 0,
         isAvailable: isAvailable !== undefined ? Boolean(isAvailable) : true,
+        priceOverride: priceOverride !== undefined ? priceOverride : undefined,
       });
       await newOverride.save();
     }

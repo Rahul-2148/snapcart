@@ -10,6 +10,10 @@ export const dynamic = "force-dynamic";
 type PatchBody = {
   title?: string;
   pinned?: boolean;
+  archived?: boolean;
+  isFavorite?: boolean;
+  folderId?: string | null;
+  category?: string | null;
 };
 
 export async function PATCH(request: Request, { params }: { params: Promise<{ sessionId: string }> }) {
@@ -25,20 +29,10 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ se
     }
 
     const body = (await request.json()) as PatchBody;
-    const hasTitle = typeof body.title === "string";
-    const hasPinned = typeof body.pinned === "boolean";
-
-    if (!hasTitle && !hasPinned) {
-      return NextResponse.json(
-        { success: false, message: "At least one field is required" },
-        { status: 400 },
-      );
-    }
-
-    const updateData: { title?: string; pinned?: boolean } = {};
-
-    if (hasTitle) {
-      const nextTitle = body.title?.trim() || "Untitled chat";
+    
+    const updateData: Record<string, any> = {};
+    if (typeof body.title === "string") {
+      const nextTitle = body.title.trim() || "Untitled chat";
       if (nextTitle.length > 140) {
         return NextResponse.json(
           { success: false, message: "Title cannot exceed 140 characters" },
@@ -47,9 +41,27 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ se
       }
       updateData.title = nextTitle;
     }
-
-    if (hasPinned) {
+    if (typeof body.pinned === "boolean") {
       updateData.pinned = body.pinned;
+    }
+    if (typeof body.archived === "boolean") {
+      updateData.archived = body.archived;
+    }
+    if (typeof body.isFavorite === "boolean") {
+      updateData.isFavorite = body.isFavorite;
+    }
+    if (body.folderId !== undefined) {
+      updateData.folderId = body.folderId;
+    }
+    if (body.category !== undefined) {
+      updateData.category = body.category;
+    }
+
+    if (Object.keys(updateData).length === 0) {
+      return NextResponse.json(
+        { success: false, message: "At least one field to update is required" },
+        { status: 400 },
+      );
     }
 
     await connectDb();
@@ -66,8 +78,17 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ se
         new: true,
       },
     )
-      .select("title pinned updatedAt")
-      .lean<{ _id: string; title?: string; pinned?: boolean; updatedAt: Date } | null>();
+      .select("title pinned archived isFavorite folderId category updatedAt")
+      .lean<{
+        _id: string;
+        title?: string;
+        pinned?: boolean;
+        archived?: boolean;
+        isFavorite?: boolean;
+        folderId?: string;
+        category?: string;
+        updatedAt: Date;
+      } | null>();
 
     if (!updated) {
       return NextResponse.json({ success: false, message: "Session not found" }, { status: 404 });
@@ -79,6 +100,10 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ se
         id: String(updated._id),
         title: updated.title || "Untitled chat",
         pinned: Boolean(updated.pinned),
+        archived: Boolean(updated.archived),
+        isFavorite: Boolean(updated.isFavorite),
+        folderId: updated.folderId || null,
+        category: updated.category || null,
         updatedAt: updated.updatedAt,
       },
     });

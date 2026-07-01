@@ -11,7 +11,12 @@ export interface IChatSession extends Document {
   role: "user" | "deliveryBoy" | "admin";
   title?: string;
   pinned: boolean;
+  archived: boolean;
+  isFavorite: boolean;
+  folderId?: string;
+  category?: string;
   messages: IChatSessionMessage[];
+  mode?: "agent" | "normal" | "expert";
   createdAt: Date;
   updatedAt: Date;
 }
@@ -59,6 +64,32 @@ const chatSessionSchema = new Schema<IChatSession>(
     pinned: {
       type: Boolean,
       default: false,
+      index: true,
+    },
+    archived: {
+      type: Boolean,
+      default: false,
+      index: true,
+    },
+    isFavorite: {
+      type: Boolean,
+      default: false,
+      index: true,
+    },
+    folderId: {
+      type: String,
+      default: null,
+      index: true,
+    },
+    category: {
+      type: String,
+      default: null,
+      index: true,
+    },
+    mode: {
+      type: String,
+      enum: ["agent", "normal", "expert"],
+      default: "agent",
       index: true,
     },
     messages: {

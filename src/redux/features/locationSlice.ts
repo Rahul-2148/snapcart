@@ -481,7 +481,29 @@ const locationSlice = createSlice({
         } else if (action.payload.stores.length > 0) {
           // Stores exist but none are open
           state.serviceableStatus = "limited";
-          state.selectedStore = null;
+          const nearest = action.payload.stores[0];
+          const store: SelectedStore = {
+            _id: nearest._id,
+            name: nearest.name,
+            slug: nearest.slug,
+            distanceKm: nearest.distanceKm,
+            isOpen: nearest.isOpen, // false
+            deliveryFee: nearest.deliveryFee,
+            estimatedDeliveryMinutes: nearest.estimatedDeliveryMinutes,
+            location: {
+              address: nearest.location.address,
+              city: nearest.location.city,
+              state: nearest.location.state,
+              pincode: nearest.location.pincode,
+            },
+          };
+          state.selectedStore = store;
+          saveStoreToStorage({
+            _id: store._id,
+            name: store.name,
+            distanceKm: store.distanceKm,
+            eta: store.estimatedDeliveryMinutes,
+          });
         } else {
           state.serviceableStatus = "not_serviceable";
           state.selectedStore = null;

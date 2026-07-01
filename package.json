@@ -11,19 +11,13 @@
   "scripts": {
 
     "dev": "next dev",
-
     "build": "next build",
-
     "start": "next start",
-
     "lint": "eslint .",
-
     "socket": "tsx socket-server.ts",
-
+    "ai": ".venv\\Scripts\\python services/ml-engine/main.py",
     "seed:admin": "tsx scripts/seed-admin.ts",
-
     "seed:incentives": "tsx scripts/seed-incentives.ts",
-
     "seed:stores": "tsx scripts/seed-stores.ts"
 
   },

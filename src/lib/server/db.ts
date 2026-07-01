@@ -15,6 +15,10 @@ import "@/models/store.model";
 import "@/models/storeInventory.model";
 import "@/models/comingSoon.model";
 import "@/models/storeStaff.model";
+import "@/models/userAiProfile.model";
+import "@/models/aiMemory.model";
+import "@/models/aiPromptTemplate.model";
+import "@/models/aiTrace.model";
 
 // Global cached connection across hot reloads (serverless safe)
 let cached = global.mongoose;

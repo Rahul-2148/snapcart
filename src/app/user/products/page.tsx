@@ -16,6 +16,7 @@ import {
   Home,
   LayoutGrid,
   List,
+  Sparkles,
 } from "lucide-react";
 import Link from "next/link";
 import { IUser } from "@/models/user.model";
@@ -401,8 +402,8 @@ const ProductsPageContent = () => {
         </div>
 
         {/* Search Bar */}
-        <div className="mb-8 relative z-30">
-          <div className="relative">
+        <div className="mb-8 relative z-30 flex flex-col sm:flex-row gap-3">
+          <div className="relative flex-1">
             <Search className="absolute left-4 top-3.5 h-5 w-5 text-gray-400" />
             <input
               type="text"
@@ -412,6 +413,20 @@ const ProductsPageContent = () => {
               className="w-full pl-12 pr-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent transition"
             />
           </div>
+          <button
+            type="button"
+            onClick={() => {
+              window.dispatchEvent(
+                new CustomEvent("snapcart-ai-open", {
+                  detail: { prefill: searchTerm.trim() || "Suggest healthy breakfast options" }
+                })
+              );
+            }}
+            className="px-5 py-3 bg-gradient-to-r from-emerald-500 via-emerald-600 to-teal-600 hover:from-emerald-600 hover:to-teal-700 text-white rounded-lg font-bold flex items-center justify-center gap-2 shadow-lg shadow-emerald-500/10 hover:shadow-emerald-500/20 active:scale-[0.98] transition cursor-pointer"
+          >
+            <Sparkles className="w-5 h-5 animate-pulse" />
+            <span>Ask AI Search</span>
+          </button>
         </div>
 
         {/* Main Content */}

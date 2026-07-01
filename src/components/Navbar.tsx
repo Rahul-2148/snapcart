@@ -14,6 +14,10 @@ import {
   Heart,
   Repeat,
   ChevronDown,
+  Sparkles,
+  Camera,
+  ScanLine,
+  ImageIcon,
 } from "lucide-react";
 import { AnimatePresence, motion } from "motion/react";
 import { signOut, useSession } from "next-auth/react";
@@ -94,6 +98,39 @@ const Navbar = ({ user: propUser }: NavbarProps = {}) => {
   const searchDropdownRef = useRef<HTMLDivElement>(null);
   const [placeholderIndex, setPlaceholderIndex] = useState(0);
   const [isAnimating, setIsAnimating] = useState(false);
+
+  // Visual Search Lens states
+  const [showLensModal, setShowLensModal] = useState(false);
+  const [lensLoading, setLensLoading] = useState(false);
+  const [lensResults, setLensResults] = useState<any[]>([]);
+  const [lensPreview, setLensPreview] = useState<string | null>(null);
+  const lensInputRef = useRef<HTMLInputElement>(null);
+
+  const handleLensUpload = async (file: File) => {
+    if (!file || !file.type.startsWith("image/")) {
+      toast.error("Please select an image file");
+      return;
+    }
+    setLensPreview(URL.createObjectURL(file));
+    setLensLoading(true);
+    setLensResults([]);
+    try {
+      const formData = new FormData();
+      formData.append("file", file);
+      formData.append("k", "5");
+      const res = await axios.post("/api/vision/search", formData);
+      if (res.data?.success && res.data?.matchedItems?.length > 0) {
+        setLensResults(res.data.matchedItems);
+      } else {
+        toast.error("No matching products found in store");
+      }
+    } catch (err: any) {
+      console.error("Lens error:", err);
+      toast.error("Visual search failed. Please try again.");
+    } finally {
+      setLensLoading(false);
+    }
+  };
 
   // Blinkit-style rotating placeholder suggestions
   const placeholderSuggestions = [
@@ -317,7 +354,8 @@ const Navbar = ({ user: propUser }: NavbarProps = {}) => {
   }, [socket, user?._id]);
 
   return (
-    <div className="w-[95%] fixed top-4 left-1/2 -translate-x-1/2 bg-green-600 text-white rounded-2xl shadow-lg shadow-black/30 flex justify-between items-start md:items-center h-20 px-4 py-2.5 md:py-0 md:px-8 z-50">
+    <>
+      <div className="w-[95%] fixed top-4 left-1/2 -translate-x-1/2 bg-green-600 text-white rounded-2xl shadow-lg shadow-black/30 flex justify-between items-start md:items-center h-20 px-4 py-2.5 md:py-0 md:px-8 z-50">
       {/* Left side: Logo & Address stacked on mobile, inline on desktop */}
       <div className="flex flex-col items-start justify-start md:flex-row md:items-center gap-0 md:gap-4 leading-none flex-grow md:flex-grow-0 min-w-0 mr-2 md:mr-0 pt-1 md:pt-0">
         <Link
@@ -382,6 +420,15 @@ const Navbar = ({ user: propUser }: NavbarProps = {}) => {
                     <X className="w-4 h-4" />
                   </button>
                 )}
+                {/* Visual Search Lens Icon */}
+                <button
+                  type="button"
+                  onClick={() => setShowLensModal(true)}
+                  className="ml-1.5 p-1.5 rounded-full bg-gradient-to-br from-emerald-500 to-teal-600 text-white hover:from-emerald-600 hover:to-teal-700 transition-all shadow-sm hover:shadow-md cursor-pointer"
+                  title="Visual Search — Scan product image"
+                >
+                  <Camera className="w-3.5 h-3.5" />
+                </button>
               </div>
 
               {/* Search Results Dropdown */}
@@ -438,44 +485,74 @@ const Navbar = ({ user: propUser }: NavbarProps = {}) => {
                       <div className="flex items-center justify-center py-6">
                         <Loader className="w-5 h-5 animate-spin text-green-600" />
                       </div>
-                    ) : searchResults.length > 0 ? (
-                      <div>
-                        {searchResults.map((grocery) => (
-                          <div
-                            key={grocery._id}
-                            onClick={() => handleSearchItemClick(grocery._id)}
-                            className="flex items-center gap-3 px-4 py-3 hover:bg-green-50 cursor-pointer border-b border-gray-100 last:border-b-0 transition-colors"
-                          >
-                            {grocery.images && grocery.images.length > 0 ? (
-                              <div className="relative w-12 h-12 flex-shrink-0">
-                                <Image
-                                  src={grocery.images[0].url}
-                                  alt={grocery.name}
-                                  fill
-                                  className="object-cover rounded"
-                                />
-                              </div>
-                            ) : (
-                              <div className="w-12 h-12 bg-gray-200 rounded flex items-center justify-center flex-shrink-0">
-                                <Search className="text-gray-400 w-5 h-5" />
-                              </div>
-                            )}
-                            <div className="flex-1 min-w-0">
-                              <p className="text-sm font-medium text-gray-800 truncate">
-                                {grocery.name}
-                              </p>
-                              {grocery.brand && (
-                                <p className="text-xs text-gray-500">
-                                  {grocery.brand}
-                                </p>
-                              )}
-                            </div>
-                          </div>
-                        ))}
-                      </div>
                     ) : (
-                      <div className="py-6 text-center text-gray-500">
-                        <p className="text-sm">No groceries found</p>
+                      <div>
+                        {/* Glowy AI Option */}
+                        <div
+                          onClick={() => {
+                            window.dispatchEvent(new CustomEvent("snapcart-ai-open", {
+                              detail: { prefill: searchQuery.trim() }
+                            }));
+                            setShowSearchDropdown(false);
+                            setSearchQuery("");
+                          }}
+                          className="flex items-center gap-3 px-4 py-3 hover:bg-emerald-50 cursor-pointer border-b border-emerald-100 bg-emerald-50/20 text-emerald-800 transition-colors"
+                        >
+                          <div className="w-9 h-9 rounded-full bg-gradient-to-r from-emerald-500 to-teal-500 text-white flex items-center justify-center flex-shrink-0 shadow shadow-emerald-500/30">
+                            <Sparkles className="w-4.5 h-4.5 animate-pulse" />
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <p className="text-sm font-semibold text-emerald-950 flex items-center gap-1.5">
+                              Ask Snapcart AI about &quot;{searchQuery}&quot;
+                              <span className="text-[9px] bg-emerald-100 text-emerald-800 font-bold px-1.5 py-0.5 rounded-full uppercase tracking-wider">AI</span>
+                            </p>
+                            <p className="text-[10px] text-emerald-600/90 font-medium">
+                              Get dynamic meal plans, organic alternatives, or diet matches
+                            </p>
+                          </div>
+                        </div>
+
+                        {/* Standard Search Results */}
+                        {searchResults.length > 0 ? (
+                          <div>
+                            {searchResults.map((grocery) => (
+                              <div
+                                key={grocery._id}
+                                onClick={() => handleSearchItemClick(grocery._id)}
+                                className="flex items-center gap-3 px-4 py-3 hover:bg-green-50 cursor-pointer border-b border-gray-100 last:border-b-0 transition-colors"
+                              >
+                                {grocery.images && grocery.images.length > 0 ? (
+                                  <div className="relative w-12 h-12 flex-shrink-0">
+                                    <Image
+                                      src={grocery.images[0].url}
+                                      alt={grocery.name}
+                                      fill
+                                      className="object-cover rounded"
+                                    />
+                                  </div>
+                                ) : (
+                                  <div className="w-12 h-12 bg-gray-200 rounded flex items-center justify-center flex-shrink-0">
+                                    <Search className="text-gray-400 w-5 h-5" />
+                                  </div>
+                                )}
+                                <div className="flex-1 min-w-0">
+                                  <p className="text-sm font-medium text-gray-800 truncate">
+                                    {grocery.name}
+                                  </p>
+                                  {grocery.brand && (
+                                    <p className="text-xs text-gray-500">
+                                      {grocery.brand}
+                                    </p>
+                                  )}
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        ) : (
+                          <div className="py-6 text-center text-gray-500 border-t border-gray-100">
+                            <p className="text-xs">No matching products found. Ask our AI instead!</p>
+                          </div>
+                        )}
                       </div>
                     )}
                   </motion.div>
@@ -957,6 +1034,15 @@ const Navbar = ({ user: propUser }: NavbarProps = {}) => {
                     </div>
                   )}
                 </div>
+                {/* Visual Search Lens Icon (Mobile) */}
+                <button
+                  type="button"
+                  onClick={() => setShowLensModal(true)}
+                  className="p-1.5 rounded-full bg-gradient-to-br from-emerald-500 to-teal-600 text-white hover:from-emerald-600 hover:to-teal-700 transition-all shadow-sm cursor-pointer mr-1"
+                  title="Visual Search"
+                >
+                  <Camera className="w-3.5 h-3.5" />
+                </button>
                 {searchQuery ? (
                   <button
                     type="button"
@@ -1078,6 +1164,252 @@ const Navbar = ({ user: propUser }: NavbarProps = {}) => {
         )}
       </AnimatePresence>
     </div>
+
+    {/* Visual Search Lens Modal */}
+    <AnimatePresence>
+        {showLensModal && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-[200] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4"
+            onClick={() => {
+              setShowLensModal(false);
+              setLensResults([]);
+              setLensPreview(null);
+            }}
+          >
+            <motion.div
+              initial={{ scale: 0.9, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.9, opacity: 0 }}
+              transition={{ type: "spring", stiffness: 300, damping: 25 }}
+              className="bg-white rounded-3xl shadow-2xl w-full max-w-lg max-h-[85vh] overflow-y-auto relative"
+              onClick={(e) => e.stopPropagation()}
+            >
+              {/* Header */}
+              <div className="sticky top-0 z-10 bg-gradient-to-r from-emerald-600 to-teal-700 text-white p-5 rounded-t-3xl">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2.5">
+                    <div className="p-2 bg-white/20 rounded-xl">
+                      <ScanLine className="w-5 h-5" />
+                    </div>
+                    <div>
+                      <h3 className="font-bold text-base">Visual Search</h3>
+                      <p className="text-xs text-white/80">Snap a photo to find products</p>
+                    </div>
+                  </div>
+                  <button
+                    onClick={() => {
+                      setShowLensModal(false);
+                      setLensResults([]);
+                      setLensPreview(null);
+                    }}
+                    className="p-1.5 hover:bg-white/20 rounded-full transition-colors cursor-pointer"
+                  >
+                    <X className="w-5 h-5" />
+                  </button>
+                </div>
+              </div>
+
+              <div className="p-5 space-y-4">
+                {/* Upload Buttons */}
+                {!lensPreview && !lensLoading && (
+                  <div className="space-y-3">
+                    <div className="grid grid-cols-2 gap-3">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const camInput = document.createElement("input");
+                          camInput.type = "file";
+                          camInput.accept = "image/*";
+                          camInput.capture = "environment";
+                          camInput.onchange = (ev) => {
+                            const file = (ev.target as HTMLInputElement).files?.[0];
+                            if (file) handleLensUpload(file);
+                          };
+                          camInput.click();
+                        }}
+                        className="flex flex-col items-center gap-2 p-6 border-2 border-dashed border-emerald-300 rounded-2xl bg-emerald-50/50 hover:bg-emerald-100/70 transition-all cursor-pointer group"
+                      >
+                        <div className="p-3 bg-emerald-100 rounded-xl group-hover:bg-emerald-200 transition-colors">
+                          <Camera className="w-6 h-6 text-emerald-600" />
+                        </div>
+                        <span className="text-sm font-bold text-emerald-700">Take Photo</span>
+                        <span className="text-[10px] text-emerald-500">Use your camera</span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => lensInputRef.current?.click()}
+                        className="flex flex-col items-center gap-2 p-6 border-2 border-dashed border-gray-300 rounded-2xl bg-gray-50/50 hover:bg-gray-100/70 transition-all cursor-pointer group"
+                      >
+                        <div className="p-3 bg-gray-100 rounded-xl group-hover:bg-gray-200 transition-colors">
+                          <ImageIcon className="w-6 h-6 text-gray-600" />
+                        </div>
+                        <span className="text-sm font-bold text-gray-700">Upload Image</span>
+                        <span className="text-[10px] text-gray-500">From your gallery</span>
+                      </button>
+                    </div>
+                    <input
+                      ref={lensInputRef}
+                      type="file"
+                      accept="image/*"
+                      onChange={(e) => {
+                        const file = e.target.files?.[0];
+                        if (file) handleLensUpload(file);
+                        e.target.value = "";
+                      }}
+                      className="hidden"
+                    />
+                  </div>
+                )}
+
+                {/* Preview & Loading */}
+                {lensPreview && (
+                  <div className="relative">
+                    <img
+                      src={lensPreview}
+                      alt="Scanned product"
+                      className="w-full h-48 object-contain rounded-2xl bg-gray-100 border border-gray-200"
+                    />
+                    {lensLoading && (
+                      <div className="absolute inset-0 flex items-center justify-center bg-black/30 rounded-2xl backdrop-blur-sm">
+                        <div className="flex flex-col items-center gap-2">
+                          <Loader className="w-8 h-8 text-white animate-spin" />
+                          <span className="text-white text-xs font-bold">Analyzing image...</span>
+                        </div>
+                      </div>
+                    )}
+                    {!lensLoading && (
+                      <button
+                        onClick={() => {
+                          setLensPreview(null);
+                          setLensResults([]);
+                        }}
+                        className="absolute top-2 right-2 p-1.5 bg-black/40 hover:bg-black/60 rounded-full text-white transition-colors cursor-pointer"
+                      >
+                        <X className="w-4 h-4" />
+                      </button>
+                    )}
+                  </div>
+                )}
+
+                {/* Results */}
+                {lensResults.length > 0 && (
+                  <div className="space-y-2">
+                    <h4 className="text-sm font-extrabold text-gray-800 flex items-center gap-1.5">
+                      <Sparkles className="w-4 h-4 text-emerald-500" />
+                      {lensResults[0]?.matchedLabel ? "Products Found" : "Items Identified"}
+                    </h4>
+                    <div className="space-y-2 max-h-52 overflow-y-auto">
+                      {lensResults.map((item: any, idx: number) => (
+                        <div
+                          key={idx}
+                          className="flex items-center justify-between p-3 bg-gray-50 rounded-xl border border-gray-150 hover:bg-emerald-50/55 transition-colors"
+                        >
+                          <div className="flex items-center gap-2.5">
+                            {item.image ? (
+                              <div 
+                                onClick={() => {
+                                  if (item.productId) {
+                                    router.push(`/user/product-details/${item.productId}`);
+                                    setShowLensModal(false);
+                                    setLensResults([]);
+                                    setLensPreview(null);
+                                  }
+                                }}
+                                className="relative w-10 h-10 flex-shrink-0 bg-white border border-gray-150 rounded-lg overflow-hidden cursor-pointer hover:scale-105 transition-transform"
+                                title="View Product Details"
+                              >
+                                <Image
+                                  src={item.image}
+                                  alt={item.matchedLabel || item.name}
+                                  fill
+                                  className="object-cover"
+                                />
+                              </div>
+                            ) : (
+                              <div className="w-10 h-10 bg-emerald-100 rounded-lg flex items-center justify-center text-emerald-600 font-bold text-xs flex-shrink-0">
+                                {idx + 1}
+                              </div>
+                            )}
+                            <div>
+                              <p 
+                                onClick={() => {
+                                  if (item.productId) {
+                                    router.push(`/user/product-details/${item.productId}`);
+                                    setShowLensModal(false);
+                                    setLensResults([]);
+                                    setLensPreview(null);
+                                  }
+                                }}
+                                className="text-xs font-bold text-gray-800 leading-snug cursor-pointer hover:text-emerald-600 hover:underline"
+                                title="View Product Details"
+                              >
+                                {item.matchedLabel || item.name}
+                              </p>
+                              <div className="flex items-center gap-1.5 text-[9px] text-gray-500 mt-0.5 select-none">
+                                <span 
+                                  onClick={(e) => {
+                                    if (item.categoryId) {
+                                      e.stopPropagation();
+                                      router.push(`/user/products?category=${item.categoryId}`);
+                                      setShowLensModal(false);
+                                      setLensResults([]);
+                                      setLensPreview(null);
+                                    }
+                                  }}
+                                  className={`hover:text-emerald-600 hover:underline ${item.categoryId ? 'cursor-pointer font-semibold' : ''}`}
+                                  title={item.categoryId ? "Browse Category Products" : ""}
+                                >
+                                  {item.categoryName || item.category || "Grocery"}
+                                </span>
+                                {item.price > 0 && (
+                                  <>
+                                    <span>•</span>
+                                    <span className="font-extrabold text-emerald-600">₹{item.price}</span>
+                                  </>
+                                )}
+                              </div>
+                            </div>
+                          </div>
+                          {item.matchedLabel && (
+                            <button
+                              onClick={() => {
+                                setSearchQuery(item.matchedLabel);
+                                setShowLensModal(false);
+                                setLensResults([]);
+                                setLensPreview(null);
+                              }}
+                              className="text-[9px] font-bold text-emerald-600 bg-emerald-50 px-2.5 py-1.5 rounded-lg hover:bg-emerald-100 transition-colors cursor-pointer"
+                            >
+                              Search
+                            </button>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Try Again */}
+                {lensPreview && !lensLoading && (
+                  <button
+                    onClick={() => {
+                      setLensPreview(null);
+                      setLensResults([]);
+                    }}
+                    className="w-full py-2.5 text-sm font-bold text-emerald-600 bg-emerald-50 rounded-xl hover:bg-emerald-100 transition-colors cursor-pointer"
+                  >
+                    Scan Another Product
+                  </button>
+                )}
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </>
   );
 };
 

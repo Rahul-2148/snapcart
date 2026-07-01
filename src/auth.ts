@@ -280,6 +280,9 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
           const activeSession = await Session.findOne({ jti: token.sessionId });
           if (!activeSession) {
             console.warn(`🚫 Revoked session detected! Logging out sessionId: ${token.sessionId}`);
+            if (session) {
+              session.user = undefined as any;
+            }
             return null as any; // Invalidates session in client
           }
 

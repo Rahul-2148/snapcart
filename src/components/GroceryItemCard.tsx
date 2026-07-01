@@ -40,6 +40,7 @@ interface IGrocery {
   _id: string;
   name: string;
   brand?: string;
+  description?: string;
   category: { _id: string; name: string; allowedUnits: string[] };
   images?: Array<{ url: string; publicId: string }>;
   variants?: IVariant[];

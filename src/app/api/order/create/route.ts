@@ -120,6 +120,16 @@ export const POST = async (req: NextRequest) => {
       cartItemsInput: cartItems,
     });
 
+    const {
+      subTotal,
+      deliveryFee,
+      codHandlingCharge: totalCodCharge,
+      couponDiscount,
+      finalTotal,
+      walletDeduction,
+      couponSnapshot,
+    } = pricing;
+
     if (!pricing.serviceable) {
       await abortTx();
       return NextResponse.json(

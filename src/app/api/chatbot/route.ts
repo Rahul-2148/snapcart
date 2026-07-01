@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 
 import { auth } from "@/auth";
-import { generateSnapcartReply } from "@/lib/server/chatbot/engine";
+import { runOrchestrator } from "@/lib/server/ai/agents/orchestrator";
 import { ChatMessage, ChatProductContext, SnapcartRole } from "@/lib/server/chatbot/types";
 import connectDb from "@/lib/server/db";
 import { ChatSession } from "@/models/chatSession.model";
@@ -95,6 +95,8 @@ export async function POST(req: NextRequest) {
     const history = (Array.isArray(body?.history) ? body.history : []) as ChatMessage[];
     const sessionId = (body?.sessionId || "").toString().trim();
     const productContext = parseProductContext(body?.productContext);
+    const mode = (body?.mode || "agent").toString().trim();
+    const preferredModel = (body?.preferredModel || "").toString().trim();
 
     if (!message) {
       return NextResponse.json(
@@ -116,44 +118,64 @@ export async function POST(req: NextRequest) {
     let userId: string | undefined;
     let userName: string | undefined;
 
+    await connectDb();
+
     if (session?.user) {
       userId = session.user.id;
       userName = session.user.name;
-      await connectDb();
       role = await resolveRole({
         session,
         roleHint: body?.role,
       });
     }
 
-    const result = await generateSnapcartReply({
+    const agentResult = await runOrchestrator({
+      userId: userId || "000000000000000000000000",
+      sessionId,
       role,
-      userId,
-      userName,
       message,
-      history,
-      productContext,
+      historyText: history.slice(0, -1).map((m: any) => {
+        const content = (m.activeLang && m.activeLang !== "original" && m.translatedContent?.[m.activeLang])
+          ? m.translatedContent[m.activeLang]
+          : m.content;
+        return `${m.role.toUpperCase()}: ${content}`;
+      }).join("\n"),
+      mode: mode as any,
+      preferredModel: preferredModel || undefined,
+      primaryLanguage: body?.settings?.primaryLanguage,
     });
+
+    const reply = agentResult.reply || "Abhi response generate nahi ho pa raha. Thoda der baad try karein.";
+    const suggestions = [
+      "Optimize my grocery budget",
+      "Show high protein options",
+      "Check diabetic items"
+    ];
 
     let persistedSessionId: string | null = null;
 
     if (userId && role !== "guest") {
       const nextMessages = [
-        ...history.slice(-10),
+        ...history.slice(0, -1).slice(-10),
         { role: "user", content: message },
-        { role: "assistant", content: result.reply },
+        { role: "assistant", content: reply },
       ];
 
       let chatSession = null;
 
       if (sessionId) {
         chatSession = await ChatSession.findOneAndUpdate(
-          { _id: sessionId, userId },
+          {
+            _id: sessionId,
+            userId,
+            mode: mode === "agent" ? { $in: ["agent", null, undefined] } : mode,
+          },
           {
             $set: {
               userId,
               role,
               messages: nextMessages,
+              mode,
             },
           },
           { new: true },
@@ -171,6 +193,7 @@ export async function POST(req: NextRequest) {
           role,
           title: message.slice(0, 80),
           messages: nextMessages,
+          mode,
         });
       }
 
@@ -181,10 +204,11 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json({
       success: true,
-      reply: result.reply,
-      role: result.role,
-      suggestions: result.suggestions,
+      reply,
+      role,
+      suggestions,
       sessionId: persistedSessionId,
+      products: agentResult.products,
     });
   } catch (error: unknown) {
     const message = error instanceof Error ? error.message : "Failed to process chat";

@@ -9,6 +9,17 @@ export interface IGrocery {
   description?: string;
   category: mongoose.Types.ObjectId;
   brand?: string;
+  vectorEmbedding?: number[]; // For MongoDB Atlas Vector search
+  nutritionalMetrics?: {
+    calories: number;
+    protein: number;       // grams per 100g
+    fat: number;           // grams per 100g
+    carbs: number;         // grams per 100g
+    sugar: number;         // grams per 100g
+    isDiabeticFriendly: boolean;
+    isGlutenFree: boolean;
+    isOrganic: boolean;
+  };
   images?: {
     url: string;
     publicId: string;
@@ -40,6 +51,19 @@ const grocerySchema = new mongoose.Schema<IGrocery>(
     },
 
     brand: { type: String, default: "Ordinary" },
+
+    vectorEmbedding: { type: [Number], default: undefined },
+
+    nutritionalMetrics: {
+      calories: { type: Number, default: 0 },
+      protein: { type: Number, default: 0 },
+      fat: { type: Number, default: 0 },
+      carbs: { type: Number, default: 0 },
+      sugar: { type: Number, default: 0 },
+      isDiabeticFriendly: { type: Boolean, default: false },
+      isGlutenFree: { type: Boolean, default: false },
+      isOrganic: { type: Boolean, default: false },
+    },
 
     images: [
       {

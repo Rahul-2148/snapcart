@@ -29,15 +29,23 @@ export async function GET(req: NextRequest) {
 
     const url = new URL(req.url);
     const sessionId = url.searchParams.get("sessionId")?.trim();
+    const mode = url.searchParams.get("mode")?.trim() || "agent";
 
-    const chatSession = sessionId
-      ? await ChatSession.findOne({ _id: sessionId, userId: session.user.id })
-          .select("messages role updatedAt")
-          .lean<ChatSessionLean>()
-      : await ChatSession.findOne({ userId: session.user.id })
-          .sort({ updatedAt: -1 })
-          .select("messages role updatedAt")
-          .lean<ChatSessionLean>();
+    let queryObj: any = { userId: session.user.id };
+    if (sessionId) {
+      queryObj._id = sessionId;
+    } else {
+      if (mode === "agent") {
+        queryObj.mode = { $in: ["agent", null, undefined] };
+      } else {
+        queryObj.mode = mode;
+      }
+    }
+
+    const chatSession = await ChatSession.findOne(queryObj)
+      .sort({ updatedAt: -1 })
+      .select("messages role updatedAt")
+      .lean<ChatSessionLean>();
 
     return NextResponse.json({
       success: true,

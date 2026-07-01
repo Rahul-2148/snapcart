@@ -1,7 +1,7 @@
 import { NextRequest } from "next/server";
 
 import { auth } from "@/auth";
-import { generateSnapcartReply } from "@/lib/server/chatbot/engine";
+import { runOrchestrator } from "@/lib/server/ai/agents/orchestrator";
 import { ChatMessage, ChatProductContext, SnapcartRole } from "@/lib/server/chatbot/types";
 import connectDb from "@/lib/server/db";
 import { ChatSession } from "@/models/chatSession.model";
@@ -108,6 +108,54 @@ const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 export async function POST(req: NextRequest) {
   const encoder = new TextEncoder();
 
+  let body: any;
+  let message = "";
+  let history: ChatMessage[] = [];
+  let sessionId = "";
+  let productContext: ChatProductContext | undefined;
+  let mode = "agent";
+  let preferredModel = "";
+  let session: any = null;
+  let role: SnapcartRole = "guest";
+  let userId: string | undefined;
+  let userName: string | undefined;
+
+  try {
+    body = await req.json();
+    message = (body?.message || "").toString().trim();
+    history = (Array.isArray(body?.history) ? body.history : []) as ChatMessage[];
+    sessionId = (body?.sessionId || "").toString().trim();
+    productContext = parseProductContext(body?.productContext);
+    mode = (body?.mode || "agent").toString().trim();
+    preferredModel = (body?.preferredModel || "").toString().trim();
+
+    session = await auth();
+    await connectDb();
+
+    if (session?.user) {
+      userId = session.user.id;
+      userName = session.user.name;
+      role = await resolveRole({
+        session,
+        roleHint: body?.role,
+      });
+    }
+  } catch (err: any) {
+    console.error("Failed to parse request in chatbot stream route:", err);
+    return new Response(
+      encoder.encode(
+        JSON.stringify({
+          type: "error",
+          message: err instanceof Error ? err.message : "Invalid request parameters",
+        }) + "\n"
+      ),
+      {
+        status: 400,
+        headers: { "Content-Type": "application/json" },
+      }
+    );
+  }
+
   const stream = new ReadableStream({
     async start(controller) {
       const send = (payload: unknown) => {
@@ -115,12 +163,6 @@ export async function POST(req: NextRequest) {
       };
 
       try {
-        const body = await req.json();
-        const message = (body?.message || "").toString().trim();
-        const history = (Array.isArray(body?.history) ? body.history : []) as ChatMessage[];
-        const sessionId = (body?.sessionId || "").toString().trim();
-        const productContext = parseProductContext(body?.productContext);
-
         if (!message) {
           send({ type: "error", message: "Message is required" });
           controller.close();
@@ -133,50 +175,56 @@ export async function POST(req: NextRequest) {
           return;
         }
 
-        const session = await auth();
-
-        let role: SnapcartRole = "guest";
-        let userId: string | undefined;
-        let userName: string | undefined;
-
-        if (session?.user) {
-          userId = session.user.id;
-          userName = session.user.name;
-          await connectDb();
-          role = await resolveRole({
-            session,
-            roleHint: body?.role,
-          });
-        }
-
-        const result = await generateSnapcartReply({
+        const agentResult = await runOrchestrator({
+          userId: userId || "000000000000000000000000",
+          sessionId,
           role,
-          userId,
-          userName,
           message,
-          history,
-          productContext,
+          historyText: history.slice(0, -1).map((m: any) => {
+            const content = (m.activeLang && m.activeLang !== "original" && m.translatedContent?.[m.activeLang])
+              ? m.translatedContent[m.activeLang]
+              : m.content;
+            return `${m.role.toUpperCase()}: ${content}`;
+          }).join("\n"),
+          mode: mode as any,
+          onProgress: (event) => {
+            send({ type: "progress", status: event.status });
+          },
+          preferredModel: preferredModel || undefined,
+          primaryLanguage: body?.settings?.primaryLanguage,
         });
+
+        const reply = agentResult.reply || "Abhi response generate nahi ho pa raha. Thoda der baad try karein.";
+        const suggestions = [
+          "Optimize my grocery budget",
+          "Show high protein options",
+          "Check diabetic items"
+        ];
 
         let persistedSessionId: string | null = null;
 
         if (userId && role !== "guest") {
           const nextMessages = [
-            ...history.slice(-10),
+            ...history.slice(0, -1).slice(-10),
             { role: "user", content: message },
-            { role: "assistant", content: result.reply },
+            { role: "assistant", content: reply },
           ];
 
           let chatSession = null;
 
           if (sessionId) {
             chatSession = await ChatSession.findOneAndUpdate(
-              { _id: sessionId, userId },
+              {
+                _id: sessionId,
+                userId,
+                mode: mode === "agent" ? { $in: ["agent", null, undefined] } : mode,
+              },
               {
                 $set: {
                   userId,
                   role,
                   messages: nextMessages,
+                  mode,
                 },
               },
               { new: true },
@@ -194,6 +242,7 @@ export async function POST(req: NextRequest) {
               role,
               title: message.slice(0, 80),
               messages: nextMessages,
+              mode,
             });
           }
 
@@ -202,7 +251,7 @@ export async function POST(req: NextRequest) {
           }
         }
 
-        const chunks = splitReplyForStream(result.reply);
+        const chunks = splitReplyForStream(reply);
         for (const chunk of chunks) {
           send({ type: "chunk", content: chunk });
           await sleep(20);
@@ -210,13 +259,14 @@ export async function POST(req: NextRequest) {
 
         send({
           type: "done",
-          role: result.role,
-          suggestions: result.suggestions,
+          role,
+          suggestions,
           sessionId: persistedSessionId,
+          products: agentResult.products,
         });
       } catch (error: unknown) {
-        const message = error instanceof Error ? error.message : "Failed to process chat";
-        send({ type: "error", message });
+        const errorMessage = error instanceof Error ? error.message : "Failed to process chat";
+        send({ type: "error", message: errorMessage });
       } finally {
         controller.close();
       }
