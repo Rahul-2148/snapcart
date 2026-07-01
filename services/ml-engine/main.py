@@ -1,3 +1,18 @@
+import os
+from dotenv import load_dotenv
+
+# Find project root (2 levels up from services/ml-engine/main.py)
+root_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+env_local_path = os.path.join(root_dir, ".env.local")
+env_path = os.path.join(root_dir, ".env")
+
+if os.path.exists(env_local_path):
+    load_dotenv(env_local_path)
+elif os.path.exists(env_path):
+    load_dotenv(env_path)
+else:
+    load_dotenv()
+
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
 from typing import List, Optional, Dict, Any
@@ -301,4 +316,7 @@ def health_check():
 
 if __name__ == "__main__":
   import uvicorn
-  uvicorn.run("main:app", host="127.0.0.1", port=8000, reload=True)
+  host = os.getenv("ML_ENGINE_HOST", os.getenv("HOST", "127.0.0.1"))
+  port = int(os.getenv("ML_ENGINE_PORT", os.getenv("PORT", "8000")))
+  reload_val = os.getenv("ML_ENGINE_RELOAD", "True").lower() == "true"
+  uvicorn.run("main:app", host=host, port=port, reload=reload_val)

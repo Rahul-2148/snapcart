@@ -10,6 +10,8 @@ import { Coupon } from "@/models/coupon.model";
 import { UserChatbotSettings } from "@/models/userChatbotSettings.model";
 import mongoose from "mongoose";
 
+const ML_ENGINE_URL = (process.env.ML_ENGINE_URL || "http://localhost:8000").replace(/\/$/, "");
+
 export interface AgentAction {
   tool: string;
   arguments: any;
@@ -32,7 +34,7 @@ async function runLocalIntelligenceFallback(params: {
 
   // 1. Detect Intent via FastAPI /predict/intent (timeout 1.5s)
   try {
-    const response = await fetch("http://localhost:8000/predict/intent", {
+    const response = await fetch(`${ML_ENGINE_URL}/predict/intent`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       signal: AbortSignal.timeout(1500),
@@ -117,7 +119,7 @@ async function runLocalIntelligenceFallback(params: {
     }
   } else if (intent === "faq") {
     try {
-      const response = await fetch("http://localhost:8000/predict/faq", {
+      const response = await fetch(`${ML_ENGINE_URL}/predict/faq`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         signal: AbortSignal.timeout(1500),

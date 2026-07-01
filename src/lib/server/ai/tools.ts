@@ -7,6 +7,8 @@ import { Order } from "@/models/order.model";
 import { OrderItem } from "@/models/orderItem.model";
 import { searchGroceries } from "./rag";
 
+const ML_ENGINE_URL = (process.env.ML_ENGINE_URL || "http://localhost:8000").replace(/\/$/, "");
+
 export interface ToolDefinition {
   name: string;
   description: string;
@@ -374,7 +376,7 @@ export const aiTools: Record<string, ToolDefinition> = {
 
       let dynamicPrice = basePrice;
       try {
-        const response = await fetch("http://localhost:8000/predict/pricing", {
+        const response = await fetch(`${ML_ENGINE_URL}/predict/pricing`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           signal: AbortSignal.timeout(2000),
@@ -441,7 +443,7 @@ export const aiTools: Record<string, ToolDefinition> = {
     },
     execute: async (userId: string, args: { dayOfWeek: number; isHoliday: boolean; lag7Sales: number; temperature: number; discountRate: number }) => {
       try {
-        const response = await fetch("http://localhost:8000/predict/demand", {
+        const response = await fetch(`${ML_ENGINE_URL}/predict/demand`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           signal: AbortSignal.timeout(2000),
@@ -493,7 +495,7 @@ export const aiTools: Record<string, ToolDefinition> = {
       let customerSegment = "medium";
 
       try {
-        const response = await fetch("http://localhost:8000/predict/segment", {
+        const response = await fetch(`${ML_ENGINE_URL}/predict/segment`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           signal: AbortSignal.timeout(2000),

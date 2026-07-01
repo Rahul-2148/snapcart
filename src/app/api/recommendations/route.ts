@@ -78,7 +78,8 @@ export async function POST(req: NextRequest) {
 
     try {
       // 3. Call the Python ML Engine recommendations endpoint
-      const mlResponse = await fetch("http://localhost:8000/recommend", {
+      const ML_ENGINE_URL = (process.env.ML_ENGINE_URL || "http://localhost:8000").replace(/\/$/, "");
+      const mlResponse = await fetch(`${ML_ENGINE_URL}/recommend`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         signal: AbortSignal.timeout(2000),

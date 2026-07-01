@@ -4,7 +4,8 @@ export const dynamic = "force-dynamic";
 
 export async function GET() {
   try {
-    const res = await fetch("http://127.0.0.1:8000/vision/health", {
+    const ML_ENGINE_URL = (process.env.ML_ENGINE_URL || "http://127.0.0.1:8000").replace(/\/$/, "");
+    const res = await fetch(`${ML_ENGINE_URL}/vision/health`, {
       cache: "no-store",
     });
     

@@ -44,7 +44,8 @@ async function run() {
     fastapiFormData.append("k", "5");
     
     try {
-      const fastapiRes = await fetch("http://127.0.0.1:8000/vision/search", {
+      const ML_ENGINE_URL = (process.env.ML_ENGINE_URL || "http://127.0.0.1:8000").replace(/\/$/, "");
+      const fastapiRes = await fetch(`${ML_ENGINE_URL}/vision/search`, {
         method: "POST",
         body: fastapiFormData,
       });

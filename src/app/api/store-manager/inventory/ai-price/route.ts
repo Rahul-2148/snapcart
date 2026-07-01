@@ -25,7 +25,8 @@ export async function POST(req: NextRequest) {
     let fallback = false;
 
     try {
-      const response = await fetch("http://localhost:8000/predict/pricing", {
+      const ML_ENGINE_URL = (process.env.ML_ENGINE_URL || "http://localhost:8000").replace(/\/$/, "");
+      const response = await fetch(`${ML_ENGINE_URL}/predict/pricing`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({

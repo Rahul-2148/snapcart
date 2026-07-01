@@ -20,7 +20,8 @@ export async function POST(req: NextRequest) {
     fastapiFormData.append("file", file);
     fastapiFormData.append("k", k);
 
-    const fastapiRes = await fetch("http://127.0.0.1:8000/vision/search", {
+    const ML_ENGINE_URL = (process.env.ML_ENGINE_URL || "http://127.0.0.1:8000").replace(/\/$/, "");
+    const fastapiRes = await fetch(`${ML_ENGINE_URL}/vision/search`, {
       method: "POST",
       body: fastapiFormData,
     });

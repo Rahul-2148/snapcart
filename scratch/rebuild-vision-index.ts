@@ -32,7 +32,8 @@ async function run() {
       
     console.log(`Preparing to send ${indexItems.length} items to FastAPI...`);
     
-    const response = await fetch("http://127.0.0.1:8000/vision/index", {
+    const ML_ENGINE_URL = (process.env.ML_ENGINE_URL || "http://127.0.0.1:8000").replace(/\/$/, "");
+    const response = await fetch(`${ML_ENGINE_URL}/vision/index`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ variants: indexItems })

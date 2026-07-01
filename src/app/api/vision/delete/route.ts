@@ -18,7 +18,8 @@ export async function DELETE(req: NextRequest) {
       return NextResponse.json({ success: false, message: "Missing variantId" }, { status: 400 });
     }
 
-    const fastapiRes = await fetch(`http://127.0.0.1:8000/vision/delete/${variantId}`, {
+    const ML_ENGINE_URL = (process.env.ML_ENGINE_URL || "http://127.0.0.1:8000").replace(/\/$/, "");
+    const fastapiRes = await fetch(`${ML_ENGINE_URL}/vision/delete/${variantId}`, {
       method: "DELETE"
     });
 
