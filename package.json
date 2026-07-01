@@ -11,13 +11,21 @@
   "scripts": {
 
     "dev": "next dev",
+
     "build": "next build",
+
     "start": "next start",
+
     "lint": "eslint .",
+
     "socket": "tsx socket-server.ts",
+
     "ai": ".venv\\Scripts\\python services/ml-engine/main.py",
+
     "seed:admin": "tsx scripts/seed-admin.ts",
+
     "seed:incentives": "tsx scripts/seed-incentives.ts",
+
     "seed:stores": "tsx scripts/seed-stores.ts"
 
   },
@@ -50,9 +58,9 @@
 
     "dotenv": "^17.2.3",
 
-    "firebase": "^12.8.0",
+    "firebase": "^12.15.0",
 
-    "firebase-admin": "^13.6.0",
+    "firebase-admin": "^14.1.0",
 
     "keen-slider": "^6.8.6",
 
