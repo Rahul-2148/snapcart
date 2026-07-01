@@ -12,6 +12,11 @@ from ultralytics import YOLO
 
 class VisionEngine:
     def __init__(self, data_dir: str = None):
+        # Limit PyTorch threads to reduce memory usage on 512MB RAM Free tier
+        import torch
+        torch.set_num_threads(1)
+        torch.set_num_interop_threads(1)
+        
         if data_dir is None:
             self.data_dir = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "data")
         else:
@@ -34,6 +39,10 @@ class VisionEngine:
         self.dino_model = torch.hub.load("facebookresearch/dinov2", "dinov2_vits14")
         self.dino_model.to(self.device)
         self.dino_model.eval()
+        
+        # Force garbage collection to free up memory from loading weights
+        import gc
+        gc.collect()
         
         # DINOv2 VitS14 produces 384 dimensions
         self.dimension = 384
