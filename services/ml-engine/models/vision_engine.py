@@ -4,16 +4,17 @@ import pickle
 import urllib.request
 import numpy as np
 import cv2
-import torch
-import torchvision.transforms as T
 from PIL import Image, ImageFilter
-import faiss
-from ultralytics import YOLO
 
 class VisionEngine:
     def __init__(self, data_dir: str = None):
-        # Limit PyTorch threads to reduce memory usage on 512MB RAM Free tier
+        # Lazy import heavy libraries to prevent memory OOM during FastAPI startup
         import torch
+        import torchvision.transforms as T
+        from ultralytics import YOLO
+        import faiss
+
+        # Limit PyTorch threads to reduce memory usage on 512MB RAM Free tier
         torch.set_num_threads(1)
         torch.set_num_interop_threads(1)
         
@@ -70,6 +71,7 @@ class VisionEngine:
 
     def rebuild_index(self):
         """Reconstructs the FAISS index from the local embeddings database."""
+        import faiss
         self.index = faiss.IndexFlatIP(self.dimension)
         self.variant_mapping = []
         
@@ -162,6 +164,7 @@ class VisionEngine:
 
     def extract_features(self, pil_image: Image.Image) -> np.ndarray:
         """Generates DINOv2 embedding vector for the image."""
+        import torch
         cropped = self.detect_and_crop(pil_image)
         tensor = self.transform(cropped).unsqueeze(0).to(self.device)
         
