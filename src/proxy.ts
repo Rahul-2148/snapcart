@@ -19,6 +19,7 @@ export async function proxy(req: NextRequest) {
     "/user/careers",
     "/api/auth",
     "/api/guest-cart",
+    "/api/chatbot",
     "/api/groceries",
     "/api/categories",
     "/api/banners",

@@ -1,5 +1,7 @@
 import { Provider, ProviderResponse, StreamResponse, calculateCost, estimateTokens } from "./base";
 
+const getReferer = () => process.env.NEXT_PUBLIC_APP_URL || process.env.APP_URL || "http://localhost:3000";
+
 export class OpenRouterProvider implements Provider {
   readonly name = "openrouter";
   private getApiKey(): string {
@@ -15,7 +17,7 @@ export class OpenRouterProvider implements Provider {
     try {
       const apiKey = this.getApiKey();
       const model = options?.preferredModel || "meta-llama/llama-3.3-70b-instruct";
-      
+
       const messages: any[] = [];
       if (options?.systemInstruction) {
         messages.push({ role: "system", content: options.systemInstruction });
@@ -27,7 +29,7 @@ export class OpenRouterProvider implements Provider {
         headers: {
           "Content-Type": "application/json",
           "Authorization": `Bearer ${apiKey}`,
-          "HTTP-Referer": "http://localhost:3000",
+          "HTTP-Referer": getReferer(),
           "X-Title": "Snapcart",
         },
         body: JSON.stringify({
@@ -79,7 +81,7 @@ export class OpenRouterProvider implements Provider {
         headers: {
           "Content-Type": "application/json",
           "Authorization": `Bearer ${apiKey}`,
-          "HTTP-Referer": "http://localhost:3000",
+          "HTTP-Referer": getReferer(),
           "X-Title": "Snapcart",
         },
         body: JSON.stringify({
@@ -168,7 +170,7 @@ export class OpenRouterProvider implements Provider {
         headers: {
           "Content-Type": "application/json",
           "Authorization": `Bearer ${apiKey}`,
-          "HTTP-Referer": "http://localhost:3000",
+          "HTTP-Referer": getReferer(),
           "X-Title": "Snapcart",
         },
         body: JSON.stringify({
