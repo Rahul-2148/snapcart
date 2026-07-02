@@ -4,6 +4,7 @@ import { GroceryVariant } from "@/models/groceryVariant.model";
 import { Grocery } from "@/models/grocery.model";
 
 export const dynamic = "force-dynamic";
+export const maxDuration = 60; // 60 seconds timeout for Vercel Serverless Function to allow Render cold start
 
 export async function POST(req: NextRequest) {
   try {

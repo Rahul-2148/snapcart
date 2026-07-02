@@ -8,6 +8,7 @@ import { ChatSession } from "@/models/chatSession.model";
 import { User } from "@/models/user.model";
 
 export const dynamic = "force-dynamic";
+export const maxDuration = 60; // 60 seconds timeout for Vercel Serverless Function to allow Render cold start
 
 function parseProductContext(value: unknown): ChatProductContext | undefined {
   if (!value || typeof value !== "object") {

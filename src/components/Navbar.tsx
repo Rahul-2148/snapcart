@@ -106,6 +106,60 @@ const Navbar = ({ user: propUser }: NavbarProps = {}) => {
   const [lensPreview, setLensPreview] = useState<string | null>(null);
   const lensInputRef = useRef<HTMLInputElement>(null);
 
+  const compressImage = (file: File): Promise<Blob | File> => {
+    return new Promise((resolve) => {
+      const reader = new FileReader();
+      reader.readAsDataURL(file);
+      reader.onload = (event) => {
+        const img = document.createElement("img");
+        img.src = event.target?.result as string;
+        img.onload = () => {
+          const canvas = document.createElement("canvas");
+          const ctx = canvas.getContext("2d");
+          if (!ctx) {
+            resolve(file);
+            return;
+          }
+
+          const MAX_WIDTH = 800;
+          const MAX_HEIGHT = 800;
+          let width = img.width;
+          let height = img.height;
+
+          if (width > height) {
+            if (width > MAX_WIDTH) {
+              height *= MAX_WIDTH / width;
+              width = MAX_WIDTH;
+            }
+          } else {
+            if (height > MAX_HEIGHT) {
+              width *= MAX_HEIGHT / height;
+              height = MAX_HEIGHT;
+            }
+          }
+
+          canvas.width = width;
+          canvas.height = height;
+          ctx.drawImage(img, 0, 0, width, height);
+
+          canvas.toBlob(
+            (blob) => {
+              if (blob) {
+                resolve(blob);
+              } else {
+                resolve(file);
+              }
+            },
+            "image/jpeg",
+            0.7
+          );
+        };
+        img.onerror = () => resolve(file);
+      };
+      reader.onerror = () => resolve(file);
+    });
+  };
+
   const handleLensUpload = async (file: File) => {
     if (!file || !file.type.startsWith("image/")) {
       toast.error("Please select an image file");
@@ -115,8 +169,9 @@ const Navbar = ({ user: propUser }: NavbarProps = {}) => {
     setLensLoading(true);
     setLensResults([]);
     try {
+      const compressedBlob = await compressImage(file);
       const formData = new FormData();
-      formData.append("file", file);
+      formData.append("file", compressedBlob, "lens_image.jpg");
       formData.append("k", "5");
       const res = await axios.post("/api/vision/search", formData);
       if (res.data?.success && res.data?.matchedItems?.length > 0) {
