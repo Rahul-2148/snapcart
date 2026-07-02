@@ -4,7 +4,7 @@ import { NextRequest, NextResponse } from "next/server";
 
 export async function proxy(req: NextRequest) {
   const { pathname } = req.nextUrl;
-  
+
   // Public routes accessible without logging in
   const publicRoutes = [
     "/",
