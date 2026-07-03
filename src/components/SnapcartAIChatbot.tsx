@@ -1838,9 +1838,27 @@ export default function SnapcartAIChatbot({
     }
 
     const recognition = new SpeechRecognition();
-    recognition.continuous = false;
-    recognition.interimResults = false;
-    recognition.lang = activeMode === "expert" || activeMode === "agent" ? "hi-IN" : "en-IN";
+    recognition.continuous = true;
+    recognition.interimResults = true;
+    const langMap: Record<string, string> = {
+      en: "en-IN",
+      hi: "hi-IN",
+      hinglish: "en-IN",
+      bn: "bn-IN",
+      mr: "mr-IN",
+      ta: "ta-IN",
+      te: "te-IN",
+      kn: "kn-IN",
+      ml: "ml-IN",
+      gu: "gu-IN",
+      pa: "pa-IN",
+      ur: "ur-IN",
+      or: "or-IN",
+      as: "as-IN"
+    };
+    recognition.lang = langMap[chatbotSettings.primaryLanguage] || "en-IN";
+
+    const baseText = input;
 
     recognition.onstart = () => {
       setIsRecording(true);
@@ -1848,9 +1866,22 @@ export default function SnapcartAIChatbot({
     };
 
     recognition.onresult = (event: any) => {
-      const resultText = event.results[0][0].transcript;
-      if (resultText) {
-        setInput((prev) => (prev ? `${prev} ${resultText}` : resultText));
+      let finalTranscript = "";
+      let interimTranscript = "";
+
+      for (let i = event.resultIndex; i < event.results.length; ++i) {
+        const transcript = event.results[i][0].transcript;
+        if (event.results[i].isFinal) {
+          finalTranscript += transcript;
+        } else {
+          interimTranscript += transcript;
+        }
+      }
+
+      const currentSpeech = finalTranscript || interimTranscript;
+      if (currentSpeech) {
+        setInput(baseText ? `${baseText} ${currentSpeech}` : currentSpeech);
+        setTimeout(() => adjustInputHeight(), 10);
       }
     };
 

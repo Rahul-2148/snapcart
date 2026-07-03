@@ -31,7 +31,7 @@ export async function GET(req: NextRequest) {
     if (search && search.trim()) {
       const { generateGeminiEmbedding, SYNONYMS, STOP_WORDS } = await import("@/lib/server/ai/rag");
       
-      const cleanString = search.trim().toLowerCase().replace(/[^a-z0-9\s]/g, "");
+      const cleanString = search.trim().toLowerCase().replace(/[^\p{L}\p{N}\s]/gu, "");
       const keywords = cleanString
         .split(/\s+/)
         .filter((w) => w.length > 1 && !STOP_WORDS.has(w));

@@ -24,6 +24,16 @@ export const SYNONYMS: Record<string, string[]> = {
   "sabzi": ["vegetables", "vegetable", "onion", "potato", "tomato"],
   "grocery": ["groceries", "food", "atta", "oil", "rice", "dal"],
   "groceries": ["grocery", "food", "atta", "oil", "rice", "dal"],
+  // Devanagari mappings
+  "मैनफोर्स": ["manforce", "condom", "condoms"],
+  "दूध": ["milk", "dairy", "dudh", "doodh"],
+  "अमूल": ["amul"],
+  "सेब": ["apple", "apples", "seb"],
+  "आटा": ["flour", "atta", "ashirvaad", "aashirwad"],
+  "अंडा": ["egg", "eggs", "anda"],
+  "चाय": ["tea", "chai"],
+  "दवा": ["medicine", "tablet", "dawa"],
+  "तेल": ["oil"],
 };
 
 export const STOP_WORDS = new Set([
@@ -89,7 +99,7 @@ export async function searchGroceries(query: string, limit: number = 6) {
   // 1. Synonym-expanded keyword regex search
   const keywords = searchString
     .split(/\s+/)
-    .map((w) => w.toLowerCase().replace(/[^a-z0-9]/g, ""))
+    .map((w) => w.toLowerCase().replace(/[^\p{L}\p{N}]/gu, ""))
     .filter((w) => w.length > 1 && !STOP_WORDS.has(w));
 
   const searchTermsSet = new Set<string>();

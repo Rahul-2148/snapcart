@@ -27,7 +27,7 @@ export async function GET(req: NextRequest) {
     // Text search (optional) - allow category/brand filters without search
     if (search && search.trim()) {
       // Build synonym-expanded regex pattern
-      const cleanString = search.trim().toLowerCase().replace(/[^a-z0-9\s]/g, "");
+      const cleanString = search.trim().toLowerCase().replace(/[^\p{L}\p{N}\s]/gu, "");
       const keywords = cleanString
         .split(/\s+/)
         .filter((w) => w.length > 1 && !STOP_WORDS.has(w));
