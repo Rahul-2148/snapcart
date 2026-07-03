@@ -30,9 +30,12 @@ class VisionEngine:
         self.mapping_path = os.path.join(self.data_dir, "variant_mapping.json")
         
         # Load YOLOv8 nano model for product detection
-        # This will automatically download yolov8n.pt if not present locally
-        print("Loading YOLOv8 model...")
-        self.yolo_model = YOLO("yolov8n.pt")
+        self.skip_yolo = os.environ.get("SKIP_YOLO", "true").lower() == "true"
+        if not self.skip_yolo:
+            print("Loading YOLOv8 model...")
+            self.yolo_model = YOLO("yolov8n.pt")
+        else:
+            print("YOLOv8 is skipped (SKIP_YOLO=true). Center-crop fallback enabled.")
         
         # Load DINOv2 model from PyTorch Hub
         print("Loading DINOv2 model...")
@@ -119,6 +122,8 @@ class VisionEngine:
 
     def detect_and_crop(self, pil_image: Image.Image) -> Image.Image:
         """Uses YOLOv8 to locate grocery products in the image and crops the best match."""
+        if self.skip_yolo:
+            return self.preprocess_image(pil_image)
         # Convert PIL to cv2 BGR format
         open_cv_image = np.array(pil_image)
         # Convert RGB to BGR

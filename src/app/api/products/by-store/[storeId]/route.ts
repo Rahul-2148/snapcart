@@ -25,6 +25,33 @@ export async function GET(
     const category = searchParams.get("category") || "";
     const search = searchParams.get("search") || "";
 
+    let synonymRegex: RegExp | null = null;
+    if (search && search.trim()) {
+      const { SYNONYMS, STOP_WORDS } = await import("@/lib/server/ai/rag");
+      
+      const cleanString = search.trim().toLowerCase().replace(/[^a-z0-9\s]/g, "");
+      const keywords = cleanString
+        .split(/\s+/)
+        .filter((w) => w.length > 1 && !STOP_WORDS.has(w));
+
+      const searchTermsSet = new Set<string>();
+      searchTermsSet.add(search.trim());
+
+      for (const word of keywords) {
+        searchTermsSet.add(word);
+        const synonyms = SYNONYMS[word];
+        if (synonyms) {
+          synonyms.forEach((syn) => searchTermsSet.add(syn));
+        }
+      }
+
+      const escapedTerms = Array.from(searchTermsSet).map((term) =>
+        term.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")
+      );
+      const searchPattern = escapedTerms.join("|");
+      synonymRegex = new RegExp(searchPattern, "i");
+    }
+
     // Validate store exists
     const store = await Store.findById(storeId);
     if (!store) {
@@ -43,7 +70,13 @@ export async function GET(
     // If no inventory records, fall back to global products
     if (inventoryCount === 0) {
       const query: any = { isActive: true };
-      if (search) query.name = { $regex: search, $options: "i" };
+      if (synonymRegex) {
+        query.$or = [
+          { name: { $regex: synonymRegex } },
+          { description: { $regex: synonymRegex } },
+          { brand: { $regex: synonymRegex } }
+        ];
+      }
       if (category) {
         const mongoose = (await import("mongoose")).default;
         if (mongoose.Types.ObjectId.isValid(category)) {
@@ -89,11 +122,20 @@ export async function GET(
     // ── Fetch store-specific inventory ──────────────────────────────
     const inventoryQuery: any = { store: storeId, isAvailable: true, stock: { $gt: 0 } };
 
+    const groceryMatchQuery: any = { isActive: true };
+    if (synonymRegex) {
+      groceryMatchQuery.$or = [
+        { name: { $regex: synonymRegex } },
+        { description: { $regex: synonymRegex } },
+        { brand: { $regex: synonymRegex } }
+      ];
+    }
+
     // Get inventory items
     const inventoryItems = await StoreInventory.find(inventoryQuery)
       .populate({
         path: "grocery",
-        match: { isActive: true, ...(search ? { name: { $regex: search, $options: "i" } } : {}) },
+        match: groceryMatchQuery,
         populate: [
           { path: "category", select: "name allowedUnits slug" },
         ],

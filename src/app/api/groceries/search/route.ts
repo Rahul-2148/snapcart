@@ -3,7 +3,7 @@ import { NextRequest, NextResponse } from "next/server";
 import mongoose from "mongoose";
 import connectDb from "@/lib/server/db";
 import { Grocery } from "@/models/grocery.model";
-import { generateGeminiEmbedding } from "@/lib/server/ai/rag";
+import { generateGeminiEmbedding, SYNONYMS, STOP_WORDS } from "@/lib/server/ai/rag";
 
 // 🔥 register related models
 import "@/models/category.model";
@@ -26,6 +26,29 @@ export async function GET(req: NextRequest) {
 
     // Text search (optional) - allow category/brand filters without search
     if (search && search.trim()) {
+      // Build synonym-expanded regex pattern
+      const cleanString = search.trim().toLowerCase().replace(/[^a-z0-9\s]/g, "");
+      const keywords = cleanString
+        .split(/\s+/)
+        .filter((w) => w.length > 1 && !STOP_WORDS.has(w));
+
+      const searchTermsSet = new Set<string>();
+      searchTermsSet.add(search.trim());
+
+      for (const word of keywords) {
+        searchTermsSet.add(word);
+        const synonyms = SYNONYMS[word];
+        if (synonyms) {
+          synonyms.forEach((syn) => searchTermsSet.add(syn));
+        }
+      }
+
+      const escapedTerms = Array.from(searchTermsSet).map((term) =>
+        term.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")
+      );
+      const searchPattern = escapedTerms.join("|");
+      const synonymRegex = new RegExp(searchPattern, "i");
+
       const embedding = await generateGeminiEmbedding(search.trim());
       if (embedding) {
         try {
@@ -52,24 +75,24 @@ export async function GET(req: NextRequest) {
           } else {
             // fallback if vector returns zero items
             query.$or = [
-              { name: { $regex: search.trim(), $options: "i" } },
-              { description: { $regex: search.trim(), $options: "i" } },
-              { brand: { $regex: search.trim(), $options: "i" } },
+              { name: { $regex: synonymRegex } },
+              { description: { $regex: synonymRegex } },
+              { brand: { $regex: synonymRegex } },
             ];
           }
         } catch (vectorError) {
           console.warn("MongoDB Vector Search failed in search API, using fallback:", vectorError);
           query.$or = [
-            { name: { $regex: search.trim(), $options: "i" } },
-            { description: { $regex: search.trim(), $options: "i" } },
-            { brand: { $regex: search.trim(), $options: "i" } },
+            { name: { $regex: synonymRegex } },
+            { description: { $regex: synonymRegex } },
+            { brand: { $regex: synonymRegex } },
           ];
         }
       } else {
         query.$or = [
-          { name: { $regex: search.trim(), $options: "i" } },
-          { description: { $regex: search.trim(), $options: "i" } },
-          { brand: { $regex: search.trim(), $options: "i" } },
+          { name: { $regex: synonymRegex } },
+          { description: { $regex: synonymRegex } },
+          { brand: { $regex: synonymRegex } },
         ];
       }
     } else if (!category && !brand) {

@@ -3,7 +3,7 @@ import { Category } from "@/models/category.model";
 import "@/models/groceryVariant.model"; // Ensure variant model registration
 import { getGatewayEmbeddings } from "./gateway";
 
-const SYNONYMS: Record<string, string[]> = {
+export const SYNONYMS: Record<string, string[]> = {
   "sex": ["condom", "manforce", "intimacy", "contraceptive", "wellness"],
   "sexual": ["condom", "manforce", "intimacy", "contraceptive", "wellness"],
   "condom": ["manforce", "condoms", "intimacy"],
@@ -26,7 +26,7 @@ const SYNONYMS: Record<string, string[]> = {
   "groceries": ["grocery", "food", "atta", "oil", "rice", "dal"],
 };
 
-const STOP_WORDS = new Set([
+export const STOP_WORDS = new Set([
   "what", "is", "your", "the", "a", "an", "and", "or", "but", "to", "for", "of", "in", "on", "at", "by", "with",
   "this", "that", "these", "those", "how", "why", "where", "when", "who", "whom", "which", "are", "you", "me",
   "i", "we", "he", "she", "they", "it", "my", "our", "their", "his", "her", "its", "about", "would", "could",

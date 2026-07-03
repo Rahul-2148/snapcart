@@ -17,7 +17,12 @@ export async function POST(req: NextRequest) {
     if (!userId) {
       // Fallback: guest users get trending/featured items
       await connectDb();
-      const trending = await Grocery.find({ isActive: true, "badges.isFeatured": true }).limit(5).lean();
+      const trending = await Grocery.find({ 
+        isActive: true, 
+        "badges.isFeatured": true,
+        name: { $not: /condom|manforce|contraceptive|intimacy/i },
+        description: { $not: /condom|manforce|contraceptive|intimacy/i }
+      }).limit(5).lean();
       return NextResponse.json({ success: true, type: "trending", recommendations: trending });
     }
 
@@ -103,7 +108,9 @@ export async function POST(req: NextRequest) {
 
           const mlRecommendations = await Grocery.find({
             _id: { $in: groceryIds },
-            isActive: true
+            isActive: true,
+            name: { $not: /condom|manforce|contraceptive|intimacy/i },
+            description: { $not: /condom|manforce|contraceptive|intimacy/i }
           })
             .limit(6)
             .populate("variants")
@@ -126,6 +133,8 @@ export async function POST(req: NextRequest) {
     const recommendations = await Grocery.find({
       category: { $in: categoriesBought },
       isActive: true,
+      name: { $not: /condom|manforce|contraceptive|intimacy/i },
+      description: { $not: /condom|manforce|contraceptive|intimacy/i }
     })
       .limit(6)
       .populate("variants")

@@ -108,7 +108,11 @@ async function runLocalIntelligenceFallback(params: {
     }
   } else if (intent === "recommendation") {
     try {
-      const topProducts = await Grocery.find({ isActive: true })
+      const topProducts = await Grocery.find({ 
+        isActive: true,
+        name: { $not: /condom|manforce|contraceptive|intimacy/i },
+        description: { $not: /condom|manforce|contraceptive|intimacy/i }
+      })
         .populate("variants")
         .limit(6)
         .lean();

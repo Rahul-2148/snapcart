@@ -93,6 +93,16 @@ const ProductsPageContent = () => {
   const [viewMode, setViewMode] = useState<"grid" | "list">("grid");
   const [itemsPerPage, setItemsPerPage] = useState(12);
   const [jumpToPage, setJumpToPage] = useState("");
+  const [selectedIds, setSelectedIds] = useState(
+    searchParams.get("ids") || "",
+  );
+
+  // Sync searchParams with states
+  useEffect(() => {
+    setSelectedIds(searchParams.get("ids") || "");
+    setSearchTerm(searchParams.get("search") || "");
+    setSelectedCategory(searchParams.get("category") || "");
+  }, [searchParams]);
 
   // Fetch user
   useEffect(() => {
@@ -153,6 +163,7 @@ const ProductsPageContent = () => {
       const params: any = {};
       if (searchTerm) params.search = searchTerm;
       if (selectedCategory) params.category = selectedCategory;
+      if (selectedIds) params.ids = selectedIds;
 
       const response = await axios.get("/api/groceries", { params });
       if (response.data.success) {
@@ -164,7 +175,7 @@ const ProductsPageContent = () => {
     } finally {
       setLoading(false);
     }
-  }, [searchTerm, selectedCategory]);
+  }, [searchTerm, selectedCategory, selectedIds]);
 
   useEffect(() => {
     fetchGroceries();

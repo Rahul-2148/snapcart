@@ -175,7 +175,17 @@ const Navbar = ({ user: propUser }: NavbarProps = {}) => {
       formData.append("k", "5");
       const res = await axios.post("/api/vision/search", formData);
       if (res.data?.success && res.data?.matchedItems?.length > 0) {
-        setLensResults(res.data.matchedItems);
+        const productIds = res.data.matchedItems
+          .map((item: any) => item.productId)
+          .filter(Boolean)
+          .join(",");
+        
+        setShowLensModal(false);
+        setLensPreview(null);
+        setLensResults([]);
+        
+        toast.success("Matching products found!");
+        router.push(`/user/products?ids=${productIds}`);
       } else {
         toast.error("No matching products found in store");
       }
