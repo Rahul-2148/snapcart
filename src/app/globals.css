@@ -13,6 +13,7 @@
   -webkit-appearance: none;
   margin: 0;
 }
+
 .noSpin {
   -moz-appearance: textfield;
   appearance: textfield;
@@ -23,8 +24,10 @@
 }
 
 .scrollbar-hide {
-  -ms-overflow-style: none; /* IE and Edge */
-  scrollbar-width: none; /* Firefox */
+  -ms-overflow-style: none;
+  /* IE and Edge */
+  scrollbar-width: none;
+  /* Firefox */
 }
 
 .sidebar-scrollable::-webkit-scrollbar {
@@ -71,12 +74,14 @@
 }
 
 .premium-scroll::-webkit-scrollbar-thumb {
-  background-color: rgba(148, 163, 184, 0.3); /* Slate-400 with opacity */
+  background-color: rgba(148, 163, 184, 0.3);
+  /* Slate-400 with opacity */
   border-radius: 4px;
 }
 
 .premium-scroll::-webkit-scrollbar-thumb:hover {
-  background-color: rgba(100, 116, 139, 0.6); /* Slate-500 */
+  background-color: rgba(100, 116, 139, 0.6);
+  /* Slate-500 */
 }
 
 .premium-scroll::-webkit-scrollbar-track {

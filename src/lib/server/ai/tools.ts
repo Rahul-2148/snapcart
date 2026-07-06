@@ -6,6 +6,7 @@ import { Coupon } from "@/models/coupon.model";
 import { Order } from "@/models/order.model";
 import { OrderItem } from "@/models/orderItem.model";
 import { searchGroceries } from "./rag";
+import { cookies } from "next/headers";
 
 const ML_ENGINE_URL = (process.env.ML_ENGINE_URL || "http://localhost:8000").replace(/\/$/, "");
 
@@ -55,6 +56,55 @@ export const aiTools: Record<string, ToolDefinition> = {
       required: ["items"],
     },
     execute: async (userId: string, args: { items: { variantId: string; quantity: number }[] }) => {
+      if (userId === "000000000000000000000000") {
+        const cookieStore = await cookies();
+        const cartCookie = cookieStore.get("guest_cart");
+        let guestCart: any[] = [];
+        if (cartCookie?.value) {
+          try {
+            guestCart = JSON.parse(cartCookie.value);
+          } catch {}
+        }
+
+        const added = [];
+        for (const item of args.items) {
+          const variant = await GroceryVariant.findById(item.variantId);
+          if (variant) {
+            const idx = guestCart.findIndex((i) => i.variantId === item.variantId);
+            if (idx > -1) {
+              guestCart[idx].quantity = item.quantity;
+            } else {
+              guestCart.push({
+                variantId: item.variantId,
+                quantity: item.quantity,
+                priceAtAdd: {
+                  mrp: variant.price.mrp,
+                  selling: variant.price.selling,
+                },
+              });
+            }
+            added.push({ name: variant.label, quantity: item.quantity });
+          }
+        }
+
+        if (added.length === 0) {
+          return {
+            success: false,
+            message: "Failed to add items to cart. No matching grocery variants were found for the provided variantId(s).",
+          };
+        }
+
+        cookieStore.set("guest_cart", JSON.stringify(guestCart), {
+          httpOnly: true,
+          maxAge: 7 * 24 * 60 * 60,
+          path: "/",
+          sameSite: "strict",
+          secure: process.env.NODE_ENV === "production",
+        });
+
+        return { success: true, message: "Added items to guest cart.", added, guestCart };
+      }
+
       let cart = await Cart.findOne({ user: userId, isActive: true });
       if (!cart) {
         cart = await Cart.create({ user: userId, isActive: true });
@@ -100,6 +150,12 @@ export const aiTools: Record<string, ToolDefinition> = {
       properties: {},
     },
     execute: async (userId: string) => {
+      if (userId === "000000000000000000000000") {
+        const cookieStore = await cookies();
+        cookieStore.delete("guest_cart");
+        cookieStore.delete("guest_coupon");
+        return { success: true, message: "Shopping cart emptied.", guestCart: [], guestCoupon: null };
+      }
       const cart = await Cart.findOne({ user: userId, isActive: true });
       if (cart) {
         await CartItem.deleteMany({ cart: cart._id });
@@ -120,14 +176,48 @@ export const aiTools: Record<string, ToolDefinition> = {
       required: ["code"],
     },
     execute: async (userId: string, args: { code: string }) => {
-      const cart = await Cart.findOne({ user: userId, isActive: true });
-      if (!cart) {
-        return { success: false, message: "No active cart found." };
-      }
-
       const coupon = await Coupon.findOne({ code: args.code.toUpperCase(), isActive: true });
       if (!coupon) {
         return { success: false, message: "Invalid or inactive coupon code." };
+      }
+
+      if (userId === "000000000000000000000000") {
+        const cookieStore = await cookies();
+        const cartCookie = cookieStore.get("guest_cart");
+        let guestCart: any[] = [];
+        if (cartCookie?.value) {
+          try {
+            guestCart = JSON.parse(cartCookie.value);
+          } catch {}
+        }
+        if (guestCart.length === 0) {
+          return { success: false, message: "No active cart found." };
+        }
+        const subtotal = guestCart.reduce((sum, item) => sum + item.priceAtAdd.selling * item.quantity, 0);
+        if (coupon.minCartValue && subtotal < coupon.minCartValue) {
+          return { success: false, message: `Minimum cart value of ₹${coupon.minCartValue} is required to apply this coupon.` };
+        }
+        const guestCoupon = {
+          couponId: coupon._id.toString(),
+          code: coupon.code,
+          discountType: coupon.discountType,
+          discountValue: coupon.discountValue,
+          minCartValue: coupon.minCartValue,
+          maxDiscountAmount: coupon.maxDiscountAmount,
+        };
+        cookieStore.set("guest_coupon", JSON.stringify(guestCoupon), {
+          httpOnly: true,
+          maxAge: 7 * 24 * 60 * 60,
+          path: "/",
+          sameSite: "strict",
+          secure: process.env.NODE_ENV === "production",
+        });
+        return { success: true, message: `Coupon ${coupon.code} applied successfully.`, guestCoupon };
+      }
+
+      const cart = await Cart.findOne({ user: userId, isActive: true });
+      if (!cart) {
+        return { success: false, message: "No active cart found." };
       }
 
       cart.coupon = {
@@ -291,17 +381,34 @@ export const aiTools: Record<string, ToolDefinition> = {
       properties: {},
     },
     execute: async (userId: string) => {
-      const cart = await Cart.findOne({ user: userId, isActive: true });
-      if (!cart) {
-        return { success: false, message: "No active cart found." };
-      }
+      let cartSubTotal = 0;
+      let isGuest = userId === "000000000000000000000000";
+      let guestCart: any[] = [];
+      let cookieStore: any;
 
-      const cartItems = await CartItem.find({ cart: cart._id }).populate({ path: "variant", model: "GroceryVariant" }).lean<{ quantity: number; priceAtAdd: { selling: number } }[]>();
-      if (cartItems.length === 0) {
-        return { success: false, message: "Your cart is empty." };
+      if (isGuest) {
+        cookieStore = await cookies();
+        const cartCookie = cookieStore.get("guest_cart");
+        if (cartCookie?.value) {
+          try {
+            guestCart = JSON.parse(cartCookie.value);
+          } catch {}
+        }
+        if (guestCart.length === 0) {
+          return { success: false, message: "Your cart is empty." };
+        }
+        cartSubTotal = guestCart.reduce((sum, item) => sum + (item.quantity * (item.priceAtAdd?.selling || 0)), 0);
+      } else {
+        const cart = await Cart.findOne({ user: userId, isActive: true });
+        if (!cart) {
+          return { success: false, message: "No active cart found." };
+        }
+        const cartItems = await CartItem.find({ cart: cart._id }).populate({ path: "variant", model: "GroceryVariant" }).lean<{ quantity: number; priceAtAdd: { selling: number } }[]>();
+        if (cartItems.length === 0) {
+          return { success: false, message: "Your cart is empty." };
+        }
+        cartSubTotal = cartItems.reduce((sum, item) => sum + (item.quantity * (item.priceAtAdd?.selling || 0)), 0);
       }
-
-      const cartSubTotal = cartItems.reduce((sum, item) => sum + (item.quantity * (item.priceAtAdd?.selling || 0)), 0);
 
       const coupons = await Coupon.find({ isActive: true });
       let bestCoupon: any = null;
@@ -333,21 +440,45 @@ export const aiTools: Record<string, ToolDefinition> = {
         return { success: false, message: "No eligible discount coupons found for your current cart value." };
       }
 
-      cart.coupon = {
-        couponId: bestCoupon._id,
-        code: bestCoupon.code,
-        discountType: bestCoupon.discountType,
-        discountValue: bestCoupon.discountValue,
-        maxDiscountAmount: bestCoupon.maxDiscountAmount,
-        minCartValue: bestCoupon.minCartValue,
-      };
-      await cart.save();
+      let guestCouponResult = undefined;
+      if (isGuest) {
+        const guestCoupon = {
+          couponId: bestCoupon._id.toString(),
+          code: bestCoupon.code,
+          discountType: bestCoupon.discountType,
+          discountValue: bestCoupon.discountValue,
+          minCartValue: bestCoupon.minCartValue,
+          maxDiscountAmount: bestCoupon.maxDiscountAmount,
+        };
+        cookieStore.set("guest_coupon", JSON.stringify(guestCoupon), {
+          httpOnly: true,
+          maxAge: 7 * 24 * 60 * 60,
+          path: "/",
+          sameSite: "strict",
+          secure: process.env.NODE_ENV === "production",
+        });
+        guestCouponResult = guestCoupon;
+      } else {
+        const cart = await Cart.findOne({ user: userId, isActive: true });
+        if (cart) {
+          cart.coupon = {
+            couponId: bestCoupon._id,
+            code: bestCoupon.code,
+            discountType: bestCoupon.discountType,
+            discountValue: bestCoupon.discountValue,
+            maxDiscountAmount: bestCoupon.maxDiscountAmount,
+            minCartValue: bestCoupon.minCartValue,
+          };
+          await cart.save();
+        }
+      }
 
       return {
         success: true,
         message: `Automatically applied the best coupon: ${bestCoupon.code}.`,
         discountAmount: maxDiscount,
-        couponCode: bestCoupon.code
+        couponCode: bestCoupon.code,
+        guestCoupon: guestCouponResult
       };
     },
   },

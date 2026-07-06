@@ -1,5 +1,6 @@
 import mongoose from "mongoose";
 import { PaymentSession, IPaymentSessionItem } from "@/models/paymentSession.model";
+import { Grocery } from "@/models/grocery.model";
 import { Order } from "@/models/order.model";
 import { OrderItem } from "@/models/orderItem.model";
 import { CouponUsage } from "@/models/couponUsage.model";
@@ -106,6 +107,15 @@ export const createOrderFromPaymentSession = async (
     session: dbSession,
   });
   newOrder.orderItems = insertedOrderItems.map((item) => item._id);
+
+  // Increment sales count for each ordered grocery item
+  for (const item of orderItemsPayload) {
+    await Grocery.findByIdAndUpdate(
+      item.grocery,
+      { $inc: { salesCount: item.quantity } },
+      { session: dbSession }
+    );
+  }
 
   newOrder.paymentDetails.push(paymentDetails);
 

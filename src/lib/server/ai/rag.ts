@@ -80,10 +80,17 @@ function cleanSearchQuery(query: string): string {
   return cleaned.replace(/\s+/g, " ").trim();
 }
 
+const embeddingCache = new Map<string, number[]>();
+
 export async function generateGeminiEmbedding(text: string): Promise<number[] | null> {
+  const cacheKey = text.trim().toLowerCase();
+  if (embeddingCache.has(cacheKey)) {
+    return embeddingCache.get(cacheKey)!;
+  }
   try {
     const embedding = await getGatewayEmbeddings(text);
     if (embedding && embedding.length > 0) {
+      embeddingCache.set(cacheKey, embedding);
       return embedding;
     }
   } catch (error) {

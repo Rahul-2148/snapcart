@@ -301,3 +301,26 @@ export async function DELETE() {
     totals: calculateGuestCartTotals([], 0),
   });
 }
+
+/* ================= PUT (SYNC WHOLE CART & COUPON) ================= */
+export async function PUT(req: NextRequest) {
+  const blocked = await blockIfLoggedIn();
+  if (blocked) return blocked;
+
+  const { items, coupon } = await req.json();
+
+  if (Array.isArray(items)) {
+    await setGuestCart(items);
+  }
+
+  if (coupon === null) {
+    await setGuestCoupon(undefined);
+  } else if (coupon) {
+    await setGuestCoupon(coupon);
+  }
+
+  return NextResponse.json({
+    success: true,
+    message: "Guest cart and coupon synchronized successfully.",
+  });
+}

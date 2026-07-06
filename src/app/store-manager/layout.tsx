@@ -4,12 +4,12 @@
 import { useSession, signOut } from "next-auth/react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { 
-  LayoutDashboard, 
-  ShoppingBag, 
-  Boxes, 
-  LogOut, 
-  Home, 
+import {
+  LayoutDashboard,
+  ShoppingBag,
+  Boxes,
+  LogOut,
+  Home,
   User,
   ShieldCheck,
   Building,
@@ -38,13 +38,11 @@ function SidebarLink({ href, icon, label, isCollapsed }: SidebarLinkProps) {
     <Link
       href={href}
       title={isCollapsed ? label : undefined}
-      className={`flex items-center rounded-xl text-sm font-medium transition-all duration-200 ${
-        isCollapsed ? "justify-center p-3" : "gap-3 px-4 py-3"
-      } ${
-        isActive
+      className={`flex items-center rounded-xl text-sm font-medium transition-all duration-200 ${isCollapsed ? "justify-center p-3" : "gap-3 px-4 py-3"
+        } ${isActive
           ? "bg-green-600 text-white shadow-lg shadow-green-900/20"
           : "text-slate-300 hover:bg-slate-800 hover:text-white"
-      }`}
+        }`}
     >
       <div className="flex-shrink-0">{icon}</div>
       {!isCollapsed && <span className="animate-in fade-in duration-200">{label}</span>}
@@ -155,7 +153,7 @@ export default function StoreManagerLayout({
       if (res.data.success) {
         toast.success(`Switched role to ${targetRole}`);
         await updateSession({ currentRole: targetRole });
-        
+
         // Redirect based on role
         if (targetRole === "admin") router.push("/admin");
         else if (targetRole === "deliveryBoy") router.push("/delivery-boy");
@@ -195,7 +193,7 @@ export default function StoreManagerLayout({
   return (
     <div className="min-h-screen bg-slate-50 flex">
       {/* Dark Sidebar Panel */}
-      <aside 
+      <aside
         style={{
           width: isCollapsed ? '80px' : '280px',
           transition: 'width 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94)',
@@ -219,7 +217,7 @@ export default function StoreManagerLayout({
                 </div>
               )}
             </div>
-            
+
             {!isCollapsed && (
               <button
                 onClick={toggleCollapse}
@@ -244,7 +242,7 @@ export default function StoreManagerLayout({
 
           {/* User badge */}
           <div className={`p-2.5 bg-slate-800 rounded-xl flex items-center border border-slate-700/50 ${isCollapsed ? 'justify-center' : 'gap-3'}`}>
-            <div 
+            <div
               className="w-8 h-8 rounded-full bg-slate-700 flex items-center justify-center text-xs font-bold text-white uppercase flex-shrink-0"
               title={isCollapsed ? `${session.user?.name} (${session.user?.email})` : undefined}
             >
@@ -264,28 +262,28 @@ export default function StoreManagerLayout({
 
           {/* Navigation Links */}
           <nav className="space-y-1">
-            <SidebarLink 
-              href="/store-manager" 
-              icon={<LayoutDashboard className="w-5 h-5" />} 
-              label="Dashboard" 
+            <SidebarLink
+              href="/store-manager"
+              icon={<LayoutDashboard className="w-5 h-5" />}
+              label="Dashboard"
               isCollapsed={isCollapsed}
             />
-            <SidebarLink 
-              href="/store-manager/orders" 
-              icon={<ShoppingBag className="w-5 h-5" />} 
-              label="Store Orders" 
+            <SidebarLink
+              href="/store-manager/orders"
+              icon={<ShoppingBag className="w-5 h-5" />}
+              label="Store Orders"
               isCollapsed={isCollapsed}
             />
-            <SidebarLink 
-              href="/store-manager/inventory" 
-              icon={<Boxes className="w-5 h-5" />} 
-              label="Inventory Levels" 
+            <SidebarLink
+              href="/store-manager/inventory"
+              icon={<Boxes className="w-5 h-5" />}
+              label="Inventory Levels"
               isCollapsed={isCollapsed}
             />
-            <SidebarLink 
-              href="/store-manager/staff" 
-              icon={<User className="w-5 h-5" />} 
-              label="Staff Registry" 
+            <SidebarLink
+              href="/store-manager/staff"
+              icon={<User className="w-5 h-5" />}
+              label="Staff Registry"
               isCollapsed={isCollapsed}
             />
           </nav>
@@ -298,9 +296,8 @@ export default function StoreManagerLayout({
             <button
               onClick={() => handleSwitchRole("admin")}
               title={isCollapsed ? "Switch to Admin Panel" : undefined}
-              className={`w-full flex items-center text-xs font-semibold text-slate-400 hover:bg-slate-800 hover:text-white rounded-lg transition text-left cursor-pointer ${
-                isCollapsed ? 'justify-center py-2' : 'gap-2 px-3 py-2'
-              }`}
+              className={`w-full flex items-center text-xs font-semibold text-slate-400 hover:bg-slate-800 hover:text-white rounded-lg transition text-left cursor-pointer ${isCollapsed ? 'justify-center py-2' : 'gap-2 px-3 py-2'
+                }`}
             >
               <ShieldCheck className="w-4 h-4 text-blue-400 flex-shrink-0" />
               {!isCollapsed && <span className="animate-in fade-in duration-200">Switch to Admin Panel</span>}
@@ -310,9 +307,8 @@ export default function StoreManagerLayout({
             <button
               onClick={() => handleSwitchRole("user")}
               title={isCollapsed ? "Switch to Customer App" : undefined}
-              className={`w-full flex items-center text-xs font-semibold text-slate-400 hover:bg-slate-800 hover:text-white rounded-lg transition text-left cursor-pointer ${
-                isCollapsed ? 'justify-center py-2' : 'gap-2 px-3 py-2'
-              }`}
+              className={`w-full flex items-center text-xs font-semibold text-slate-400 hover:bg-slate-800 hover:text-white rounded-lg transition text-left cursor-pointer ${isCollapsed ? 'justify-center py-2' : 'gap-2 px-3 py-2'
+                }`}
             >
               <Home className="w-4 h-4 text-green-400 flex-shrink-0" />
               {!isCollapsed && <span className="animate-in fade-in duration-200">Switch to Customer App</span>}
@@ -323,9 +319,8 @@ export default function StoreManagerLayout({
           <button
             onClick={() => signOut({ callbackUrl: "/login" })}
             title={isCollapsed ? "Logout" : undefined}
-            className={`w-full flex items-center bg-red-500/10 hover:bg-red-500/20 text-red-400 rounded-xl text-sm font-semibold transition text-left cursor-pointer ${
-              isCollapsed ? 'justify-center py-3' : 'gap-3 px-4 py-2.5'
-            }`}
+            className={`w-full flex items-center bg-red-500/10 hover:bg-red-500/20 text-red-400 rounded-xl text-sm font-semibold transition text-left cursor-pointer ${isCollapsed ? 'justify-center py-3' : 'gap-3 px-4 py-2.5'
+              }`}
           >
             <LogOut className="w-5 h-5 flex-shrink-0" />
             {!isCollapsed && <span className="animate-in fade-in duration-200">Logout</span>}
@@ -385,11 +380,10 @@ export default function StoreManagerLayout({
                       <button
                         key={t}
                         onClick={() => setNotifFilter(t)}
-                        className={`px-2.5 py-1 text-[10px] font-bold rounded-lg transition uppercase tracking-wider cursor-pointer ${
-                          notifFilter === t
+                        className={`px-2.5 py-1 text-[10px] font-bold rounded-lg transition uppercase tracking-wider cursor-pointer ${notifFilter === t
                             ? 'bg-green-600 text-white shadow-sm animate-in zoom-in-95 duration-100'
                             : 'bg-white text-slate-500 hover:bg-slate-100 hover:text-slate-800 border border-slate-200'
-                        }`}
+                          }`}
                       >
                         {t}
                       </button>
@@ -420,9 +414,8 @@ export default function StoreManagerLayout({
                               setIsNotifOpen(false);
                             }
                           }}
-                          className={`px-4 py-3 flex flex-col gap-1 transition cursor-pointer hover:bg-slate-50 ${
-                            n.read ? 'bg-white text-slate-600' : 'bg-green-50/40 text-slate-800 font-medium'
-                          }`}
+                          className={`px-4 py-3 flex flex-col gap-1 transition cursor-pointer hover:bg-slate-50 ${n.read ? 'bg-white text-slate-600' : 'bg-green-50/40 text-slate-800 font-medium'
+                            }`}
                         >
                           <div className="flex justify-between items-start">
                             <p className="text-xs leading-tight">{n.message}</p>

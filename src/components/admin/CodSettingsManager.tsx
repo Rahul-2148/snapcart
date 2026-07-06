@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState } from "react";
-import { Settings, Truck, DollarSign, Check, X, Loader2 } from "lucide-react";
+import { Settings, Truck, IndianRupee, Check, X, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import axios from "axios";
 import { motion } from "motion/react";
@@ -143,7 +143,7 @@ export const CodSettingsManager: React.FC<CodSettingsManagerProps> = ({
                   Handling Charge (₹)
                 </label>
                 <div className="flex items-center gap-2">
-                  <DollarSign className="w-5 h-5 text-gray-400" />
+                  <IndianRupee className="w-5 h-5 text-gray-400" />
                   <input
                     type="number"
                     min="0"

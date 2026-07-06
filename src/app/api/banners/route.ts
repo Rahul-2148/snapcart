@@ -6,8 +6,23 @@ import uploadOnCloudinary, {
 } from "@/lib/server/cloudinary";
 import { Banner } from "@/models/banner.model";
 
+let cachedBanners: any = null;
+let lastFetchedBanners = 0;
+
 export async function GET(req: NextRequest) {
   try {
+    const now = Date.now();
+    // Cache for 30 seconds
+    if (cachedBanners && now - lastFetchedBanners < 30000) {
+      return NextResponse.json(
+        {
+          success: true,
+          banners: cachedBanners,
+        },
+        { status: 200 }
+      );
+    }
+
     await connectDb();
 
     // Get all active banners sorted by order
@@ -15,11 +30,12 @@ export async function GET(req: NextRequest) {
       .sort({ order: 1, createdAt: -1 })
       .select(
         "_id title subtitle buttonText image order icon iconColor createdAt updatedAt",
-      );
+      )
+      .lean();
 
     // Ensure icon field exists with proper value
     const bannersWithIcon = banners.map((banner: any) => {
-      const bannerObj = banner.toObject();
+      const bannerObj = { ...banner };
       // Ensure icon is a string (not null/undefined)
       bannerObj.icon =
         bannerObj.icon && String(bannerObj.icon).trim()
@@ -27,6 +43,9 @@ export async function GET(req: NextRequest) {
           : "";
       return bannerObj;
     });
+
+    cachedBanners = bannersWithIcon;
+    lastFetchedBanners = now;
 
     return NextResponse.json(
       {

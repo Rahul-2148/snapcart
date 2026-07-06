@@ -179,11 +179,11 @@ const Navbar = ({ user: propUser }: NavbarProps = {}) => {
           .map((item: any) => item.productId)
           .filter(Boolean)
           .join(",");
-        
+
         setShowLensModal(false);
         setLensPreview(null);
         setLensResults([]);
-        
+
         toast.success("Matching products found!");
         router.push(`/user/products?ids=${productIds}`);
       } else {
@@ -421,27 +421,27 @@ const Navbar = ({ user: propUser }: NavbarProps = {}) => {
   return (
     <>
       <div className="w-[95%] fixed top-4 left-1/2 -translate-x-1/2 bg-green-600 text-white rounded-2xl shadow-lg shadow-black/30 flex justify-between items-start md:items-center h-20 px-4 py-2.5 md:py-0 md:px-8 z-50">
-      {/* Left side: Logo & Address stacked on mobile, inline on desktop */}
-      <div className="flex flex-col items-start justify-start md:flex-row md:items-center gap-0 md:gap-4 leading-none flex-grow md:flex-grow-0 min-w-0 mr-2 md:mr-0 pt-1 md:pt-0">
-        <Link
-          href={"/"}
-          className="font-extrabold text-xl sm:text-2xl md:text-3xl tracking-wide hover:scale-105 transition-transform whitespace-nowrap"
-        >
-          Snapcart
-        </Link>
+        {/* Left side: Logo & Address stacked on mobile, inline on desktop */}
+        <div className="flex flex-col items-start justify-start md:flex-row md:items-center gap-0 md:gap-4 leading-none flex-grow md:flex-grow-0 min-w-0 mr-2 md:mr-0 pt-1 md:pt-0">
+          <Link
+            href={"/"}
+            className="font-extrabold text-xl sm:text-2xl md:text-3xl tracking-wide hover:scale-105 transition-transform whitespace-nowrap"
+          >
+            Snapcart
+          </Link>
 
-        {/* Location Header - Show for guests and users */}
-        {(!authenticatedUser ||
+          {/* Location Header - Show for guests and users */}
+          {(!authenticatedUser ||
+            authenticatedUser.currentRole === "user" ||
+            authenticatedUser.roles?.includes("user")) && <LocationHeader />}
+        </div>
+
+        {/* Desktop Search Bar - Show for guests and users */}
+        {!authenticatedUser ||
           authenticatedUser.currentRole === "user" ||
-          authenticatedUser.roles?.includes("user")) && <LocationHeader />}
-      </div>
-
-      {/* Desktop Search Bar - Show for guests and users */}
-      {!authenticatedUser ||
-      authenticatedUser.currentRole === "user" ||
-      authenticatedUser.roles?.includes("user") ? (
-        <div className="hidden md:flex items-center justify-center flex-1">
-          <div className="relative w-96">
+          authenticatedUser.roles?.includes("user") ? (
+          <div className="hidden md:flex items-center justify-center flex-1">
+            <div className="relative w-96">
               <div className="flex items-center bg-white rounded-full px-4 py-2 w-full shadow-md relative">
                 <Search className="text-gray-500 w-5 h-5 mr-2 flex-shrink-0" />
                 <div className="relative flex-1 h-6 overflow-hidden">
@@ -627,611 +627,607 @@ const Navbar = ({ user: propUser }: NavbarProps = {}) => {
           </div>
         ) : null}
 
-      <div className="flex items-center gap-2 sm:gap-3 md:gap-6 pt-1 md:pt-0 flex-shrink-0">
-        {/* search, notifications & cart for user and guests */}
-        {!authenticatedUser || authenticatedUser?.currentRole === "user" ? (
-          <>
-            <div
-              className="bg-white rounded-full w-9 h-9 sm:w-10 sm:h-10 md:w-11 md:h-11 flex items-center justify-center shadow-md hover:scale-105 transition md:hidden cursor-pointer"
-              onClick={() => setSearchBarOpen((prev) => !prev)}
-            >
-              <Search className="text-green-600 w-5 h-5 md:w-6 md:h-6" />
-            </div>
-            <Link
-              href={"/user/cart"}
-              className="relative bg-white rounded-full w-9 h-9 sm:w-10 sm:h-10 md:w-11 md:h-11 flex items-center justify-center shadow-md hover:scale-105 transition"
-            >
-              <ShoppingCartIcon className="text-green-600 w-5 h-5 md:w-6 md:h-6" />
-              <span className="absolute -top-1 -right-1 bg-red-500 text-white text-[9px] md:text-xs w-4 h-4 md:w-5 md:h-5 flex items-center justify-center rounded-full font-semibold shadow">
-                {totalItems || 0}
-              </span>
-            </Link>
-          </>
-        ) : null}
-
-        {/* Notifications for all roles */}
-        <div
-          className="relative"
-          onMouseEnter={() => setShowNotifications(true)}
-          onMouseLeave={() => setShowNotifications(false)}
-          ref={notificationDropdownRef} // Keep ref on the parent container for better hover area
-        >
-          <div
-            className="relative bg-white rounded-full w-9 h-9 sm:w-10 sm:h-10 md:w-11 md:h-11 flex items-center justify-center shadow-md hover:scale-105 transition-transform cursor-pointer" // Added cursor-pointer
-            onClick={() => setShowNotifications((prev) => !prev)}
-          >
-            <Bell className="text-green-600 w-5 h-5 md:w-6 md:h-6" />
-            {unreadCount > 0 && (
-              <span className="absolute -top-1 -right-1 bg-red-500 text-white text-[9px] md:text-xs w-4 h-4 md:w-5 md:h-5 flex items-center justify-center rounded-full font-semibold shadow">
-                {unreadCount}
-              </span>
-            )}
-          </div>
-          <AnimatePresence>
-            {showNotifications && (
-              <motion.div
-                initial={{ opacity: 0, y: -10, scale: 0.8 }}
-                animate={{ opacity: 1, y: 0, scale: 1 }}
-                exit={{ opacity: 0, y: -10, scale: 0.8 }}
-                className="absolute right-0 mt-3 w-80 bg-white rounded-2xl shadow-xl border border-gray-200 p-3 z-[9999] max-h-96 overflow-y-auto"
+        <div className="flex items-center gap-2 sm:gap-3 md:gap-6 pt-1 md:pt-0 flex-shrink-0">
+          {/* search, notifications & cart for user and guests */}
+          {!authenticatedUser || authenticatedUser?.currentRole === "user" ? (
+            <>
+              <div
+                className="bg-white rounded-full w-9 h-9 sm:w-10 sm:h-10 md:w-11 md:h-11 flex items-center justify-center shadow-md hover:scale-105 transition md:hidden cursor-pointer"
+                onClick={() => setSearchBarOpen((prev) => !prev)}
               >
-                <h3 className="font-semibold text-lg mb-3 text-gray-800">
-                  Notifications
-                </h3>
-                
-                {!authenticatedUser?._id ? (
-                  <div className="flex flex-col items-center justify-center py-6 text-center">
-                    <div className="bg-green-50 p-4 rounded-full mb-3">
-                      <Bell className="w-8 h-8 text-green-500 opacity-80" />
-                    </div>
-                    <h4 className="text-gray-800 font-semibold mb-1">Welcome to Snapcart! 👋</h4>
-                    <p className="text-gray-500 text-sm mb-4 px-2">
-                      Please log in to view your personalized notifications, track orders, and discover exclusive offers.
-                    </p>
-                    <Link
-                      href="/login"
-                      className="bg-green-600 text-white px-6 py-2 rounded-xl text-sm font-semibold hover:bg-green-700 transition shadow-sm"
-                      onClick={() => setShowNotifications(false)}
-                    >
-                      Log In / Sign Up
-                    </Link>
-                  </div>
-                ) : (
-                  <>
-                    {/* Filter Tabs */}
-                    <div className="flex gap-1.5 border-b border-gray-100 pb-2 mb-3">
-                      {(["all", "unread", "read"] as const).map((t) => (
-                        <button
-                          type="button"
-                          key={t}
-                          onClick={() => setFilter(t)}
-                          className={`px-3 py-1.5 text-[10px] font-bold rounded-xl transition uppercase tracking-wider cursor-pointer ${
-                            filter === t
-                              ? "bg-green-600 text-white shadow-sm shadow-green-600/10"
-                              : "bg-gray-100 text-gray-500 hover:bg-gray-200 hover:text-gray-800"
-                          }`}
-                        >
-                          {t}
-                        </button>
-                      ))}
-                    </div>
+                <Search className="text-green-600 w-5 h-5 md:w-6 md:h-6" />
+              </div>
+              <Link
+                href={"/user/cart"}
+                className="relative bg-white rounded-full w-9 h-9 sm:w-10 sm:h-10 md:w-11 md:h-11 flex items-center justify-center shadow-md hover:scale-105 transition"
+              >
+                <ShoppingCartIcon className="text-green-600 w-5 h-5 md:w-6 md:h-6" />
+                <span className="absolute -top-1 -right-1 bg-red-500 text-white text-[9px] md:text-xs w-4 h-4 md:w-5 md:h-5 flex items-center justify-center rounded-full font-semibold shadow">
+                  {totalItems || 0}
+                </span>
+              </Link>
+            </>
+          ) : null}
 
-                    {filteredNotifications.length === 0 ? (
-                      <p className="text-gray-500 text-sm py-4 text-center">No notifications found.</p>
-                    ) : (
-                      <>
-                        <button
-                          onClick={async () => {
-                        try {
-                          await axios.put("/api/notifications/read-all");
-                          setNotifications(
-                            notifications.map((n) => ({ ...n, read: true })),
-                          );
-                          setUnreadCount(0);
-                        } catch (error) {
-                          console.error("Error marking all as read:", error);
-                        }
-                      }}
-                      className="w-full text-right text-sm text-green-600 hover:text-green-800 mb-2 cursor-pointer font-semibold"
-                    >
-                      Mark all as read
-                    </button>
-                    {filteredNotifications.map((notification) => (
-                      <div
-                        key={notification._id as any}
-                        onClick={async () => {
-                          if (!notification.read) {
-                            try {
-                              await axios.put(
-                                `/api/notifications/${notification._id}/read`,
-                              );
-                              setNotifications((prev) =>
-                                prev.map((n) =>
-                                  n._id === notification._id
-                                    ? { ...n, read: true }
-                                    : n,
-                                ),
-                              );
-                              setUnreadCount((prev) => prev - 1);
-                            } catch (error) {
-                              console.error(
-                                "Error marking notification as read:",
-                                error,
-                              );
-                            }
-                          }
-                          if (notification.link) {
-                            window.location.href = notification.link;
-                          }
-                        }}
-                        className={`p-2.5 rounded-xl mb-2 cursor-pointer ${
-                          notification.read
-                            ? "bg-gray-50 text-gray-600 border border-gray-100"
-                            : "bg-green-50/50 text-gray-800 font-medium border border-green-100/50"
-                        } hover:bg-green-100/50 transition-all`}
+          {/* Notifications for all roles */}
+          <div
+            className="relative"
+            onMouseEnter={() => setShowNotifications(true)}
+            onMouseLeave={() => setShowNotifications(false)}
+            ref={notificationDropdownRef} // Keep ref on the parent container for better hover area
+          >
+            <div
+              className="relative bg-white rounded-full w-9 h-9 sm:w-10 sm:h-10 md:w-11 md:h-11 flex items-center justify-center shadow-md hover:scale-105 transition-transform cursor-pointer" // Added cursor-pointer
+              onClick={() => setShowNotifications((prev) => !prev)}
+            >
+              <Bell className="text-green-600 w-5 h-5 md:w-6 md:h-6" />
+              {unreadCount > 0 && (
+                <span className="absolute -top-1 -right-1 bg-red-500 text-white text-[9px] md:text-xs w-4 h-4 md:w-5 md:h-5 flex items-center justify-center rounded-full font-semibold shadow">
+                  {unreadCount}
+                </span>
+              )}
+            </div>
+            <AnimatePresence>
+              {showNotifications && (
+                <motion.div
+                  initial={{ opacity: 0, y: -10, scale: 0.8 }}
+                  animate={{ opacity: 1, y: 0, scale: 1 }}
+                  exit={{ opacity: 0, y: -10, scale: 0.8 }}
+                  className="absolute right-0 mt-3 w-80 bg-white rounded-2xl shadow-xl border border-gray-200 p-3 z-[9999] max-h-96 overflow-y-auto"
+                >
+                  <h3 className="font-semibold text-lg mb-3 text-gray-800">
+                    Notifications
+                  </h3>
+
+                  {!authenticatedUser?._id ? (
+                    <div className="flex flex-col items-center justify-center py-6 text-center">
+                      <div className="bg-green-50 p-4 rounded-full mb-3">
+                        <Bell className="w-8 h-8 text-green-500 opacity-80" />
+                      </div>
+                      <h4 className="text-gray-800 font-semibold mb-1">Welcome to Snapcart! 👋</h4>
+                      <p className="text-gray-500 text-sm mb-4 px-2">
+                        Please log in to view your personalized notifications, track orders, and discover exclusive offers.
+                      </p>
+                      <Link
+                        href="/login"
+                        className="bg-green-600 text-white px-6 py-2 rounded-xl text-sm font-semibold hover:bg-green-700 transition shadow-sm"
+                        onClick={() => setShowNotifications(false)}
                       >
-                        <div className="flex justify-between items-center mb-1">
-                          <p className="text-sm">{notification.message}</p>
-                          <span className="text-[9px] text-green-600 bg-green-100 px-2 py-0.5 rounded-full uppercase font-bold tracking-wider">
-                            {notification.type}
-                          </span>
-                        </div>
+                        Log In / Sign Up
+                      </Link>
+                    </div>
+                  ) : (
+                    <>
+                      {/* Filter Tabs */}
+                      <div className="flex gap-1.5 border-b border-gray-100 pb-2 mb-3">
+                        {(["all", "unread", "read"] as const).map((t) => (
+                          <button
+                            type="button"
+                            key={t}
+                            onClick={() => setFilter(t)}
+                            className={`px-3 py-1.5 text-[10px] font-bold rounded-xl transition uppercase tracking-wider cursor-pointer ${filter === t
+                                ? "bg-green-600 text-white shadow-sm shadow-green-600/10"
+                                : "bg-gray-100 text-gray-500 hover:bg-gray-200 hover:text-gray-800"
+                              }`}
+                          >
+                            {t}
+                          </button>
+                        ))}
+                      </div>
 
-                        <p className="text-[10px] text-gray-400 mt-1">
-                          {new Date(notification.createdAt).toLocaleString()}
+                      {filteredNotifications.length === 0 ? (
+                        <p className="text-gray-500 text-sm py-4 text-center">No notifications found.</p>
+                      ) : (
+                        <>
+                          <button
+                            onClick={async () => {
+                              try {
+                                await axios.put("/api/notifications/read-all");
+                                setNotifications(
+                                  notifications.map((n) => ({ ...n, read: true })),
+                                );
+                                setUnreadCount(0);
+                              } catch (error) {
+                                console.error("Error marking all as read:", error);
+                              }
+                            }}
+                            className="w-full text-right text-sm text-green-600 hover:text-green-800 mb-2 cursor-pointer font-semibold"
+                          >
+                            Mark all as read
+                          </button>
+                          {filteredNotifications.map((notification) => (
+                            <div
+                              key={notification._id as any}
+                              onClick={async () => {
+                                if (!notification.read) {
+                                  try {
+                                    await axios.put(
+                                      `/api/notifications/${notification._id}/read`,
+                                    );
+                                    setNotifications((prev) =>
+                                      prev.map((n) =>
+                                        n._id === notification._id
+                                          ? { ...n, read: true }
+                                          : n,
+                                      ),
+                                    );
+                                    setUnreadCount((prev) => prev - 1);
+                                  } catch (error) {
+                                    console.error(
+                                      "Error marking notification as read:",
+                                      error,
+                                    );
+                                  }
+                                }
+                                if (notification.link) {
+                                  window.location.href = notification.link;
+                                }
+                              }}
+                              className={`p-2.5 rounded-xl mb-2 cursor-pointer ${notification.read
+                                  ? "bg-gray-50 text-gray-600 border border-gray-100"
+                                  : "bg-green-50/50 text-gray-800 font-medium border border-green-100/50"
+                                } hover:bg-green-100/50 transition-all`}
+                            >
+                              <div className="flex justify-between items-center mb-1">
+                                <p className="text-sm">{notification.message}</p>
+                                <span className="text-[9px] text-green-600 bg-green-100 px-2 py-0.5 rounded-full uppercase font-bold tracking-wider">
+                                  {notification.type}
+                                </span>
+                              </div>
+
+                              <p className="text-[10px] text-gray-400 mt-1">
+                                {new Date(notification.createdAt).toLocaleString()}
+                              </p>
+                            </div>
+                          ))}
+                        </>
+                      )}
+                    </>
+                  )}
+                </motion.div>
+              )}
+            </AnimatePresence>
+          </div>
+
+          {/* admin */}
+          {authenticatedUser &&
+            (authenticatedUser.currentRole === "admin" ||
+              authenticatedUser.roles?.includes("admin")) && (
+              <div className="flex items-center gap-2">
+                <Link
+                  href="/admin"
+                  className="flex items-center gap-2 px-4 py-2 bg-purple-100 text-purple-700 rounded-lg font-semibold hover:bg-purple-200 transition-colors text-sm"
+                >
+                  Admin Dashboard
+                </Link>
+              </div>
+            )}
+
+          {/* profile dropdown */}
+          <div className="relative" ref={profileDropdown}>
+            <div
+              className="bg-white rounded-full w-9 h-9 sm:w-10 sm:h-10 md:w-11 md:h-11 flex items-center justify-center overflow-hidden shadow-md hover:scale-105 transition-transform cursor-pointer"
+              onClick={() => setOpen((prev) => !prev)}
+            >
+              {authenticatedUser?.image?.url || session?.user?.image ? (
+                <div className="relative w-full h-full">
+                  <Image
+                    src={authenticatedUser?.image?.url || session?.user?.image || ""}
+                    alt="user"
+                    fill
+                    className="object-cover rounded-full"
+                    unoptimized
+                  />
+                </div>
+              ) : (
+                <User className="text-green-600 w-5 h-5 md:w-6 md:h-6" />
+              )}
+            </div>
+
+            {/* dropdown */}
+            <AnimatePresence>
+              {open && (
+                <motion.div
+                  initial={{ opacity: 0, y: -10, scale: 0.8 }}
+                  animate={{ opacity: 1, y: 0, scale: 1 }}
+                  exit={{ opacity: 0, y: -10, scale: 0.8 }}
+                  className="absolute right-0 mt-3 w-56 bg-white rounded-2xl shadow-xl border border-gray-200 p-3 z-999"
+                >
+                  {/* GUEST USER - Show Login/Signup */}
+                  {!authenticatedUser ? (
+                    <>
+                      <div className="border-b border-gray-100 pb-3 mb-3 text-center">
+                        <p className="text-gray-700 text-sm font-semibold mb-3">
+                          Welcome to Snapcart!
+                        </p>
+                        <Link
+                          href={"/login"}
+                          className="block w-full bg-green-600 text-white py-2 rounded-lg font-semibold hover:bg-green-700 transition mb-2 text-sm"
+                          onClick={() => setOpen(false)}
+                        >
+                          Login
+                        </Link>
+                        <Link
+                          href={"/register"}
+                          className="block w-full bg-gray-100 text-green-600 py-2 rounded-lg font-semibold hover:bg-gray-200 transition text-sm"
+                          onClick={() => setOpen(false)}
+                        >
+                          Sign Up
+                        </Link>
+                      </div>
+                      <div className="text-center px-2 py-2">
+                        <p className="text-xs text-gray-500">
+                          💡 Continue as guest to add items to cart
                         </p>
                       </div>
-                    ))}
-                  </>
-                )}
-                  </>
-                )}
-              </motion.div>
-            )}
-          </AnimatePresence>
-        </div>
+                    </>
+                  ) : (
+                    <>
+                      {/* LOGGED IN USER - Show profile details and options */}
+                      <div className="flex items-center gap-3 px-3 py-2 border-b border-gray-100">
+                        <div className="w-10 h-10 rounded-full bg-green-100 flex items-center justify-center overflow-hidden relative flex-shrink-0">
+                          {authenticatedUser?.image?.url || session?.user?.image ? (
+                            <Image
+                              src={authenticatedUser?.image?.url || session?.user?.image || ""}
+                              width={40}
+                              height={40}
+                              alt={authenticatedUser?.name || session?.user?.name || "user"}
+                              className="object-cover rounded-full"
+                              referrerPolicy="no-referrer"
+                              unoptimized
+                            />
+                          ) : (
+                            <User className="text-green-600" />
+                          )}
+                        </div>
+                        <div>
+                          <div className="text-gray-800 font-semibold text-sm">
+                            {authenticatedUser?.name || "User"}
+                          </div>
+                          <div className="text-xs text-gray-500 capitalize">
+                            {authenticatedUser?.currentRole ||
+                              authenticatedUser?.roles?.[0] ||
+                              "user"}
+                          </div>
+                        </div>
+                      </div>
 
-        {/* admin */}
-        {authenticatedUser &&
-          (authenticatedUser.currentRole === "admin" ||
-            authenticatedUser.roles?.includes("admin")) && (
-            <div className="flex items-center gap-2">
-              <Link
-                href="/admin"
-                className="flex items-center gap-2 px-4 py-2 bg-purple-100 text-purple-700 rounded-lg font-semibold hover:bg-purple-200 transition-colors text-sm"
-              >
-                Admin Dashboard
-              </Link>
-            </div>
-          )}
-
-        {/* profile dropdown */}
-        <div className="relative" ref={profileDropdown}>
-          <div
-            className="bg-white rounded-full w-9 h-9 sm:w-10 sm:h-10 md:w-11 md:h-11 flex items-center justify-center overflow-hidden shadow-md hover:scale-105 transition-transform cursor-pointer"
-            onClick={() => setOpen((prev) => !prev)}
-          >
-            {authenticatedUser?.image?.url || session?.user?.image ? (
-              <div className="relative w-full h-full">
-                <Image
-                  src={authenticatedUser?.image?.url || session?.user?.image || ""}
-                  alt="user"
-                  fill
-                  className="object-cover rounded-full"
-                  unoptimized
-                />
-              </div>
-            ) : (
-              <User className="text-green-600 w-5 h-5 md:w-6 md:h-6" />
-            )}
-          </div>
-
-          {/* dropdown */}
-          <AnimatePresence>
-            {open && (
-              <motion.div
-                initial={{ opacity: 0, y: -10, scale: 0.8 }}
-                animate={{ opacity: 1, y: 0, scale: 1 }}
-                exit={{ opacity: 0, y: -10, scale: 0.8 }}
-                className="absolute right-0 mt-3 w-56 bg-white rounded-2xl shadow-xl border border-gray-200 p-3 z-999"
-              >
-                {/* GUEST USER - Show Login/Signup */}
-                {!authenticatedUser ? (
-                  <>
-                    <div className="border-b border-gray-100 pb-3 mb-3 text-center">
-                      <p className="text-gray-700 text-sm font-semibold mb-3">
-                        Welcome to Snapcart!
-                      </p>
-                      <Link
-                        href={"/login"}
-                        className="block w-full bg-green-600 text-white py-2 rounded-lg font-semibold hover:bg-green-700 transition mb-2 text-sm"
-                        onClick={() => setOpen(false)}
-                      >
-                        Login
-                      </Link>
-                      <Link
-                        href={"/register"}
-                        className="block w-full bg-gray-100 text-green-600 py-2 rounded-lg font-semibold hover:bg-gray-200 transition text-sm"
-                        onClick={() => setOpen(false)}
-                      >
-                        Sign Up
-                      </Link>
-                    </div>
-                    <div className="text-center px-2 py-2">
-                      <p className="text-xs text-gray-500">
-                        💡 Continue as guest to add items to cart
-                      </p>
-                    </div>
-                  </>
-                ) : (
-                  <>
-                    {/* LOGGED IN USER - Show profile details and options */}
-                    <div className="flex items-center gap-3 px-3 py-2 border-b border-gray-100">
-                      <div className="w-10 h-10 rounded-full bg-green-100 flex items-center justify-center overflow-hidden relative flex-shrink-0">
-                        {authenticatedUser?.image?.url || session?.user?.image ? (
-                          <Image
-                            src={authenticatedUser?.image?.url || session?.user?.image || ""}
-                            width={40}
-                            height={40}
-                            alt={authenticatedUser?.name || session?.user?.name || "user"}
-                            className="object-cover rounded-full"
-                            referrerPolicy="no-referrer"
-                            unoptimized
-                          />
-                        ) : (
-                          <User className="text-green-600" />
+                      <div className="px-3 py-2 border-b border-gray-100 space-y-1">
+                        <p className="text-xs text-gray-700 flex items-start gap-1">
+                          <span className="text-gray-500 flex-shrink-0">Email:</span>
+                          <span className="truncate" title={authenticatedUser?.email}>{authenticatedUser?.email}</span>
+                        </p>
+                        {authenticatedUser?.mobileNumber && (
+                          <p className="text-xs text-gray-700 flex items-start gap-1">
+                            <span className="text-gray-500 flex-shrink-0">Mobile:</span>
+                            <span className="text-black">{authenticatedUser.mobileNumber}</span>
+                          </p>
                         )}
                       </div>
-                      <div>
-                        <div className="text-gray-800 font-semibold text-sm">
-                          {authenticatedUser?.name || "User"}
-                        </div>
-                        <div className="text-xs text-gray-500 capitalize">
-                          {authenticatedUser?.currentRole ||
-                            authenticatedUser?.roles?.[0] ||
-                            "user"}
-                        </div>
-                      </div>
-                    </div>
 
-                    <div className="px-3 py-2 border-b border-gray-100 space-y-1">
-                      <p className="text-xs text-gray-700 flex items-start gap-1">
-                        <span className="text-gray-500 flex-shrink-0">Email:</span>
-                        <span className="truncate" title={authenticatedUser?.email}>{authenticatedUser?.email}</span>
-                      </p>
-                      {authenticatedUser?.mobileNumber && (
-                        <p className="text-xs text-gray-700 flex items-start gap-1">
-                          <span className="text-gray-500 flex-shrink-0">Mobile:</span>
-                          <span className="text-black">{authenticatedUser.mobileNumber}</span>
-                        </p>
+                      {/* ROLE SWITCHER - Show if user has multiple roles */}
+                      {authenticatedUser?.roles && authenticatedUser.roles.length > 1 && (
+                        <div className="border-b border-gray-100">
+                          {/* Accordion Header */}
+                          <button
+                            onClick={() => setIsRoleAccordionOpen(!isRoleAccordionOpen)}
+                            className="w-full flex items-center justify-between px-3 py-3 hover:bg-gray-50 transition-colors"
+                          >
+                            <p className="text-xs text-gray-600 flex items-center gap-1 font-semibold">
+                              <Repeat className="w-3.5 h-3.5" />
+                              Switch Account Type
+                            </p>
+                            <ChevronDown
+                              className={`w-4 h-4 text-gray-400 transition-transform ${isRoleAccordionOpen ? "rotate-180" : ""
+                                }`}
+                            />
+                          </button>
+
+                          {/* Accordion Content */}
+                          <AnimatePresence>
+                            {isRoleAccordionOpen && (
+                              <motion.div
+                                initial={{ opacity: 0, height: 0 }}
+                                animate={{ opacity: 1, height: "auto" }}
+                                exit={{ opacity: 0, height: 0 }}
+                                transition={{ duration: 0.2 }}
+                                className="overflow-hidden bg-gray-50"
+                              >
+                                <div className="px-3 py-2 space-y-2">
+                                  {(authenticatedUser.roles as string[]).map((role) => {
+                                    const isActive = role === authenticatedUser.currentRole;
+                                    return (
+                                      <button
+                                        key={role}
+                                        disabled={isActive || isSwitchingRole}
+                                        onClick={() => {
+                                          handleRoleSwitch(role);
+                                          setIsRoleAccordionOpen(false);
+                                        }}
+                                        className={`w-full flex items-center justify-between gap-1 px-3 py-2 rounded-lg text-[11px] font-semibold transition-all border whitespace-nowrap ${isActive
+                                            ? "bg-green-600 text-white border-green-600 shadow-sm"
+                                            : "bg-white text-gray-700 border-gray-200 hover:border-green-300 hover:bg-green-50"
+                                          } disabled:opacity-60`}
+                                      >
+                                        <span className="flex items-center gap-1 flex-shrink-0">
+                                          <span className="flex-shrink-0">
+                                            {role === "user" && "🛒"}
+                                            {role === "deliveryBoy" && "🚴"}
+                                            {role === "admin" && "👑"}
+                                          </span>
+                                          <span className="truncate">
+                                            {role === "user" && "Customer"}
+                                            {role === "deliveryBoy" && "Delivery Partner"}
+                                            {role === "admin" && "Admin"}
+                                          </span>
+                                        </span>
+                                        {isActive ? (
+                                          <span className="text-[10px] font-bold bg-white/20 px-2 py-0.5 rounded-full flex-shrink-0">
+                                            Active
+                                          </span>
+                                        ) : (
+                                          <span className="text-[10px] text-gray-500 flex-shrink-0">Switch</span>
+                                        )}
+                                      </button>
+                                    );
+                                  })}
+                                </div>
+                              </motion.div>
+                            )}
+                          </AnimatePresence>
+                        </div>
                       )}
-                    </div>
 
-                    {/* ROLE SWITCHER - Show if user has multiple roles */}
-                    {authenticatedUser?.roles && authenticatedUser.roles.length > 1 && (
-                      <div className="border-b border-gray-100">
-                        {/* Accordion Header */}
-                        <button
-                          onClick={() => setIsRoleAccordionOpen(!isRoleAccordionOpen)}
-                          className="w-full flex items-center justify-between px-3 py-3 hover:bg-gray-50 transition-colors"
-                        >
-                          <p className="text-xs text-gray-600 flex items-center gap-1 font-semibold">
-                            <Repeat className="w-3.5 h-3.5" />
-                            Switch Account Type
-                          </p>
-                          <ChevronDown
-                            className={`w-4 h-4 text-gray-400 transition-transform ${
-                              isRoleAccordionOpen ? "rotate-180" : ""
-                            }`}
-                          />
-                        </button>
+                      <Link
+                        href={"/user/account"}
+                        className="flex items-center gap-2 px-3 py-3 hover:bg-green-50 rounded-lg text-gray-700 font-medium text-sm"
+                        onClick={() => setOpen(false)}
+                      >
+                        <User className="w-5 h-5 text-green-600" />
+                        My Account
+                      </Link>
 
-                        {/* Accordion Content */}
-                        <AnimatePresence>
-                          {isRoleAccordionOpen && (
-                            <motion.div
-                              initial={{ opacity: 0, height: 0 }}
-                              animate={{ opacity: 1, height: "auto" }}
-                              exit={{ opacity: 0, height: 0 }}
-                              transition={{ duration: 0.2 }}
-                              className="overflow-hidden bg-gray-50"
-                            >
-                              <div className="px-3 py-2 space-y-2">
-                                {(authenticatedUser.roles as string[]).map((role) => {
-                                  const isActive = role === authenticatedUser.currentRole;
-                                  return (
-                                    <button
-                                      key={role}
-                                      disabled={isActive || isSwitchingRole}
-                                      onClick={() => {
-                                        handleRoleSwitch(role);
-                                        setIsRoleAccordionOpen(false);
-                                      }}
-                                      className={`w-full flex items-center justify-between gap-1 px-3 py-2 rounded-lg text-[11px] font-semibold transition-all border whitespace-nowrap ${
-                                        isActive
-                                          ? "bg-green-600 text-white border-green-600 shadow-sm"
-                                          : "bg-white text-gray-700 border-gray-200 hover:border-green-300 hover:bg-green-50"
-                                      } disabled:opacity-60`}
-                                    >
-                                      <span className="flex items-center gap-1 flex-shrink-0">
-                                        <span className="flex-shrink-0">
-                                          {role === "user" && "🛒"}
-                                          {role === "deliveryBoy" && "🚴"}
-                                          {role === "admin" && "👑"}
-                                        </span>
-                                        <span className="truncate">
-                                          {role === "user" && "Customer"}
-                                          {role === "deliveryBoy" && "Delivery Partner"}
-                                          {role === "admin" && "Admin"}
-                                        </span>
-                                      </span>
-                                      {isActive ? (
-                                        <span className="text-[10px] font-bold bg-white/20 px-2 py-0.5 rounded-full flex-shrink-0">
-                                          Active
-                                        </span>
-                                      ) : (
-                                        <span className="text-[10px] text-gray-500 flex-shrink-0">Switch</span>
-                                      )}
-                                    </button>
-                                  );
-                                })}
-                              </div>
-                            </motion.div>
-                          )}
-                        </AnimatePresence>
-                      </div>
-                    )}
+                      {authenticatedUser?.currentRole === "user" && (
+                        <>
+                          <Link
+                            href={"/user/orders"}
+                            className="flex items-center gap-2 px-3 py-3 hover:bg-green-50 rounded-lg text-gray-700 font-medium text-sm"
+                            onClick={() => setOpen(false)}
+                          >
+                            <Package className="w-5 h-5 text-green-600" />
+                            My Orders
+                          </Link>
 
-                    <Link
-                      href={"/user/account"}
-                      className="flex items-center gap-2 px-3 py-3 hover:bg-green-50 rounded-lg text-gray-700 font-medium text-sm"
-                      onClick={() => setOpen(false)}
-                    >
-                      <User className="w-5 h-5 text-green-600" />
-                      My Account
-                    </Link>
+                          <Link
+                            href={"/user/wishlists"}
+                            className="flex items-center gap-2 px-3 py-3 hover:bg-green-50 rounded-lg text-gray-700 font-medium text-sm"
+                            onClick={() => setOpen(false)}
+                          >
+                            <Heart className="w-5 h-5 text-red-500" />
+                            My Wishlists
+                          </Link>
+                        </>
+                      )}
 
-                    {authenticatedUser?.currentRole === "user" && (
-                      <>
+                      {authenticatedUser?.currentRole === "deliveryBoy" && (
                         <Link
-                          href={"/user/orders"}
+                          href={"/delivery-boy/assignments"}
                           className="flex items-center gap-2 px-3 py-3 hover:bg-green-50 rounded-lg text-gray-700 font-medium text-sm"
                           onClick={() => setOpen(false)}
                         >
                           <Package className="w-5 h-5 text-green-600" />
-                          My Orders
+                          My Deliveries
                         </Link>
+                      )}
 
+                      {authenticatedUser?.currentRole === "admin" && (
                         <Link
-                          href={"/user/wishlists"}
+                          href={"/admin"}
                           className="flex items-center gap-2 px-3 py-3 hover:bg-green-50 rounded-lg text-gray-700 font-medium text-sm"
                           onClick={() => setOpen(false)}
                         >
-                          <Heart className="w-5 h-5 text-red-500" />
-                          My Wishlists
+                          <Package className="w-5 h-5 text-purple-600" />
+                          Admin Dashboard
                         </Link>
-                      </>
-                    )}
+                      )}
 
-                    {authenticatedUser?.currentRole === "deliveryBoy" && (
-                      <Link
-                        href={"/delivery-boy/assignments"}
-                        className="flex items-center gap-2 px-3 py-3 hover:bg-green-50 rounded-lg text-gray-700 font-medium text-sm"
-                        onClick={() => setOpen(false)}
+                      <button
+                        type="button"
+                        className="flex items-center gap-2 w-full text-left px-3 py-3 hover:bg-red-50 rounded-lg text-gray-700 font-medium text-sm"
+                        onClick={() => {
+                          setOpen(false);
+                          signOut({ redirect: true, callbackUrl: "/" });
+                        }}
                       >
-                        <Package className="w-5 h-5 text-green-600" />
-                        My Deliveries
-                      </Link>
-                    )}
-
-                    {authenticatedUser?.currentRole === "admin" && (
-                      <Link
-                        href={"/admin"}
-                        className="flex items-center gap-2 px-3 py-3 hover:bg-green-50 rounded-lg text-gray-700 font-medium text-sm"
-                        onClick={() => setOpen(false)}
-                      >
-                        <Package className="w-5 h-5 text-purple-600" />
-                        Admin Dashboard
-                      </Link>
-                    )}
-
-                    <button
-                      type="button"
-                      className="flex items-center gap-2 w-full text-left px-3 py-3 hover:bg-red-50 rounded-lg text-gray-700 font-medium text-sm"
-                      onClick={() => {
-                        setOpen(false);
-                        signOut({ redirect: true, callbackUrl: "/" });
-                      }}
-                    >
-                      <LogOut className="w-5 h-5 text-red-600" />
-                      Logout
-                    </button>
-                  </>
-                )}
-              </motion.div>
-            )}
-          </AnimatePresence>
-        </div>
-      </div>
-
-      {/* floating search bar for mobile when search bar is open */}
-      <AnimatePresence>
-        {searchBarOpen && (
-          <motion.div
-            initial={{ opacity: 0, y: -10, scale: 0.95 }}
-            animate={{ opacity: 1, y: 0, scale: 1 }}
-            transition={{ duration: 0.4 }}
-            exit={{ opacity: 0, y: -10, scale: 0.95 }}
-            className="fixed top-24 left-1/2 -translate-x-1/2 w-[90%] z-40"
-          >
-            <div className="relative">
-              <div className="flex items-center bg-white rounded-full shadow-lg px-4 py-2">
-                <Search className="text-gray-500 w-5 h-5 mr-2 flex-shrink-0" />
-                <div className="relative flex-1 h-6 overflow-hidden">
-                  <input
-                    ref={searchInputRef}
-                    type="text"
-                    suppressHydrationWarning
-                    className="absolute inset-0 w-full outline-none text-gray-700 bg-transparent z-10"
-                    value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
-                    onFocus={() => {
-                      if (searchQuery) {
-                        setShowSearchDropdown(searchResults.length > 0);
-                      } else if (recentSearches.length > 0) {
-                        setShowSearchDropdown(true);
-                      }
-                    }}
-                  />
-                  {!searchQuery && (
-                    <div className="absolute inset-0 flex items-center pointer-events-none">
-                      <motion.div
-                        key={placeholderIndex}
-                        initial={{ y: 20, opacity: 0 }}
-                        animate={{ y: 0, opacity: 1 }}
-                        exit={{ y: -20, opacity: 0 }}
-                        transition={{ duration: 0.3, ease: "easeInOut" }}
-                        className="text-gray-400 text-sm whitespace-nowrap"
-                      >
-                        Search &quot;{placeholderSuggestions[placeholderIndex]}
-                        &quot;
-                      </motion.div>
-                    </div>
+                        <LogOut className="w-5 h-5 text-red-600" />
+                        Logout
+                      </button>
+                    </>
                   )}
-                </div>
-                {/* Visual Search Lens Icon (Mobile) */}
-                <button
-                  type="button"
-                  onClick={() => setShowLensModal(true)}
-                  className="p-1.5 rounded-full bg-gradient-to-br from-emerald-500 to-teal-600 text-white hover:from-emerald-600 hover:to-teal-700 transition-all shadow-sm cursor-pointer mr-1"
-                  title="Visual Search"
-                >
-                  <Camera className="w-3.5 h-3.5" />
-                </button>
-                {searchQuery ? (
+                </motion.div>
+              )}
+            </AnimatePresence>
+          </div>
+        </div>
+
+        {/* floating search bar for mobile when search bar is open */}
+        <AnimatePresence>
+          {searchBarOpen && (
+            <motion.div
+              initial={{ opacity: 0, y: -10, scale: 0.95 }}
+              animate={{ opacity: 1, y: 0, scale: 1 }}
+              transition={{ duration: 0.4 }}
+              exit={{ opacity: 0, y: -10, scale: 0.95 }}
+              className="fixed top-24 left-1/2 -translate-x-1/2 w-[90%] z-40"
+            >
+              <div className="relative">
+                <div className="flex items-center bg-white rounded-full shadow-lg px-4 py-2">
+                  <Search className="text-gray-500 w-5 h-5 mr-2 flex-shrink-0" />
+                  <div className="relative flex-1 h-6 overflow-hidden">
+                    <input
+                      ref={searchInputRef}
+                      type="text"
+                      suppressHydrationWarning
+                      className="absolute inset-0 w-full outline-none text-gray-700 bg-transparent z-10"
+                      value={searchQuery}
+                      onChange={(e) => setSearchQuery(e.target.value)}
+                      onFocus={() => {
+                        if (searchQuery) {
+                          setShowSearchDropdown(searchResults.length > 0);
+                        } else if (recentSearches.length > 0) {
+                          setShowSearchDropdown(true);
+                        }
+                      }}
+                    />
+                    {!searchQuery && (
+                      <div className="absolute inset-0 flex items-center pointer-events-none">
+                        <motion.div
+                          key={placeholderIndex}
+                          initial={{ y: 20, opacity: 0 }}
+                          animate={{ y: 0, opacity: 1 }}
+                          exit={{ y: -20, opacity: 0 }}
+                          transition={{ duration: 0.3, ease: "easeInOut" }}
+                          className="text-gray-400 text-sm whitespace-nowrap"
+                        >
+                          Search &quot;{placeholderSuggestions[placeholderIndex]}
+                          &quot;
+                        </motion.div>
+                      </div>
+                    )}
+                  </div>
+                  {/* Visual Search Lens Icon (Mobile) */}
                   <button
                     type="button"
-                    onClick={handleClearSearch}
-                    className="text-gray-400 hover:text-gray-600"
+                    onClick={() => setShowLensModal(true)}
+                    className="p-1.5 rounded-full bg-gradient-to-br from-emerald-500 to-teal-600 text-white hover:from-emerald-600 hover:to-teal-700 transition-all shadow-sm cursor-pointer mr-1"
+                    title="Visual Search"
                   >
-                    <X className="w-5 h-5" />
+                    <Camera className="w-3.5 h-3.5" />
                   </button>
-                ) : (
-                  <X
-                    className="text-gray-500 w-5 h-5 cursor-pointer"
-                    onClick={() => setSearchBarOpen(false)}
-                  />
-                )}
-              </div>
+                  {searchQuery ? (
+                    <button
+                      type="button"
+                      onClick={handleClearSearch}
+                      className="text-gray-400 hover:text-gray-600"
+                    >
+                      <X className="w-5 h-5" />
+                    </button>
+                  ) : (
+                    <X
+                      className="text-gray-500 w-5 h-5 cursor-pointer"
+                      onClick={() => setSearchBarOpen(false)}
+                    />
+                  )}
+                </div>
 
-              {/* Mobile Search Results Dropdown */}
-              <AnimatePresence>
-                {showSearchDropdown && (
-                  <motion.div
-                    ref={searchDropdownRef}
-                    initial={{ opacity: 0, y: -10 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    exit={{ opacity: 0, y: -10 }}
-                    transition={{ duration: 0.2 }}
-                    className="absolute top-full left-0 right-0 mt-2 bg-white rounded-lg shadow-2xl border border-gray-200 z-50 max-h-80 overflow-y-auto"
-                  >
-                    {/* Show recent searches when no query */}
-                    {!searchQuery && recentSearches.length > 0 ? (
-                      <div>
-                        <div className="flex items-center justify-between px-4 py-3 border-b border-gray-100">
-                          <p className="text-sm font-semibold text-gray-700">
-                            Recent Searches
-                          </p>
-                          <button
-                            onClick={clearAllRecentSearches}
-                            className="text-xs text-red-500 hover:text-red-700 font-medium"
-                          >
-                            Clear All
-                          </button>
-                        </div>
-                        {recentSearches.map((query, index) => (
-                          <div
-                            key={`recent-search-${query}-${index}`}
-                            className="flex items-center justify-between px-4 py-3 hover:bg-green-50 border-b border-gray-100 last:border-b-0 group"
-                          >
-                            <div
-                              onClick={() => handleRecentSearchClick(query)}
-                              className="flex items-center gap-3 flex-1 cursor-pointer"
-                            >
-                              <Search className="text-gray-400 w-4 h-4" />
-                              <p className="text-sm text-gray-700">{query}</p>
-                            </div>
+                {/* Mobile Search Results Dropdown */}
+                <AnimatePresence>
+                  {showSearchDropdown && (
+                    <motion.div
+                      ref={searchDropdownRef}
+                      initial={{ opacity: 0, y: -10 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      exit={{ opacity: 0, y: -10 }}
+                      transition={{ duration: 0.2 }}
+                      className="absolute top-full left-0 right-0 mt-2 bg-white rounded-lg shadow-2xl border border-gray-200 z-50 max-h-80 overflow-y-auto"
+                    >
+                      {/* Show recent searches when no query */}
+                      {!searchQuery && recentSearches.length > 0 ? (
+                        <div>
+                          <div className="flex items-center justify-between px-4 py-3 border-b border-gray-100">
+                            <p className="text-sm font-semibold text-gray-700">
+                              Recent Searches
+                            </p>
                             <button
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                removeRecentSearch(query);
-                              }}
-                              className="text-gray-400 hover:text-red-500 transition-colors ml-2 p-1"
-                              title="Remove"
+                              onClick={clearAllRecentSearches}
+                              className="text-xs text-red-500 hover:text-red-700 font-medium"
                             >
-                              <X className="w-4 h-4" />
+                              Clear All
                             </button>
                           </div>
-                        ))}
-                      </div>
-                    ) : isSearching ? (
-                      <div className="flex items-center justify-center py-6">
-                        <Loader className="w-5 h-5 animate-spin text-green-600" />
-                      </div>
-                    ) : searchResults.length > 0 ? (
-                      <div>
-                        {searchResults.map((grocery) => (
-                          <div
-                            key={grocery._id}
-                            onClick={() => {
-                              handleSearchItemClick(grocery._id);
-                              setSearchBarOpen(false);
-                            }}
-                            className="flex items-center gap-3 px-4 py-3 hover:bg-green-50 cursor-pointer border-b border-gray-100 last:border-b-0 transition-colors"
-                          >
-                            {grocery.images && grocery.images.length > 0 ? (
-                              <div className="relative w-12 h-12 flex-shrink-0">
-                                <Image
-                                  src={grocery.images[0].url}
-                                  alt={grocery.name}
-                                  fill
-                                  className="object-cover rounded"
-                                />
+                          {recentSearches.map((query, index) => (
+                            <div
+                              key={`recent-search-${query}-${index}`}
+                              className="flex items-center justify-between px-4 py-3 hover:bg-green-50 border-b border-gray-100 last:border-b-0 group"
+                            >
+                              <div
+                                onClick={() => handleRecentSearchClick(query)}
+                                className="flex items-center gap-3 flex-1 cursor-pointer"
+                              >
+                                <Search className="text-gray-400 w-4 h-4" />
+                                <p className="text-sm text-gray-700">{query}</p>
                               </div>
-                            ) : (
-                              <div className="w-12 h-12 bg-gray-200 rounded flex items-center justify-center flex-shrink-0">
-                                <Search className="text-gray-400 w-5 h-5" />
-                              </div>
-                            )}
-                            <div className="flex-1 min-w-0">
-                              <p className="text-sm font-medium text-gray-800 truncate">
-                                {grocery.name}
-                              </p>
-                              {grocery.brand && (
-                                <p className="text-xs text-gray-500">
-                                  {grocery.brand}
-                                </p>
-                              )}
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  removeRecentSearch(query);
+                                }}
+                                className="text-gray-400 hover:text-red-500 transition-colors ml-2 p-1"
+                                title="Remove"
+                              >
+                                <X className="w-4 h-4" />
+                              </button>
                             </div>
-                          </div>
-                        ))}
-                      </div>
-                    ) : (
-                      <div className="py-6 text-center text-gray-500">
-                        <p className="text-sm">No groceries found</p>
-                      </div>
-                    )}
-                  </motion.div>
-                )}
-              </AnimatePresence>
-            </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
-    </div>
+                          ))}
+                        </div>
+                      ) : isSearching ? (
+                        <div className="flex items-center justify-center py-6">
+                          <Loader className="w-5 h-5 animate-spin text-green-600" />
+                        </div>
+                      ) : searchResults.length > 0 ? (
+                        <div>
+                          {searchResults.map((grocery) => (
+                            <div
+                              key={grocery._id}
+                              onClick={() => {
+                                handleSearchItemClick(grocery._id);
+                                setSearchBarOpen(false);
+                              }}
+                              className="flex items-center gap-3 px-4 py-3 hover:bg-green-50 cursor-pointer border-b border-gray-100 last:border-b-0 transition-colors"
+                            >
+                              {grocery.images && grocery.images.length > 0 ? (
+                                <div className="relative w-12 h-12 flex-shrink-0">
+                                  <Image
+                                    src={grocery.images[0].url}
+                                    alt={grocery.name}
+                                    fill
+                                    className="object-cover rounded"
+                                  />
+                                </div>
+                              ) : (
+                                <div className="w-12 h-12 bg-gray-200 rounded flex items-center justify-center flex-shrink-0">
+                                  <Search className="text-gray-400 w-5 h-5" />
+                                </div>
+                              )}
+                              <div className="flex-1 min-w-0">
+                                <p className="text-sm font-medium text-gray-800 truncate">
+                                  {grocery.name}
+                                </p>
+                                {grocery.brand && (
+                                  <p className="text-xs text-gray-500">
+                                    {grocery.brand}
+                                  </p>
+                                )}
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      ) : (
+                        <div className="py-6 text-center text-gray-500">
+                          <p className="text-sm">No groceries found</p>
+                        </div>
+                      )}
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+      </div>
 
-    {/* Visual Search Lens Modal */}
-    <AnimatePresence>
+      {/* Visual Search Lens Modal */}
+      <AnimatePresence>
         {showLensModal && (
           <motion.div
             initial={{ opacity: 0 }}
@@ -1374,7 +1370,7 @@ const Navbar = ({ user: propUser }: NavbarProps = {}) => {
                         >
                           <div className="flex items-center gap-2.5">
                             {item.image ? (
-                              <div 
+                              <div
                                 onClick={() => {
                                   if (item.productId) {
                                     router.push(`/user/product-details/${item.productId}`);
@@ -1399,7 +1395,7 @@ const Navbar = ({ user: propUser }: NavbarProps = {}) => {
                               </div>
                             )}
                             <div>
-                              <p 
+                              <p
                                 onClick={() => {
                                   if (item.productId) {
                                     router.push(`/user/product-details/${item.productId}`);
@@ -1414,7 +1410,7 @@ const Navbar = ({ user: propUser }: NavbarProps = {}) => {
                                 {item.matchedLabel || item.name}
                               </p>
                               <div className="flex items-center gap-1.5 text-[9px] text-gray-500 mt-0.5 select-none">
-                                <span 
+                                <span
                                   onClick={(e) => {
                                     if (item.categoryId) {
                                       e.stopPropagation();

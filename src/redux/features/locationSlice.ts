@@ -138,10 +138,14 @@ function loadLocationFromStorage(): PersistedLocation | null {
   }
 }
 
-function saveStoreToStorage(data: PersistedStore): void {
+function saveStoreToStorage(data: PersistedStore | null): void {
   try {
     if (typeof window !== "undefined") {
-      localStorage.setItem(STORE_STORAGE_KEY, JSON.stringify(data));
+      if (data === null) {
+        localStorage.removeItem(STORE_STORAGE_KEY);
+      } else {
+        localStorage.setItem(STORE_STORAGE_KEY, JSON.stringify(data));
+      }
     }
   } catch {
     // silent fail
@@ -246,6 +250,7 @@ export const fetchNearbyStores = createAsyncThunk(
         stores: (data.stores || []) as NearbyStore[],
         serviceableStatus: (data.serviceableStatus ||
           "unknown") as ServiceableStatus,
+        universalDeliveryMode: !!data.universalDeliveryMode,
       };
     } catch (err: any) {
       return rejectWithValue(err.message || "Failed to fetch stores");
@@ -450,11 +455,17 @@ const locationSlice = createSlice({
         state.serviceableStatus = action.payload.serviceableStatus;
 
         // Auto-select nearest serviceable store
-        const openStores = action.payload.stores.filter(
+        const isUniversal = (action.payload as any).universalDeliveryMode;
+        const serviceableStores = isUniversal
+          ? action.payload.stores
+          : action.payload.stores.filter((s) => s.distanceKm <= s.serviceRadiusKm);
+
+        const openServiceableStores = serviceableStores.filter(
           (s) => s.isOpen && s.status === "active",
         );
-        if (openStores.length > 0) {
-          const nearest = openStores[0]; // Already sorted by distance from API
+
+        if (openServiceableStores.length > 0) {
+          const nearest = openServiceableStores[0]; // Already sorted by distance from API
           const store: SelectedStore = {
             _id: nearest._id,
             name: nearest.name,
@@ -478,10 +489,10 @@ const locationSlice = createSlice({
             distanceKm: store.distanceKm,
             eta: store.estimatedDeliveryMinutes,
           });
-        } else if (action.payload.stores.length > 0) {
+        } else if (serviceableStores.length > 0) {
           // Stores exist but none are open
           state.serviceableStatus = "limited";
-          const nearest = action.payload.stores[0];
+          const nearest = serviceableStores[0];
           const store: SelectedStore = {
             _id: nearest._id,
             name: nearest.name,
@@ -507,6 +518,7 @@ const locationSlice = createSlice({
         } else {
           state.serviceableStatus = "not_serviceable";
           state.selectedStore = null;
+          saveStoreToStorage(null);
         }
       })
       .addCase(fetchNearbyStores.rejected, (state, action) => {

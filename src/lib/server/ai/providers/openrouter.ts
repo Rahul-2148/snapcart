@@ -147,7 +147,7 @@ export class OpenRouterProvider implements Provider {
   ): Promise<ProviderResponse> {
     try {
       const apiKey = this.getApiKey();
-      const model = options?.preferredModel || "google/gemini-2.5-flash"; // Default vision capable model on OpenRouter
+      const model = options?.preferredModel || "google/gemini-2.0-flash"; // Default vision capable model on OpenRouter
 
       const base64Image = imageBuffer.toString("base64");
       const messages = [

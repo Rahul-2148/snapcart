@@ -9,7 +9,6 @@ import {
   RotateCcw, 
   Boxes, 
   Loader2,
-  DollarSign,
   Check,
   AlertTriangle
 } from "lucide-react";

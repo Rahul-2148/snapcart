@@ -226,8 +226,19 @@ export async function callAiGateway(params: GatewayCallParams): Promise<GatewayR
         try {
           // Resolve provider model names
           let preferredModel = params.preferredModel;
+          if (preferredModel) {
+            if (providerName === "gemini" && !preferredModel.includes("gemini")) {
+              preferredModel = undefined;
+            } else if (providerName === "openrouter" && preferredModel.startsWith("gemini")) {
+              preferredModel = "google/" + preferredModel;
+            } else if (providerName === "groq" && preferredModel.includes("gemini")) {
+              preferredModel = undefined;
+            } else if (providerName === "selfhosted" && preferredModel.includes("gemini")) {
+              preferredModel = undefined;
+            }
+          }
           if (!preferredModel) {
-            if (providerName === "gemini") preferredModel = "gemini-2.5-flash";
+            if (providerName === "gemini") preferredModel = "gemini-1.5-flash";
             else if (providerName === "openrouter") preferredModel = "meta-llama/llama-3.3-70b-instruct";
             else if (providerName === "groq") preferredModel = "llama-3.3-70b-versatile";
             else preferredModel = "llama3";
@@ -370,8 +381,19 @@ export async function* streamAiGateway(params: GatewayCallParams): AsyncIterable
 
     try {
       let preferredModel = params.preferredModel;
+      if (preferredModel) {
+        if (providerName === "gemini" && !preferredModel.includes("gemini")) {
+          preferredModel = undefined;
+        } else if (providerName === "openrouter" && preferredModel.startsWith("gemini")) {
+          preferredModel = "google/" + preferredModel;
+        } else if (providerName === "groq" && preferredModel.includes("gemini")) {
+          preferredModel = undefined;
+        } else if (providerName === "selfhosted" && preferredModel.includes("gemini")) {
+          preferredModel = undefined;
+        }
+      }
       if (!preferredModel) {
-        if (providerName === "gemini") preferredModel = "gemini-2.5-flash";
+        if (providerName === "gemini") preferredModel = "gemini-1.5-flash";
         else if (providerName === "openrouter") preferredModel = "meta-llama/llama-3.3-70b-instruct";
         else if (providerName === "groq") preferredModel = "llama-3.3-70b-versatile";
         else preferredModel = "llama3";

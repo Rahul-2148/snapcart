@@ -8,7 +8,7 @@ import {
   Clock,
   Truck,
   CheckCircle,
-  DollarSign,
+  IndianRupee,
   AlertTriangle,
 } from "lucide-react";
 
@@ -95,7 +95,7 @@ export const ReturnsAnalytics: React.FC = () => {
     {
       label: "Total Refunded",
       value: `₹${data.refundStats.totalRefunded.toFixed(0)}`,
-      icon: DollarSign,
+      icon: IndianRupee,
       color: "bg-purple-500",
       change: `${data.refundStats.count} refunds`,
     },

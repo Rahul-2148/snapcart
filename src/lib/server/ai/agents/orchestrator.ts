@@ -21,6 +21,8 @@ export interface AgentResponse {
   reply: string;
   actions: AgentAction[];
   products?: any[];
+  guestCart?: any[];
+  guestCoupon?: any;
 }
 
 async function runLocalIntelligenceFallback(params: {
@@ -328,7 +330,7 @@ Provide a direct, helpful, and friendly response to the user. Do not call any to
 `;
 
     if (productContextText) {
-      supervisorPrompt = `You are a summarization assistant. Your task is to ONLY summarize and present the retrieved search results provided in the prompt. Do NOT make up any products or recommend things not in the retrieved list. Answer in the requested language/tone.\n\n${supervisorPrompt}`;
+      supervisorPrompt = `You have access to the store's current catalog matches below. Your task is to answer the user's query intelligently. If the user asks a general question (such as recipes, dietary advice, or store help), answer comprehensively using your own knowledge. You may highlight and recommend matching products from the store catalog list if they are relevant to the query, but you MUST filter out and ignore any completely irrelevant products (e.g., do NOT suggest contraceptives/condoms for food/recipe queries, and do not suggest foods for wellness/contraceptive queries). Do NOT recommend or mention specific store brands/products that are not present in the store catalog list.\n\n${supervisorPrompt}`;
     }
 
     const gatewayResult = await callAiGateway({
@@ -363,9 +365,12 @@ Provide a direct, helpful, and friendly response to the user. Do not call any to
   let currentHistoryText = params.historyText || "No previous history.";
   const executedActions: AgentAction[] = [];
   const executionLogs: string[] = [];
+  const seenActions = new Set<string>();
   let turn = 0;
   const maxTurns = 3;
   let finalReply = "";
+  let finalGuestCart: any[] | undefined = undefined;
+  let finalGuestCoupon: any = undefined;
 
   if (params.onProgress) {
     params.onProgress({ status: "🤖 Analyzing request..." });
@@ -518,6 +523,12 @@ Explain your planning logic to the user in a friendly, conversational tone, and 
     // Execute actions sequentially and collect their results
     const resultsSummary: string[] = [];
     for (const action of actions) {
+      const actionKey = `${action.tool}:${JSON.stringify(action.arguments)}`;
+      if (seenActions.has(actionKey)) {
+        resultsSummary.push(`Tool "${action.tool}" was already executed in a previous turn. Skipping redundant execution.`);
+        continue;
+      }
+      seenActions.add(actionKey);
       try {
         if (params.onProgress) {
           let prettyStatus = `Executing ${action.tool}...`;
@@ -551,6 +562,13 @@ Explain your planning logic to the user in a friendly, conversational tone, and 
         
         if (action.tool === "searchProducts" && result?.success && Array.isArray(result.results)) {
           collectedProducts.push(...result.results);
+        }
+
+        if (result?.guestCart !== undefined) {
+          finalGuestCart = result.guestCart;
+        }
+        if (result?.guestCoupon !== undefined) {
+          finalGuestCoupon = result.guestCoupon;
         }
 
         if (params.onProgress) {
@@ -590,5 +608,7 @@ Explain your planning logic to the user in a friendly, conversational tone, and 
     reply: finalReply,
     actions: executedActions,
     products: uniqueProducts,
+    guestCart: finalGuestCart,
+    guestCoupon: finalGuestCoupon,
   };
 }

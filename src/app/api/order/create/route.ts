@@ -6,6 +6,7 @@ import { decrementStock } from "@/lib/utils/decrementStock";
 import { Cart } from "@/models/cart.model";
 import { CartItem } from "@/models/cartItem.model";
 import { CouponUsage } from "@/models/couponUsage.model";
+import { Grocery } from "@/models/grocery.model";
 import { GroceryVariant } from "@/models/groceryVariant.model";
 import { Order } from "@/models/order.model";
 import { OrderItem } from "@/models/orderItem.model";
@@ -209,6 +210,15 @@ export const POST = async (req: NextRequest) => {
       session: dbSession,
     });
     newOrder.orderItems = insertedOrderItems.map((item) => item._id);
+
+    // Increment sales count for each ordered grocery item
+    for (const item of orderItemsPayload) {
+      await Grocery.findByIdAndUpdate(
+        item.grocery,
+        { $inc: { salesCount: item.quantity } },
+        { session: dbSession }
+      );
+    }
 
     const isFullyPaid = finalTotal === 0;
 

@@ -210,6 +210,8 @@ export async function POST(req: NextRequest) {
       suggestions,
       sessionId: persistedSessionId,
       products: agentResult.products,
+      guestCart: agentResult.guestCart,
+      guestCoupon: agentResult.guestCoupon,
     });
   } catch (error: unknown) {
     const message = error instanceof Error ? error.message : "Failed to process chat";

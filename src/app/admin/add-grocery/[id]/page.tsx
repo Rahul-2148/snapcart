@@ -54,6 +54,7 @@ const EditGrocery = () => {
   const [isBestSeller, setIsBestSeller] = useState(false);
   const [isNew, setIsNew] = useState(false);
   const [isFeatured, setIsFeatured] = useState(false);
+  const [salesCount, setSalesCount] = useState(0);
 
   // Variant states
   const [variants, setVariants] = useState<any[]>([]);
@@ -99,6 +100,7 @@ const EditGrocery = () => {
             setIsBestSeller(grocery.badges?.isBestSeller || false);
             setIsNew(grocery.badges?.isNew || false);
             setIsFeatured(grocery.badges?.isFeatured || false);
+            setSalesCount(grocery.salesCount || 0);
 
             if (grocery.variants && grocery.variants.length > 0) {
               const normalized = grocery.variants.map((v: any) => ({
@@ -663,39 +665,45 @@ const EditGrocery = () => {
                   </label>
                   <div className="space-y-3">
                     {/* Best Seller Checkbox */}
-                    <label className="flex items-center gap-3 cursor-pointer group">
+                    <label className="flex items-center gap-3 cursor-not-allowed opacity-75 group" title={`Automatically enabled when sales volume reaches 10. Current sales: ${salesCount}`}>
                       <input
                         type="checkbox"
                         checked={isBestSeller}
-                        onChange={(e) => setIsBestSeller(e.target.checked)}
-                        className="w-5 h-5 text-green-600 border-gray-300 rounded focus:ring-2 focus:ring-green-400 cursor-pointer"
-                        disabled={loading}
+                        disabled={true}
+                        className="w-5 h-5 text-green-600 border-gray-300 rounded cursor-not-allowed"
                       />
                       <div className="flex items-center gap-2">
-                        <span className="text-gray-700 font-medium group-hover:text-green-700 transition-colors">
+                        <span className="text-gray-500 font-medium">
                           Best Seller
                         </span>
-                        <span className="text-xs bg-yellow-100 text-yellow-800 px-2 py-0.5 rounded-full font-semibold">
-                          ⭐ Popular
+                        <span className={`text-[10px] px-2 py-0.5 rounded-full font-extrabold uppercase tracking-wider border ${
+                          isBestSeller 
+                            ? "bg-yellow-50 text-yellow-700 border-yellow-100" 
+                            : "bg-slate-50 text-slate-400 border-slate-200"
+                        }`}>
+                          {isBestSeller ? `Auto-assigned (Active: ${salesCount} Sold)` : `Inactive (${salesCount}/10 Sold)`}
                         </span>
                       </div>
                     </label>
 
                     {/* New Arrival Checkbox */}
-                    <label className="flex items-center gap-3 cursor-pointer group">
+                    <label className="flex items-center gap-3 cursor-not-allowed opacity-75 group" title="Automatically managed based on product creation date (Active for 7 days)">
                       <input
                         type="checkbox"
                         checked={isNew}
-                        onChange={(e) => setIsNew(e.target.checked)}
-                        className="w-5 h-5 text-green-600 border-gray-300 rounded focus:ring-2 focus:ring-green-400 cursor-pointer"
-                        disabled={loading}
+                        disabled={true}
+                        className="w-5 h-5 text-green-600 border-gray-300 rounded cursor-not-allowed"
                       />
                       <div className="flex items-center gap-2">
-                        <span className="text-gray-700 font-medium group-hover:text-green-700 transition-colors">
+                        <span className="text-gray-500 font-medium">
                           New Arrival
                         </span>
-                        <span className="text-xs bg-blue-100 text-blue-800 px-2 py-0.5 rounded-full font-semibold">
-                          🆕 Fresh
+                        <span className={`text-[10px] px-2 py-0.5 rounded-full font-extrabold uppercase tracking-wider border ${
+                          isNew 
+                            ? "bg-blue-50 text-blue-700 border-blue-100" 
+                            : "bg-slate-50 text-slate-400 border-slate-200"
+                        }`}>
+                          {isNew ? "Auto-assigned (Active)" : "Expired (> 7 Days)"}
                         </span>
                       </div>
                     </label>

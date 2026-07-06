@@ -142,7 +142,7 @@ export async function GET(req: NextRequest) {
         sortObj = { createdAt: -1 };
     }
 
-    // Fetch groceries with population - DO NOT use .lean() to preserve ObjectId type
+    // Fetch groceries with population - optimized with .lean()
     const groceries = await Grocery.find(query)
       .populate("category", "name allowedUnits")
       .populate({
@@ -150,7 +150,8 @@ export async function GET(req: NextRequest) {
         model: "GroceryVariant",
       })
       .sort(sortObj)
-      .limit(limit);
+      .limit(limit)
+      .lean();
 
     // Ensure _id is included and properly formatted - convert Mongoose docs to plain objects
     const formattedGroceries = groceries.map((doc: any, index: number) => {

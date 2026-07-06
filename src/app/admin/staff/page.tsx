@@ -14,7 +14,7 @@ import {
   Filter,
   CheckCircle2,
   Clock,
-  DollarSign,
+  IndianRupee,
   ShieldAlert,
   Building,
   UserCheck,
@@ -247,7 +247,7 @@ export default function AdminStaffDashboard() {
 
         <div className="bg-white border border-slate-200/60 p-4 rounded-2xl shadow-sm flex items-center gap-3.5">
           <div className="w-11 h-11 rounded-xl bg-amber-50 flex items-center justify-center text-amber-600">
-            <DollarSign className="w-5.5 h-5.5" />
+            <IndianRupee className="w-5.5 h-5.5" />
           </div>
           <div>
             <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Monthly Payouts</p>
@@ -382,7 +382,7 @@ export default function AdminStaffDashboard() {
                   </div>
 
                   <div className="flex items-center gap-2 col-span-2 bg-slate-50 p-2.5 rounded-xl border border-slate-100">
-                    <DollarSign className="w-4.5 h-4.5 text-green-600" />
+                    <IndianRupee className="w-4.5 h-4.5 text-green-600" />
                     <div>
                       <span className="text-[10px] font-semibold text-slate-400 block uppercase leading-none">Salary Bracket</span>
                       <strong className="text-slate-800 font-bold text-sm">

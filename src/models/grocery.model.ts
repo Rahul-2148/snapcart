@@ -33,6 +33,7 @@ export interface IGrocery {
   createdBy: mongoose.Types.ObjectId;
   createdAt?: Date;
   updatedAt?: Date;
+  salesCount?: number;
 }
 
 const grocerySchema = new mongoose.Schema<IGrocery>(
@@ -78,6 +79,8 @@ const grocerySchema = new mongoose.Schema<IGrocery>(
       isFeatured: { type: Boolean, default: false },
     },
 
+    salesCount: { type: Number, default: 0 },
+
     isActive: { type: Boolean, default: true },
 
     createdBy: {
@@ -106,8 +109,19 @@ grocerySchema.virtual("variants", {
   foreignField: "grocery",
 });
 
-grocerySchema.set("toObject", { virtuals: true });
-grocerySchema.set("toJSON", { virtuals: true });
+const transformFn = (doc: any, ret: any) => {
+  ret.badges = ret.badges || {};
+  if (ret.createdAt) {
+    const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
+    ret.badges.isNew = new Date(ret.createdAt) > sevenDaysAgo;
+  }
+  // Automatically bestseller if salesCount >= 10, keeping legacy override as true if set
+  ret.badges.isBestSeller = !!(ret.badges.isBestSeller || (ret.salesCount && ret.salesCount >= 10));
+  return ret;
+};
+
+grocerySchema.set("toObject", { virtuals: true, transform: transformFn });
+grocerySchema.set("toJSON", { virtuals: true, transform: transformFn });
 // ------------
 
 export const Grocery =

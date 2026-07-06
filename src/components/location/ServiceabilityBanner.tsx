@@ -7,6 +7,7 @@ import { useState } from "react";
 import { useAppSelector, useAppDispatch } from "@/redux/store";
 import { setLocationPickerOpen } from "@/redux/features/locationSlice";
 import { toast } from "sonner";
+import { useSession } from "next-auth/react";
 
 /**
  * Banner shown below Navbar when area is not serviceable or has limited service.
@@ -14,18 +15,29 @@ import { toast } from "sonner";
  */
 const ServiceabilityBanner = () => {
   const dispatch = useAppDispatch();
+  const { data: session } = useSession();
+
   const serviceableStatus = useAppSelector(
     (state) => state.location.serviceableStatus,
   );
   const city = useAppSelector((state) => state.location.city);
+  const pincode = useAppSelector((state) => state.location.pincode);
+  const latitude = useAppSelector((state) => state.location.latitude);
+  const longitude = useAppSelector((state) => state.location.longitude);
+  const nearbyStores = useAppSelector((state) => state.location.nearbyStores);
+
   const hasInitialized = useAppSelector(
     (state) => state.location.hasInitialized,
   );
   const hasLocation = useAppSelector(
     (state) => state.location.latitude !== null,
   );
+
   const [dismissed, setDismissed] = useState(false);
   const [notifyRequested, setNotifyRequested] = useState(false);
+  const [showEmailInput, setShowEmailInput] = useState(false);
+  const [emailInput, setEmailInput] = useState("");
+  const [loading, setLoading] = useState(false);
 
   // Don't show if: not initialized, no location set, serviceable, checking, or dismissed
   if (
@@ -39,9 +51,77 @@ const ServiceabilityBanner = () => {
     return null;
   }
 
-  const handleNotifyMe = () => {
-    setNotifyRequested(true);
-    toast.success("We'll notify you when we launch in your area!");
+  const getAvailableAreasText = () => {
+    if (!nearbyStores || nearbyStores.length === 0) return "";
+    
+    // Filter stores in the same city
+    const sameCityStores = city 
+      ? nearbyStores.filter(s => s.location?.city?.toLowerCase() === city.toLowerCase())
+      : nearbyStores;
+      
+    const targetStores = sameCityStores.length > 0 ? sameCityStores : nearbyStores;
+    
+    // Extract clean area names (removing SnapCart prefix)
+    const areaNames = Array.from(new Set(targetStores.map(s => {
+      return s.name.replace(/^SnapCart\s+/i, "").trim();
+    })));
+
+    if (areaNames.length === 0) return "";
+    
+    const displayCity = targetStores[0]?.location?.city || city || "your city";
+
+    if (areaNames.length === 1) {
+      return `We are currently serving ${areaNames[0]} in ${displayCity}.`;
+    }
+    
+    const listStr = areaNames.slice(0, -1).join(", ") + " & " + areaNames[areaNames.length - 1];
+    return `We are currently serving ${listStr} in ${displayCity}.`;
+  };
+
+  const submitNotification = async (email: string) => {
+    const trimmed = email.trim();
+    if (!trimmed || !trimmed.includes("@")) {
+      toast.error("Please enter a valid email address.");
+      return;
+    }
+
+    setLoading(true);
+    try {
+      const res = await fetch("/api/location/notify", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          email: trimmed,
+          pincode: pincode || "000000",
+          city: city || "Unknown City",
+          latitude: latitude || 0,
+          longitude: longitude || 0,
+        }),
+      });
+
+      const data = await res.json();
+      if (res.ok && data.success) {
+        setNotifyRequested(true);
+        setShowEmailInput(false);
+        toast.success(data.message || "We'll notify you when we launch in your area!");
+      } else {
+        toast.error(data.error || "Failed to submit request.");
+      }
+    } catch {
+      toast.error("An error occurred. Please try again.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleNotifyMe = async () => {
+    if (session?.user?.email) {
+      // Logged in: register automatically
+      await submitNotification(session.user.email);
+    } else {
+      // Guest: show inline input
+      setShowEmailInput(true);
+    }
   };
 
   const handleChangeLocation = () => {
@@ -66,7 +146,7 @@ const ServiceabilityBanner = () => {
         >
           {/* Icon */}
           <div
-            className={`w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 ${
+            className={`w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 flex-grow-0 ${
               serviceableStatus === "not_serviceable"
                 ? "bg-red-100"
                 : "bg-amber-100"
@@ -93,15 +173,24 @@ const ServiceabilityBanner = () => {
                 : "Limited delivery available"}
             </p>
             <p className="text-xs text-gray-500">
-              {serviceableStatus === "not_serviceable"
-                ? "Try a different address or get notified when we launch here"
-                : "Some delivery features may be limited in your area"}
+              {serviceableStatus === "not_serviceable" ? (
+                <>
+                  {getAvailableAreasText() && (
+                    <span className="block font-medium text-gray-600 mb-0.5">
+                      {getAvailableAreasText()}
+                    </span>
+                  )}
+                  Try a different address or get notified when we launch here.
+                </>
+              ) : (
+                "Some delivery features may be limited in your area."
+              )}
             </p>
           </div>
 
           {/* Actions */}
           <div className="flex items-center gap-2 flex-shrink-0">
-            {serviceableStatus === "not_serviceable" && !notifyRequested && (
+            {serviceableStatus === "not_serviceable" && !notifyRequested && !showEmailInput && (
               <button
                 onClick={handleNotifyMe}
                 className="flex items-center gap-1 bg-red-500 text-white text-xs font-semibold px-3 py-1.5 rounded-full hover:bg-red-600 transition"
@@ -110,6 +199,39 @@ const ServiceabilityBanner = () => {
                 Notify Me
               </button>
             )}
+
+            {showEmailInput && (
+              <div className="flex items-center gap-1 bg-white border border-red-200 rounded-full px-2 py-0.5 shadow-sm">
+                <input
+                  type="email"
+                  placeholder="Enter email address"
+                  value={emailInput}
+                  onChange={(e) => setEmailInput(e.target.value)}
+                  disabled={loading}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") {
+                      submitNotification(emailInput);
+                    }
+                  }}
+                  className="text-xs text-gray-800 placeholder-gray-400 bg-transparent outline-none py-1 px-1 w-40 min-w-0"
+                />
+                <button
+                  onClick={() => submitNotification(emailInput)}
+                  disabled={loading}
+                  className="bg-red-500 text-white text-[10px] font-bold px-2 py-1 rounded-full hover:bg-red-600 transition disabled:opacity-50"
+                >
+                  {loading ? "..." : "Submit"}
+                </button>
+                <button
+                  onClick={() => setShowEmailInput(false)}
+                  disabled={loading}
+                  className="p-1 hover:bg-gray-100 rounded-full"
+                >
+                  <X className="w-3 h-3 text-gray-400 hover:text-gray-600" />
+                </button>
+              </div>
+            )}
+
             {notifyRequested && (
               <span className="text-xs text-green-600 font-medium">
                 ✅ Subscribed

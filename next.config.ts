@@ -3,16 +3,13 @@ import type { NextConfig } from "next";
 const nextConfig: NextConfig = {
   experimental: {
     proxyClientMaxBodySize: "80mb",
-    cpus: 1,
-    workerThreads: false,
   },
 
   reactStrictMode: true,
-  
+
   typescript: {
     ignoreBuildErrors: true,
   },
-  
   // Suppress hydration warnings in development (caused by browser extensions)
   devIndicators: {
     position: "bottom-right",

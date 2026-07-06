@@ -9,13 +9,13 @@ import {
   SunIcon,
   XMarkIcon,
 } from "@heroicons/react/24/outline";
-import Link from "next/link";
 import axios from "axios";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { useSelector } from "react-redux";
 import { NotificationDropdown } from "../common/NotificationDropdown";
 import { ProfileDropdown } from "../common/ProfileDropdown";
+import { useTheme } from "next-themes";
 
 interface AdminHeaderProps {
   onToggleMobileSidebar?: () => void;
@@ -24,6 +24,13 @@ interface AdminHeaderProps {
 const AdminHeader = ({ onToggleMobileSidebar }: AdminHeaderProps) => {
   // @ts-ignore
   const { userData: user } = useSelector((state: RootState) => state.user);
+
+  const { theme, setTheme } = useTheme();
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   const [themeMenuOpen, setThemeMenuOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
@@ -46,12 +53,12 @@ const AdminHeader = ({ onToggleMobileSidebar }: AdminHeaderProps) => {
   // Save search to history
   const addToSearchHistory = (query: string) => {
     if (!query.trim() || query.length < 3) return;
-    
+
     const updatedHistory = [
       query,
       ...searchHistory.filter((item) => item !== query),
     ].slice(0, 10); // Keep only last 10 searches
-    
+
     setSearchHistory(updatedHistory);
     localStorage.setItem("adminSearchHistory", JSON.stringify(updatedHistory));
   };
@@ -188,8 +195,8 @@ const AdminHeader = ({ onToggleMobileSidebar }: AdminHeaderProps) => {
         {showResults && (
           <>
             {/* Backdrop to close dropdown */}
-            <div 
-              className="fixed inset-0 z-40" 
+            <div
+              className="fixed inset-0 z-40"
               onClick={() => setShowResults(false)}
             />
             <div className="absolute top-full mt-2 w-full bg-white border border-gray-200 rounded-xl shadow-xl z-50 max-h-96 overflow-y-auto">
@@ -270,28 +277,58 @@ const AdminHeader = ({ onToggleMobileSidebar }: AdminHeaderProps) => {
             onClick={() => setThemeMenuOpen(!themeMenuOpen)}
             className="p-3 rounded-xl hover:bg-gray-100 transition-colors duration-200 flex items-center"
           >
-            <SunIcon className="h-5 w-5 text-gray-600" />
+            {mounted && theme === "dark" ? (
+              <MoonIcon className="h-5 w-5 text-gray-600" />
+            ) : mounted && theme === "system" ? (
+              <ComputerDesktopIcon className="h-5 w-5 text-gray-600" />
+            ) : (
+              <SunIcon className="h-5 w-5 text-gray-600" />
+            )}
             <ChevronDownIcon
-              className={`h-4 w-4 ml-1 text-gray-500 transition-transform duration-200 ${
-                themeMenuOpen ? "rotate-180" : ""
-              }`}
+              className={`h-4 w-4 ml-1 text-gray-500 transition-transform duration-200 ${themeMenuOpen ? "rotate-180" : ""
+                }`}
             />
           </button>
           {themeMenuOpen && (
-            <div className="absolute right-0 mt-2 w-48 bg-white border border-gray-200 rounded-xl shadow-xl z-50">
-              <button className="w-full px-4 py-3 text-left flex items-center hover:bg-gray-50 rounded-t-xl">
-                <SunIcon className="h-5 w-5 mr-3 text-yellow-500" />
-                Light
-              </button>
-              <button className="w-full px-4 py-3 text-left flex items-center hover:bg-gray-50">
-                <MoonIcon className="h-5 w-5 mr-3 text-slate-600" />
-                Dark
-              </button>
-              <button className="w-full px-4 py-3 text-left flex items-center hover:bg-gray-50 rounded-b-xl">
-                <ComputerDesktopIcon className="h-5 w-5 mr-3 text-blue-500" />
-                System
-              </button>
-            </div>
+            <>
+              {/* Backdrop to close dropdown on outside click */}
+              <div
+                className="fixed inset-0 z-40 cursor-default"
+                onClick={() => setThemeMenuOpen(false)}
+              />
+              <div className="absolute right-0 mt-2 w-48 bg-white border border-gray-200 rounded-xl shadow-xl z-50">
+                <button
+                  onClick={() => {
+                    setTheme("light");
+                    setThemeMenuOpen(false);
+                  }}
+                  className="w-full px-4 py-3 text-left flex items-center hover:bg-gray-50 rounded-t-xl"
+                >
+                  <SunIcon className="h-5 w-5 mr-3 text-yellow-500" />
+                  Light
+                </button>
+                <button
+                  onClick={() => {
+                    setTheme("dark");
+                    setThemeMenuOpen(false);
+                  }}
+                  className="w-full px-4 py-3 text-left flex items-center hover:bg-gray-50"
+                >
+                  <MoonIcon className="h-5 w-5 mr-3 text-slate-600" />
+                  Dark
+                </button>
+                <button
+                  onClick={() => {
+                    setTheme("system");
+                    setThemeMenuOpen(false);
+                  }}
+                  className="w-full px-4 py-3 text-left flex items-center hover:bg-gray-50 rounded-b-xl"
+                >
+                  <ComputerDesktopIcon className="h-5 w-5 mr-3 text-blue-500" />
+                  System
+                </button>
+              </div>
+            </>
           )}
         </div>
         {user && <NotificationDropdown userId={user?._id!.toString()} fullName={user.name} />}

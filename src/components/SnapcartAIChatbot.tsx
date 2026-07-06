@@ -2581,6 +2581,19 @@ export default function SnapcartAIChatbot({
               return updated;
             });
           }
+
+          // Sync guest cookies
+          const isGuest = !session?.user?.id;
+          if (isGuest) {
+            const returnedGuestCart = (packet as any).guestCart;
+            const returnedGuestCoupon = (packet as any).guestCoupon;
+            if (returnedGuestCart !== undefined || returnedGuestCoupon !== undefined) {
+              axios.put("/api/guest-cart", {
+                items: returnedGuestCart,
+                coupon: returnedGuestCoupon,
+              }).then(() => refreshCartFromServer()).catch(console.error);
+            }
+          }
         }
 
         if (packet.type === "error") {
@@ -2627,6 +2640,7 @@ export default function SnapcartAIChatbot({
       if (session?.user?.id) {
         await fetchSessions(sessionSearch);
       }
+      await refreshCartFromServer();
     } catch (streamError) {
       if (
         streamError instanceof DOMException &&
@@ -2687,6 +2701,19 @@ export default function SnapcartAIChatbot({
           if (Array.isArray(fallbackResponse.data.suggestions)) {
             setSuggestions(fallbackResponse.data.suggestions.slice(0, 3));
           }
+          // Sync guest cookies for fallback non-stream POST
+          const isGuest = !session?.user?.id;
+          if (isGuest) {
+            const returnedGuestCart = fallbackResponse.data.guestCart;
+            const returnedGuestCoupon = fallbackResponse.data.guestCoupon;
+            if (returnedGuestCart !== undefined || returnedGuestCoupon !== undefined) {
+              await axios.put("/api/guest-cart", {
+                items: returnedGuestCart,
+                coupon: returnedGuestCoupon,
+              });
+            }
+          }
+          await refreshCartFromServer();
         } else {
           setMessages((prev) => [
             ...prev.slice(0, -1),

@@ -30,12 +30,12 @@ export const ProfileDropdown = ({ user }: { user: IUser }) => {
                 onClick={() => setOpen((prev) => !prev)}
             >
                 {user.image?.url ? (
-                    <Image 
-                        src={user.image.url} 
-                        alt={user.name} 
+                    <Image
+                        src={user.image.url}
+                        alt={user.name}
                         width={40}
                         height={40}
-                        className="object-cover rounded-full" 
+                        className="object-cover rounded-full"
                     />
                 ) : (
                     <User className="h-6 w-6 text-gray-500" />
@@ -50,18 +50,18 @@ export const ProfileDropdown = ({ user }: { user: IUser }) => {
                         exit={{ opacity: 0, y: -10, scale: 0.95 }}
                         className="absolute right-0 mt-2 w-56 bg-white rounded-lg shadow-xl border z-50 p-2"
                     >
-                         <div className="flex items-center gap-3 px-2 py-2 border-b mb-2">
+                        <div className="flex items-center gap-3 px-2 py-2 border-b mb-2">
                             <div className="relative w-10 h-10 rounded-full bg-gray-100 flex items-center justify-center overflow-hidden">
-                                 {user.image?.url ? (
-                                    <Image 
-                                        src={user.image.url} 
-                                        alt={user.name} 
+                                {user.image?.url ? (
+                                    <Image
+                                        src={user.image.url}
+                                        alt={user.name}
                                         width={40}
                                         height={40}
-                                        className="object-cover rounded-full" 
+                                        className="object-cover rounded-full"
                                     />
                                 ) : (
-                                    <User className="h-6 w-6 text-gray-500"/>
+                                    <User className="h-6 w-6 text-gray-500" />
                                 )}
                             </div>
                             <div>
@@ -90,7 +90,7 @@ export const ProfileDropdown = ({ user }: { user: IUser }) => {
                             </Link>
                         )}
 
-                         <button
+                        <button
                             type="button"
                             className="flex items-center gap-2 w-full text-left px-3 py-2 text-sm text-red-600 hover:bg-red-50 rounded-md"
                             onClick={() => {

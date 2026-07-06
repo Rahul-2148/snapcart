@@ -14,7 +14,7 @@ export class GeminiProvider implements Provider {
   ): Promise<ProviderResponse> {
     try {
       const apiKey = this.getApiKey();
-      const model = options?.preferredModel || "gemini-2.5-flash";
+      const model = options?.preferredModel || "gemini-1.5-flash";
       const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
 
       const requestBody: any = {
@@ -71,7 +71,7 @@ export class GeminiProvider implements Provider {
   ): Promise<StreamResponse> {
     try {
       const apiKey = this.getApiKey();
-      const model = options?.preferredModel || "gemini-2.5-flash";
+      const model = options?.preferredModel || "gemini-1.5-flash";
       const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:streamGenerateContent?key=${apiKey}`;
 
       const requestBody: any = {
@@ -172,7 +172,7 @@ export class GeminiProvider implements Provider {
   ): Promise<ProviderResponse> {
     try {
       const apiKey = this.getApiKey();
-      const model = options?.preferredModel || "gemini-2.5-flash"; // Flash supports multimodal
+      const model = options?.preferredModel || "gemini-1.5-flash"; // Flash supports multimodal
       const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
 
       const requestBody = {
@@ -265,7 +265,7 @@ export class GeminiProvider implements Provider {
       const apiKey = process.env.GEMINI_API_KEY;
       if (!apiKey) return false;
       const res = await fetch(
-        `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`,
+        `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`,
         {
           method: "POST",
           headers: { "Content-Type": "application/json" },

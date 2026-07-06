@@ -137,18 +137,33 @@ export async function GET(req: NextRequest) {
       });
     }
 
-    const groceries = await Grocery.find(query)
+    const page = parseInt(searchParams.get("page") || "1");
+    const limit = searchParams.get("limit");
+
+    let dbQuery = Grocery.find(query)
       .populate("category", "name allowedUnits")
       .populate({
         path: "variants",
         model: "GroceryVariant",
         select: "label variantName unit price countInStock isDefault cod",
       })
-      .sort({ createdAt: -1 });
+      .sort({ createdAt: -1 })
+      .lean();
+
+    if (limit && limit !== "all") {
+      const limitVal = parseInt(limit);
+      const skip = (page - 1) * limitVal;
+      dbQuery = dbQuery.skip(skip).limit(limitVal);
+    } else if (!limit) {
+      // Default limit of 48 items to prevent heavy fetches, but keep configurable
+      dbQuery = dbQuery.limit(48);
+    }
+
+    const groceries = await dbQuery;
 
     return NextResponse.json({
       success: true,
-      groceries,
+      groceries: groceries || [],
     });
   } catch (error: any) {
     console.error("GET GROCERIES ERROR:", error);

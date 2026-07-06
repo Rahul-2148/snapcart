@@ -4,7 +4,7 @@ import React, { useState } from "react";
 import {
   Settings,
   Truck,
-  DollarSign,
+  IndianRupee,
   Check,
   X,
   Loader2,
@@ -240,7 +240,7 @@ export const VariantCodSettingsManager: React.FC<
                   Handling Charge (₹)
                 </label>
                 <div className="flex items-center gap-2">
-                  <DollarSign className="w-5 h-5 text-gray-400" />
+                  <IndianRupee className="w-5 h-5 text-gray-400" />
                   <input
                     type="number"
                     min="0"

@@ -12,7 +12,7 @@ import {
   Calendar,
   Star,
   Package,
-  DollarSign,
+  IndianRupee,
 } from "lucide-react";
 import {
   BarChart,
@@ -409,7 +409,7 @@ export default function PartnerDetailPage() {
         </div>
         <div className="bg-green-50 p-4 rounded-lg shadow">
           <div className="flex items-center gap-3">
-            <DollarSign className="h-8 w-8 text-green-600" />
+            <IndianRupee className="h-8 w-8 text-green-600" />
             <div>
               <p className="text-sm text-green-700">Earnings</p>
               <p className="text-2xl font-bold text-green-600">

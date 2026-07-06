@@ -49,7 +49,7 @@ const AddGrocery = () => {
   const [categoryId, setCategoryId] = useState("");
   const [brand, setBrand] = useState("");
   const [isBestSeller, setIsBestSeller] = useState(false);
-  const [isNew, setIsNew] = useState(false);
+  const [isNew, setIsNew] = useState(true); // Automatically true for new creations
   const [isFeatured, setIsFeatured] = useState(false);
 
   // Variant states
@@ -594,39 +594,37 @@ const AddGrocery = () => {
                   </label>
                   <div className="space-y-3">
                     {/* Best Seller Checkbox */}
-                    <label className="flex items-center gap-3 cursor-pointer group">
+                    <label className="flex items-center gap-3 cursor-not-allowed opacity-75 group" title="Automatically assigned once sales volume reaches 10 orders">
                       <input
                         type="checkbox"
                         checked={isBestSeller}
-                        onChange={(e) => setIsBestSeller(e.target.checked)}
-                        className="w-5 h-5 text-green-600 border-gray-300 rounded focus:ring-2 focus:ring-green-400 cursor-pointer"
-                        disabled={loading}
+                        disabled={true}
+                        className="w-5 h-5 text-green-600 border-gray-300 rounded cursor-not-allowed"
                       />
                       <div className="flex items-center gap-2">
-                        <span className="text-gray-700 font-medium group-hover:text-green-700 transition-colors">
+                        <span className="text-gray-500 font-medium">
                           Best Seller
                         </span>
-                        <span className="text-xs bg-yellow-100 text-yellow-800 px-2 py-0.5 rounded-full font-semibold">
-                          ⭐ Popular
+                        <span className="text-[10px] bg-yellow-50 text-yellow-700 px-2 py-0.5 rounded-full font-extrabold uppercase tracking-wider border border-yellow-100">
+                          Auto-assigned (Sales &ge; 10)
                         </span>
                       </div>
                     </label>
 
                     {/* New Arrival Checkbox */}
-                    <label className="flex items-center gap-3 cursor-pointer group">
+                    <label className="flex items-center gap-3 cursor-not-allowed opacity-75 group" title="Automatically enabled for 7 days for new products">
                       <input
                         type="checkbox"
-                        checked={isNew}
-                        onChange={(e) => setIsNew(e.target.checked)}
-                        className="w-5 h-5 text-green-600 border-gray-300 rounded focus:ring-2 focus:ring-green-400 cursor-pointer"
-                        disabled={loading}
+                        checked={true}
+                        disabled={true}
+                        className="w-5 h-5 text-green-600 border-gray-300 rounded cursor-not-allowed"
                       />
                       <div className="flex items-center gap-2">
-                        <span className="text-gray-700 font-medium group-hover:text-green-700 transition-colors">
+                        <span className="text-gray-500 font-medium">
                           New Arrival
                         </span>
-                        <span className="text-xs bg-blue-100 text-blue-800 px-2 py-0.5 rounded-full font-semibold">
-                          🆕 Fresh
+                        <span className="text-[10px] bg-blue-50 text-blue-700 px-2 py-0.5 rounded-full font-extrabold uppercase tracking-wider border border-blue-100">
+                          Auto-assigned (7 Days)
                         </span>
                       </div>
                     </label>

@@ -124,8 +124,6 @@
 
     "@tailwindcss/postcss": "^4",
 
-    "@types/next": "^8.0.7",
-
     "@types/node": "^20",
 
     "@types/react": "^19",

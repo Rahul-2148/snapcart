@@ -7,15 +7,15 @@ import { useSocket } from "@/contexts/SocketContext";
 import Link from "next/link";
 import { toast } from "sonner";
 import { NotificationDropdown } from "@/components/common/NotificationDropdown";
-import { 
-  ShieldCheck, 
-  MapPin, 
-  Clock, 
-  LogOut, 
-  User, 
-  DollarSign, 
-  Activity, 
-  TrendingUp, 
+import {
+  ShieldCheck,
+  MapPin,
+  Clock,
+  LogOut,
+  User,
+  IndianRupee,
+  Activity,
+  TrendingUp,
   Award,
   Calendar,
   AlertTriangle,
@@ -119,7 +119,7 @@ export const DeliveryBoyDashboard = () => {
   const [payoutsLoading, setPayoutsLoading] = useState(false);
   const [payoutActionLoading, setPayoutActionLoading] = useState(false);
   const [payoutError, setPayoutError] = useState<string | null>(null);
-  
+
   const [walletBalance, setWalletBalance] = useState<number>(0);
   const [isPayoutModalOpen, setIsPayoutModalOpen] = useState(false);
   const [payoutForm, setPayoutForm] = useState({
@@ -298,8 +298,8 @@ export const DeliveryBoyDashboard = () => {
         setStats({
           totalDeliveries: data.summary.deliveryCount || 0,
           averageRating: data.partner.stats?.averageRating || 0,
-          completionRate: data.partner.stats?.totalDeliveries 
-            ? Math.round(((data.partner.stats.totalDeliveries - (data.partner.stats.cancelledDeliveries || 0)) / data.partner.stats.totalDeliveries) * 100) 
+          completionRate: data.partner.stats?.totalDeliveries
+            ? Math.round(((data.partner.stats.totalDeliveries - (data.partner.stats.cancelledDeliveries || 0)) / data.partner.stats.totalDeliveries) * 100)
             : 100,
         });
       }
@@ -817,11 +817,10 @@ export const DeliveryBoyDashboard = () => {
             <button
               onClick={handleToggleOnline}
               disabled={isLoading}
-              className={`px-4 py-1.5 rounded-xl font-bold text-xs uppercase tracking-wide transition cursor-pointer shadow-md flex items-center gap-1.5 ${
-                isOnline
+              className={`px-4 py-1.5 rounded-xl font-bold text-xs uppercase tracking-wide transition cursor-pointer shadow-md flex items-center gap-1.5 ${isOnline
                   ? "bg-red-500/10 border border-red-500/30 text-red-400 hover:bg-red-500/20"
                   : "bg-green-600 text-white hover:bg-green-700 shadow-green-600/10"
-              }`}
+                }`}
             >
               <Activity className="w-3.5 h-3.5" />
               {isOnline ? "Go Offline" : "Go Online"}
@@ -865,7 +864,7 @@ export const DeliveryBoyDashboard = () => {
             </button>
           </div>
         )}
-        
+
         {/* KYC Verification Clearance Banner */}
         {kycStatus === "approved" ? (
           <div className="bg-slate-900/40 backdrop-blur-xl border border-slate-800/80 rounded-2xl p-5 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 shadow-xl">
@@ -935,11 +934,10 @@ export const DeliveryBoyDashboard = () => {
               <button
                 key={tab}
                 onClick={() => setActiveTab(tab as any)}
-                className={`py-3.5 px-4 font-bold text-xs uppercase tracking-wider transition-all relative border-b-2 flex-shrink-0 cursor-pointer ${
-                  isActive
+                className={`py-3.5 px-4 font-bold text-xs uppercase tracking-wider transition-all relative border-b-2 flex-shrink-0 cursor-pointer ${isActive
                     ? "border-green-500 text-green-400 font-extrabold"
                     : "border-transparent text-slate-400 hover:text-white"
-                }`}
+                  }`}
               >
                 {tab === "home" && "Terminal overview"}
                 {tab === "available" && `Available Orders (${availableAssignments.length})`}
@@ -973,7 +971,7 @@ export const DeliveryBoyDashboard = () => {
                     <span className="text-xs text-slate-400 font-semibold uppercase">Today's Earnings</span>
                     <h4 className="text-2xl font-extrabold text-green-400 mt-1">₹{earnings?.totalEarnings || 0}</h4>
                   </div>
-                  <div className="w-10 h-10 rounded-lg bg-green-500/10 flex items-center justify-center text-green-400"><DollarSign className="w-5 h-5" /></div>
+                  <div className="w-10 h-10 rounded-lg bg-green-500/10 flex items-center justify-center text-green-400"><IndianRupee className="w-5 h-5" /></div>
                 </div>
 
                 <div className="bg-slate-900/30 backdrop-blur-md border border-slate-800/80 p-5 rounded-2xl flex items-center justify-between">
@@ -1014,7 +1012,7 @@ export const DeliveryBoyDashboard = () => {
 
               {/* Quick Preset Actions */}
               <div className="grid grid-cols-1 md:grid-cols-3 gap-5 pt-2">
-                <button 
+                <button
                   onClick={() => setActiveTab("available")}
                   className="bg-slate-900/40 hover:bg-slate-900/80 border border-slate-800 hover:border-green-600/30 rounded-2xl p-6 text-left transition group cursor-pointer"
                 >
@@ -1025,7 +1023,7 @@ export const DeliveryBoyDashboard = () => {
                   <p className="text-xs text-slate-400 mt-1.5">View broadcasted delivery assignments nearby.</p>
                 </button>
 
-                <button 
+                <button
                   onClick={() => setActiveTab("shifts")}
                   className="bg-slate-900/40 hover:bg-slate-900/80 border border-slate-800 hover:border-green-600/30 rounded-2xl p-6 text-left transition group cursor-pointer"
                 >
@@ -1036,12 +1034,12 @@ export const DeliveryBoyDashboard = () => {
                   <p className="text-xs text-slate-400 mt-1.5">Configure active time windows to obtain orders.</p>
                 </button>
 
-                <button 
+                <button
                   onClick={() => setActiveTab("earnings")}
                   className="bg-slate-900/40 hover:bg-slate-900/80 border border-slate-800 hover:border-green-600/30 rounded-2xl p-6 text-left transition group cursor-pointer"
                 >
                   <div className="w-10 h-10 rounded-xl bg-amber-500/10 flex items-center justify-center text-amber-400 mb-4 group-hover:scale-110 transition-transform">
-                    <DollarSign className="w-5 h-5" />
+                    <IndianRupee className="w-5 h-5" />
                   </div>
                   <h3 className="font-bold text-white text-base">Payout Console</h3>
                   <p className="text-xs text-slate-400 mt-1.5">Request manual payouts and track transactions.</p>
@@ -1073,9 +1071,8 @@ export const DeliveryBoyDashboard = () => {
                     <div key={assignment._id} className="bg-slate-900/40 border border-slate-800/80 p-5 rounded-2xl flex flex-col justify-between hover:border-green-500/30 transition shadow-lg relative overflow-hidden">
                       {/* Priority Tag */}
                       <div className="absolute top-0 right-0 w-24 h-24 pointer-events-none overflow-hidden">
-                        <span className={`absolute top-4 right-[-24px] rotate-45 text-[9px] font-bold py-1 w-28 text-center uppercase tracking-wide ${
-                          assignment.priority === "high" ? "bg-red-500 text-white" : "bg-indigo-500 text-white"
-                        }`}>
+                        <span className={`absolute top-4 right-[-24px] rotate-45 text-[9px] font-bold py-1 w-28 text-center uppercase tracking-wide ${assignment.priority === "high" ? "bg-red-500 text-white" : "bg-indigo-500 text-white"
+                          }`}>
                           {assignment.priority}
                         </span>
                       </div>
@@ -1265,11 +1262,10 @@ export const DeliveryBoyDashboard = () => {
                               {start.toLocaleString("en-IN")} → {end.toLocaleString("en-IN")}
                             </p>
                             <div className="flex items-center gap-2 mt-1">
-                              <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full capitalize ${
-                                shift.status === "active" ? "bg-green-950 text-green-400" :
-                                shift.status === "completed" ? "bg-indigo-950 text-indigo-400" :
-                                "bg-slate-800 text-slate-400"
-                              }`}>
+                              <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full capitalize ${shift.status === "active" ? "bg-green-950 text-green-400" :
+                                  shift.status === "completed" ? "bg-indigo-950 text-indigo-400" :
+                                    "bg-slate-800 text-slate-400"
+                                }`}>
                                 {shift.status}
                               </span>
                               {shift.status === "scheduled" && !canStart && (
@@ -1362,15 +1358,13 @@ export const DeliveryBoyDashboard = () => {
                   <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">Tip Earnings</span>
                   <p className="text-2xl font-extrabold text-amber-400 mt-1">₹{earnings?.tipEarnings || 0}</p>
                 </div>
-                <div className={`p-5 rounded-2xl border ${
-                  (earnings?.cashInHand || 0) >= 2000
+                <div className={`p-5 rounded-2xl border ${(earnings?.cashInHand || 0) >= 2000
                     ? "bg-red-950/20 border-red-500/40 text-red-300 animate-pulse"
                     : "bg-slate-900/35 border-slate-800/80 text-slate-100"
-                }`}>
-                  <span className="text-[10px] font-bold uppercase tracking-wider opacity-80">Cash In Hand (COD)</span>
-                  <p className={`text-2xl font-extrabold mt-1 ${
-                    (earnings?.cashInHand || 0) >= 2000 ? "text-red-400" : "text-emerald-400"
                   }`}>
+                  <span className="text-[10px] font-bold uppercase tracking-wider opacity-80">Cash In Hand (COD)</span>
+                  <p className={`text-2xl font-extrabold mt-1 ${(earnings?.cashInHand || 0) >= 2000 ? "text-red-400" : "text-emerald-400"
+                    }`}>
                     ₹{earnings?.cashInHand || 0}
                   </p>
                 </div>
@@ -1436,13 +1430,12 @@ export const DeliveryBoyDashboard = () => {
                               </p>
                             </div>
                             <span
-                              className={`px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider ${
-                                payout.status === "approved"
+                              className={`px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider ${payout.status === "approved"
                                   ? "bg-green-950 text-green-400 border border-green-500/20"
                                   : payout.status === "rejected"
                                     ? "bg-red-950 text-red-400 border border-red-500/20"
                                     : "bg-amber-950 text-amber-400 border border-amber-500/20"
-                              }`}
+                                }`}
                             >
                               {payout.status}
                             </span>
@@ -1507,13 +1500,12 @@ export const DeliveryBoyDashboard = () => {
                               </p>
                             </div>
                             <span
-                              className={`px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider ${
-                                deposit.status === "approved"
+                              className={`px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider ${deposit.status === "approved"
                                   ? "bg-green-950 text-green-400 border border-green-500/20"
                                   : deposit.status === "rejected"
                                     ? "bg-red-950 text-red-400 border border-red-500/20"
                                     : "bg-amber-950 text-amber-400 border border-amber-500/20"
-                              }`}
+                                }`}
                             >
                               {deposit.status === "pending" ? "Pending Manager Review" : deposit.status}
                             </span>
@@ -1531,13 +1523,13 @@ export const DeliveryBoyDashboard = () => {
           {activeTab === "settings" && (
             <div className="max-w-3xl mx-auto space-y-6 animate-fadeIn">
               <form onSubmit={handleUpdateProfile} className="space-y-6">
-                
+
                 {/* Profile Information */}
                 <div className="bg-slate-900/40 border border-slate-800/80 p-6 rounded-2xl shadow-xl space-y-4">
                   <h3 className="font-extrabold text-white text-base border-b border-slate-800 pb-3 flex items-center gap-2">
                     <User className="w-5 h-5 text-green-400" /> Rider Profile Info
                   </h3>
-                  
+
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div className="space-y-1.5">
                       <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider">Full Name</label>
@@ -1549,7 +1541,7 @@ export const DeliveryBoyDashboard = () => {
                         className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-2.5 text-xs text-white focus:outline-none focus:border-green-500"
                       />
                     </div>
-                    
+
                     <div className="space-y-1.5">
                       <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider">Email Address</label>
                       <input
@@ -1580,7 +1572,7 @@ export const DeliveryBoyDashboard = () => {
                   <h3 className="font-extrabold text-white text-base border-b border-slate-800 pb-3 flex items-center gap-2">
                     <Truck className="w-5 h-5 text-green-400" /> Vehicle Settings
                   </h3>
-                  
+
                   <p className="text-xs text-slate-400">Select your active vehicle type for order assignments.</p>
 
                   <div className="grid grid-cols-3 gap-4">
@@ -1595,11 +1587,10 @@ export const DeliveryBoyDashboard = () => {
                           key={v.id}
                           type="button"
                           onClick={() => setSettingsProfile({ ...settingsProfile, vehicleType: v.id })}
-                          className={`p-4 rounded-xl border text-center transition cursor-pointer flex flex-col items-center justify-center gap-2 ${
-                            isSelected
+                          className={`p-4 rounded-xl border text-center transition cursor-pointer flex flex-col items-center justify-center gap-2 ${isSelected
                               ? "bg-green-500/10 border-green-500 text-white font-bold"
                               : "bg-slate-950/40 border-slate-800 text-slate-400 hover:border-slate-700"
-                          }`}
+                            }`}
                         >
                           <span className="text-2xl">{v.icon}</span>
                           <div>
@@ -1615,9 +1606,9 @@ export const DeliveryBoyDashboard = () => {
                 {/* Payout Details */}
                 <div className="bg-slate-900/40 border border-slate-800/80 p-6 rounded-2xl shadow-xl space-y-4">
                   <h3 className="font-extrabold text-white text-base border-b border-slate-800 pb-3 flex items-center gap-2">
-                    <DollarSign className="w-5 h-5 text-green-400" /> Payout Configurations
+                    <IndianRupee className="w-5 h-5 text-green-400" /> Payout Configurations
                   </h3>
-                  
+
                   <div className="space-y-4">
                     <div className="space-y-1.5">
                       <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider">Transfer Method</label>
@@ -1729,7 +1720,7 @@ export const DeliveryBoyDashboard = () => {
                 <h3 className="font-extrabold text-white text-base border-b border-slate-800 pb-3 flex items-center gap-2">
                   <ShieldCheck className="w-5 h-5 text-green-400" /> Operational KYC Status
                 </h3>
-                
+
                 <div className="flex items-center gap-4 bg-slate-950/40 p-4 rounded-xl border border-slate-800/60">
                   {settingsProfile.kycStatus === "approved" ? (
                     <>
@@ -2116,14 +2107,14 @@ export const DeliveryBoyDashboard = () => {
 };
 
 // Available order ticking countdown component
-const AssignmentCountdown = ({ 
-  expiresAt, 
-  createdAt, 
-  onExpired 
-}: { 
-  expiresAt: any; 
-  createdAt?: any; 
-  onExpired?: () => void; 
+const AssignmentCountdown = ({
+  expiresAt,
+  createdAt,
+  onExpired
+}: {
+  expiresAt: any;
+  createdAt?: any;
+  onExpired?: () => void;
 }) => {
   const [percent, setPercent] = useState(100);
   const [secondsLeft, setSecondsLeft] = useState(0);
@@ -2165,10 +2156,9 @@ const AssignmentCountdown = ({
         <span className="text-red-400 font-extrabold">{secondsLeft}s left</span>
       </div>
       <div className="h-1.5 w-full bg-slate-950 rounded-full overflow-hidden border border-slate-800">
-        <div 
-          className={`h-full rounded-full transition-all duration-300 ${
-            percent < 25 ? "bg-red-500 animate-pulse" : percent < 50 ? "bg-amber-500" : "bg-green-500"
-          }`}
+        <div
+          className={`h-full rounded-full transition-all duration-300 ${percent < 25 ? "bg-red-500 animate-pulse" : percent < 50 ? "bg-amber-500" : "bg-green-500"
+            }`}
           style={{ width: `${percent}%` }}
         />
       </div>
@@ -2177,19 +2167,19 @@ const AssignmentCountdown = ({
 };
 
 // Premium circular target gauge for daily incentives
-const IncentiveGauge = ({ 
-  progress, 
-  title, 
-  reward, 
-  description, 
-  targetDeliveries, 
-  deliveriesDone, 
-  targetEarnings, 
-  earningsDone, 
-  endAt 
-}: { 
-  progress: number; 
-  title: string; 
+const IncentiveGauge = ({
+  progress,
+  title,
+  reward,
+  description,
+  targetDeliveries,
+  deliveriesDone,
+  targetEarnings,
+  earningsDone,
+  endAt
+}: {
+  progress: number;
+  title: string;
   reward: number;
   description?: string;
   targetDeliveries?: number;
@@ -2254,7 +2244,7 @@ const IncentiveGauge = ({
             </span>
           )}
         </div>
-        
+
         <p className="text-[10px] text-slate-300">
           Complete milestone for <strong className="text-green-400">₹{reward}</strong> bonus.
         </p>

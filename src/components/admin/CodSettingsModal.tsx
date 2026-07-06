@@ -5,7 +5,7 @@
 "use client";
 
 import React, { useState } from "react";
-import { AlertCircle, Check, Loader2, Truck, DollarSign } from "lucide-react";
+import { AlertCircle, Check, Loader2, Truck, IndianRupee } from "lucide-react";
 import { toast } from "sonner";
 import axios from "axios";
 
@@ -113,7 +113,7 @@ export const CodSettingsModal: React.FC<CodSettingsModalProps> = ({
               COD Handling Charge (₹)
             </label>
             <div className="relative">
-              <DollarSign className="absolute left-3 top-3 w-5 h-5 text-gray-400" />
+              <IndianRupee className="absolute left-3 top-3 w-5 h-5 text-gray-400" />
               <input
                 type="number"
                 min="0"
