@@ -3344,7 +3344,7 @@ export default function SnapcartAIChatbot({
                           } ${chatbotSettings.bubbleStyle === "sharp" ? "rounded-lg" : chatbotSettings.bubbleStyle === "modern" ? "rounded-xl" : "rounded-2xl"} whitespace-pre-wrap ${
                             msg.role === "user"
                               ? `bg-gradient-to-br ${themes[activeTheme].gradient} text-white ${chatbotSettings.bubbleStyle === "modern" ? "rounded-br-sm" : "rounded-br-none"} shadow-md ${themes[activeTheme].accentGlow} border-0`
-                              : `bg-white text-gray-850 border ${themes[activeTheme].borderLight} ${chatbotSettings.bubbleStyle === "modern" ? "rounded-bl-sm" : "rounded-bl-none"} shadow-sm`
+                              : `bg-white text-gray-800 border ${themes[activeTheme].borderLight} ${chatbotSettings.bubbleStyle === "modern" ? "rounded-bl-sm" : "rounded-bl-none"} shadow-sm`
                           }`}
                         >
                           {isAssistantPending ? (
@@ -3815,7 +3815,7 @@ export default function SnapcartAIChatbot({
                   <div className="w-12 h-12 rounded-full bg-red-50 flex items-center justify-center mb-3">
                     <Trash2 className="w-6 h-6 text-red-500 animate-pulse" />
                   </div>
-                  <h3 className="text-sm font-black text-gray-850 mb-1">
+                  <h3 className="text-sm font-black text-gray-800 mb-1">
                     {confirmDialog.title}
                   </h3>
                   <p className="text-xs text-gray-500 mb-5 leading-normal">

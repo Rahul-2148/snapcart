@@ -177,6 +177,7 @@ export async function GET(req: NextRequest) {
         badges: grocery.badges,
         isActive: grocery.isActive,
         category: grocery.category,
+        variants: grocery.variants || [],
       };
     });
 

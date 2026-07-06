@@ -59,6 +59,9 @@ export default function PublicWishlistPage() {
 					setUser(response.data.user);
 				}
 			} catch (error) {
+				if (axios.isAxiosError(error) && error.response?.status === 401) {
+					return;
+				}
 				console.error("Error fetching user:", error);
 			}
 		};

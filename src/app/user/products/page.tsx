@@ -4,6 +4,7 @@
 import React, { Suspense, useEffect, useState, useCallback } from "react";
 import axios from "axios";
 import { useSearchParams } from "next/navigation";
+import { useSession } from "next-auth/react";
 
 import GroceryItemCard from "@/components/GroceryItemCard";
 import ProductFilters from "@/components/products/ProductFilters";
@@ -17,6 +18,7 @@ import {
   LayoutGrid,
   List,
   Sparkles,
+  X,
 } from "lucide-react";
 import Link from "next/link";
 import { IUser } from "@/models/user.model";
@@ -69,6 +71,7 @@ const ProductsPageContent = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [user, setUser] = useState<IUser | null>(null);
+  const [isAiSearch, setIsAiSearch] = useState(false);
 
   // Filter states
   const [searchTerm, setSearchTerm] = useState(
@@ -104,8 +107,12 @@ const ProductsPageContent = () => {
     setSelectedCategory(searchParams.get("category") || "");
   }, [searchParams]);
 
+  const { status } = useSession();
+  const isGuest = status === "unauthenticated";
+
   // Fetch user
   useEffect(() => {
+    if (isGuest) return;
     const fetchUser = async () => {
       try {
         const response = await axios.get("/api/me");
@@ -113,11 +120,14 @@ const ProductsPageContent = () => {
           setUser(response.data.user);
         }
       } catch (err) {
+        if (axios.isAxiosError(err) && err.response?.status === 401) {
+          return; // Ignore gracefully for unauthenticated users
+        }
         console.error("Failed to fetch user:", err);
       }
     };
     fetchUser();
-  }, []);
+  }, [isGuest]);
 
   // Fetch categories
   useEffect(() => {
@@ -164,8 +174,10 @@ const ProductsPageContent = () => {
       if (searchTerm) params.search = searchTerm;
       if (selectedCategory) params.category = selectedCategory;
       if (selectedIds) params.ids = selectedIds;
+      if (isAiSearch && sortBy) params.sort = sortBy;
 
-      const response = await axios.get("/api/groceries", { params });
+      const endpoint = isAiSearch ? "/api/groceries/search" : "/api/groceries";
+      const response = await axios.get(endpoint, { params });
       if (response.data.success) {
         setGroceries(response.data.groceries);
       }
@@ -175,7 +187,13 @@ const ProductsPageContent = () => {
     } finally {
       setLoading(false);
     }
-  }, [searchTerm, selectedCategory, selectedIds]);
+  }, [searchTerm, selectedCategory, selectedIds, isAiSearch, sortBy]);
+
+  useEffect(() => {
+    if (!searchTerm) {
+      setIsAiSearch(false);
+    }
+  }, [searchTerm]);
 
   useEffect(() => {
     fetchGroceries();
@@ -427,11 +445,12 @@ const ProductsPageContent = () => {
           <button
             type="button"
             onClick={() => {
-              window.dispatchEvent(
-                new CustomEvent("snapcart-ai-open", {
-                  detail: { prefill: searchTerm.trim() || "Suggest healthy breakfast options" }
-                })
-              );
+              if (searchTerm.trim()) {
+                setIsAiSearch(true);
+              } else {
+                setSearchTerm("Suggest healthy breakfast options");
+                setIsAiSearch(true);
+              }
             }}
             className="px-5 py-3 bg-gradient-to-r from-emerald-500 via-emerald-600 to-teal-600 hover:from-emerald-600 hover:to-teal-700 text-white rounded-lg font-bold flex items-center justify-center gap-2 shadow-lg shadow-emerald-500/10 hover:shadow-emerald-500/20 active:scale-[0.98] transition cursor-pointer"
           >
@@ -463,17 +482,32 @@ const ProductsPageContent = () => {
           <div className="lg:col-span-3">
             {/* Sort and Results Count */}
             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6 bg-white p-4 rounded-lg shadow-sm">
-              <p className="text-gray-600">
-                Showing{" "}
-                <span className="font-semibold">
-                  {paginatedGroceries.length}
-                </span>{" "}
-                of{" "}
-                <span className="font-semibold">
-                  {filteredGroceries.length}
-                </span>{" "}
-                products
-              </p>
+              <div className="flex items-center gap-3 flex-wrap">
+                <p className="text-gray-600">
+                  Showing{" "}
+                  <span className="font-semibold">
+                    {paginatedGroceries.length}
+                  </span>{" "}
+                  of{" "}
+                  <span className="font-semibold">
+                    {filteredGroceries.length}
+                  </span>{" "}
+                  products
+                </p>
+                {isAiSearch && (
+                  <button
+                    onClick={() => {
+                      setIsAiSearch(false);
+                      setSearchTerm("");
+                    }}
+                    className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200 hover:bg-emerald-100 transition active:scale-95 cursor-pointer"
+                  >
+                    <Sparkles className="w-3.5 h-3.5 text-emerald-600 animate-pulse" />
+                    <span>AI Semantic Search Active</span>
+                    <X className="w-3 h-3 ml-1 text-emerald-500 hover:text-emerald-700" />
+                  </button>
+                )}
+              </div>
               <div className="flex items-center gap-3">
                 <div className="flex rounded-lg border border-gray-200 overflow-hidden">
                   <button
