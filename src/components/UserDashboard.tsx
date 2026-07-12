@@ -22,6 +22,8 @@ import CategorySlider from "./CategorySlider";
 
 import HeroSection from "./HeroSection";
 
+import FlashDealsBanner from "./FlashDealsBanner";
+
 import GroceryItemCard from "./GroceryItemCard";
 
 import { useStoreInventory } from "@/hooks/useStoreInventory";
@@ -472,6 +474,8 @@ const UserDashboard = () => {
       <HeroSection />
 
       <CategorySlider />
+
+      <FlashDealsBanner />
 
 
 

@@ -42,6 +42,10 @@ export interface IUser extends Document {
     panNumber?: string;
     verificationType?: "manual" | "digilocker";
   };
+  passwordResetToken?: string;
+  passwordResetTokenExpires?: Date;
+  passwordResetOtp?: string;
+  passwordResetOtpExpires?: Date;
 }
 
 const userSchema = new mongoose.Schema<IUser>(
@@ -152,6 +156,22 @@ const userSchema = new mongoose.Schema<IUser>(
       panNumber: { type: String },
       verificationType: { type: String, enum: ["manual", "digilocker"], default: "manual" },
       _id: false,
+    },
+    passwordResetToken: {
+      type: String,
+      default: null,
+    },
+    passwordResetTokenExpires: {
+      type: Date,
+      default: null,
+    },
+    passwordResetOtp: {
+      type: String,
+      default: null,
+    },
+    passwordResetOtpExpires: {
+      type: Date,
+      default: null,
     },
   },
   { timestamps: true },

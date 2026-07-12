@@ -3,6 +3,17 @@ import type { NextConfig } from "next";
 const nextConfig: NextConfig = {
   experimental: {
     proxyClientMaxBodySize: "80mb",
+    optimizePackageImports: [
+      "lucide-react",
+      "@heroicons/react",
+      "react-icons",
+      "recharts",
+      "@heroicons/react/24/outline",
+      "@heroicons/react/24/solid",
+      "framer-motion",
+      "motion",
+      "sweetalert2"
+    ],
   },
 
   reactStrictMode: true,

@@ -134,3 +134,19 @@
   border-left: 4px solid #7f1d1d;
   border-bottom: 5px solid transparent;
 }
+
+/* Chatbot Custom Scrollbar styling */
+.snapcart-scrollbar::-webkit-scrollbar {
+  width: 5px;
+  height: 5px;
+}
+.snapcart-scrollbar::-webkit-scrollbar-track {
+  background: transparent;
+}
+.snapcart-scrollbar::-webkit-scrollbar-thumb {
+  background: rgba(16, 185, 129, 0.25);
+  border-radius: 9999px;
+}
+.snapcart-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: rgba(16, 185, 129, 0.45);
+}

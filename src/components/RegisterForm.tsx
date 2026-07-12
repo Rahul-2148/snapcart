@@ -75,6 +75,8 @@ const RegisterForm = ({
           redirectUrl = "/delivery-boy";
         } else if (selectedRole === "admin") {
           redirectUrl = "/admin";
+        } else if (selectedRole === "storeManager") {
+          redirectUrl = "/store-manager";
         }
         
         console.log(`📍 Redirecting to: ${redirectUrl}`);

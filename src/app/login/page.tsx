@@ -48,8 +48,24 @@ const LoginContent = () => {
     const checkUserAndRedirect = async () => {
       if (status === "authenticated") {
         try {
-          await axios.get("/api/me");
-          router.replace(redirectTo);
+          const res = await axios.get("/api/me");
+          const dbUser = res.data?.user;
+          if (dbUser) {
+            const role = dbUser.currentRole || dbUser.roles?.[0] || "user";
+            if (dbUser.profileCompleted === false) {
+              router.replace("/complete-profile");
+            } else if (role === "admin") {
+              router.replace("/admin");
+            } else if (role === "deliveryBoy") {
+              router.replace("/delivery-boy");
+            } else if (role === "storeManager") {
+              router.replace("/store-manager");
+            } else {
+              router.replace(redirectTo);
+            }
+          } else {
+            router.replace(redirectTo);
+          }
         } catch (error) {
           await signOut({ redirect: false });
         }
@@ -187,7 +203,23 @@ const LoginContent = () => {
         }),
       );
 
-      router.replace(redirectTo);
+      const dbUser = session?.data?.user;
+      if (dbUser) {
+        const role = dbUser.currentRole || dbUser.roles?.[0] || "user";
+        if (dbUser.profileCompleted === false) {
+          router.replace("/complete-profile");
+        } else if (role === "admin") {
+          router.replace("/admin");
+        } else if (role === "deliveryBoy") {
+          router.replace("/delivery-boy");
+        } else if (role === "storeManager") {
+          router.replace("/store-manager");
+        } else {
+          router.replace(redirectTo);
+        }
+      } else {
+        router.replace(redirectTo);
+      }
     } catch (err: any) {
       const msg = err?.message || "Login failed";
       setError(msg);

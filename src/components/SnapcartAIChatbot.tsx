@@ -107,7 +107,7 @@ const getModeGreeting = (
       if (saved) {
         activeLang = JSON.parse(saved).primaryLanguage;
       }
-    } catch {}
+    } catch { }
   }
 
   if (activeLang === "hi") {
@@ -115,9 +115,9 @@ const getModeGreeting = (
     if (hour < 12) timeGreeting = "शुभ प्रभात! ☀️";
     else if (hour < 16) timeGreeting = "नमस्कार! 🌤️";
     else if (hour < 20) timeGreeting = "शुभ संध्या! 🌆";
-    
+
     const greetingTarget = userName ? ` ${userName}` : " अतिथि";
-    
+
     if (mode === "agent") {
       return {
         role: "assistant",
@@ -141,9 +141,9 @@ const getModeGreeting = (
     if (hour < 12) timeGreeting = "Good morning! ☀️";
     else if (hour < 16) timeGreeting = "Good afternoon! 🌤️";
     else if (hour < 20) timeGreeting = "Good evening! 🌆";
-    
+
     const greetingTarget = userName ? ` ${userName}` : " Guest";
-    
+
     if (mode === "agent") {
       return {
         role: "assistant",
@@ -382,7 +382,7 @@ function ChatProductCard({
           {discountPercent}% OFF
         </span>
       )}
-      
+
       {/* Product Image */}
       <div className="w-full h-20 bg-slate-50 rounded-lg flex items-center justify-center overflow-hidden mb-2 relative">
         {product.images && product.images[0]?.url ? (
@@ -630,7 +630,7 @@ export default function SnapcartAIChatbot({
     isOpen: false,
     title: "",
     message: "",
-    onConfirm: () => {},
+    onConfirm: () => { },
   });
   const [suggestionFeedbackLoading, setSuggestionFeedbackLoading] =
     useState(false);
@@ -904,7 +904,7 @@ export default function SnapcartAIChatbot({
   const lastAssistantSnapshotRef = useRef("");
   const latestSessionsRequestRef = useRef(0);
   const hasUnreadIndicator = unreadCount > 0;
-  const sendMessageRef = useRef<(text?: string) => Promise<void>>(async () => {});
+  const sendMessageRef = useRef<(text?: string) => Promise<void>>(async () => { });
 
 
 
@@ -1218,29 +1218,24 @@ export default function SnapcartAIChatbot({
     };
   }, []);
 
+  // Pre-render the chatbot DOM in the background to eliminate first-click latency
   useEffect(() => {
-    let timer: ReturnType<typeof setTimeout> | undefined;
-
-    if (isOpen) {
+    const timer = setTimeout(() => {
       setIsPanelMounted(true);
+    }, 1500); // 1.5s delay to prioritize main page loading/hydration
+    return () => clearTimeout(timer);
+  }, []);
+
+  useEffect(() => {
+    if (isOpen) {
+      setIsPanelMounted(true); // Fallback in case user clicks before 1.5s
       requestAnimationFrame(() => {
         setIsPanelVisible(true);
       });
     } else {
       setIsPanelVisible(false);
-      if (isPanelMounted) {
-        timer = setTimeout(() => {
-          setIsPanelMounted(false);
-        }, 200);
-      }
     }
-
-    return () => {
-      if (timer) {
-        clearTimeout(timer);
-      }
-    };
-  }, [isOpen, isPanelMounted]);
+  }, [isOpen]);
 
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
@@ -1950,14 +1945,14 @@ export default function SnapcartAIChatbot({
       try {
         await playCloudSpeech(messageId, trimmedContent);
         return;
-      } catch {}
+      } catch { }
     }
 
     if (cloudTtsEnabled && isLikelyMobileDevice()) {
       try {
         await playCloudSpeech(messageId, trimmedContent);
         return;
-      } catch {}
+      } catch { }
     }
 
     playBrowserSpeech(messageId, trimmedContent);
@@ -2133,7 +2128,7 @@ export default function SnapcartAIChatbot({
       });
       saveGuestSessions(updated);
       await fetchSessions(sessionSearch);
-      
+
       let msg = "Chat updated";
       if (fields.pinned !== undefined) msg = fields.pinned ? "Chat pinned" : "Chat unpinned";
       if (fields.archived !== undefined) msg = fields.archived ? "Chat archived" : "Chat unarchived";
@@ -2173,7 +2168,7 @@ export default function SnapcartAIChatbot({
         mode: src.mode,
         updatedAt: new Date().toISOString(),
       };
-      
+
       saveGuestSessions([newSession, ...allSessions]);
       await fetchSessions(sessionSearch);
       setToast({ type: "success", message: "Chat duplicated successfully" });
@@ -2437,7 +2432,7 @@ export default function SnapcartAIChatbot({
 
   const sendMessage = async (textToSend?: string, isRegenerate = false) => {
     let finalMessage = (textToSend ?? input).trim();
-    
+
     if (isRegenerate) {
       // For regeneration, find the last user message to resend
       let lastUserMsgIndex = -1;
@@ -2729,7 +2724,7 @@ export default function SnapcartAIChatbot({
       } catch (error: unknown) {
         const errorMessage =
           axios.isAxiosError(error) &&
-          typeof error.response?.data?.message === "string"
+            typeof error.response?.data?.message === "string"
             ? error.response.data.message
             : "Network issue aa gaya, please retry.";
         setMessages((prev) => [
@@ -2781,7 +2776,7 @@ export default function SnapcartAIChatbot({
 
     const systemActionRegex = /\*\(System Executed Actions:\s*([\s\S]*?)\)\*/;
     const match = content.match(systemActionRegex);
-    
+
     if (!match) {
       return <span>{content}</span>;
     }
@@ -2799,7 +2794,7 @@ export default function SnapcartAIChatbot({
     return (
       <div className="space-y-3 w-full">
         {textBefore && <div className="whitespace-pre-wrap">{textBefore}</div>}
-        
+
         <details className="group bg-gradient-to-br from-emerald-900 to-teal-950 text-white rounded-xl shadow-lg border border-emerald-500/30 overflow-hidden relative my-2 [&_summary::-webkit-details-marker]:hidden">
           <summary className="flex items-center justify-between p-4 cursor-pointer select-none focus:outline-none">
             <div className="flex items-center gap-2">
@@ -2823,7 +2818,7 @@ export default function SnapcartAIChatbot({
               <Sparkles className="w-3.5 h-3.5 text-emerald-400 animate-pulse" />
               System Execution Tasks
             </h4>
-            
+
             <div className="space-y-2">
               {actions.map((action, i) => (
                 <div key={i} className="flex items-center gap-2 text-xs text-emerald-100/90 animate-fadeIn">
@@ -2845,7 +2840,7 @@ export default function SnapcartAIChatbot({
                 </div>
               ))}
             </div>
-            
+
             <div className="mt-3 pt-3 border-t border-emerald-800/40 flex items-center justify-between text-[10px] text-emerald-400/80 font-medium">
               <span>Status: Executed Successfully</span>
               <span>Agent ID: SC-909</span>
@@ -2860,26 +2855,30 @@ export default function SnapcartAIChatbot({
 
   return (
     <>
+      {/* Backdrop overlay for mobile — click outside to close */}
+      {isPanelMounted && isPanelVisible && !isFullscreen && (
+        <div
+          className="fixed inset-0 bg-black/20 z-[89] sm:hidden"
+          onClick={closeChatbot}
+          aria-hidden="true"
+        />
+      )}
       {isPanelMounted ? (
         <div
           onDragOver={handleDragOver}
           onDragLeave={handleDragLeave}
           onDrop={handleDrop}
-          className={`fixed bg-white border border-gray-200/80 shadow-2xl z-[90] flex overflow-hidden transition-all duration-200 ease-out ${
-            themes[activeTheme].borderLight
-          } ${
-            themes[activeTheme].accentGlow
-          } ${
-            isFullscreen
+          className={`fixed bg-white border border-gray-200/80 shadow-2xl z-[90] flex overflow-hidden transition-[opacity,transform] duration-150 ease-out will-change-[opacity,transform] ${themes[activeTheme].borderLight
+            } ${themes[activeTheme].accentGlow
+            } ${isFullscreen
               ? "inset-0 w-screen h-dvh max-h-dvh rounded-none flex-row"
               : "bottom-6 right-4 sm:right-6 w-[calc(100vw-2rem)] sm:w-[460px] h-[645px] max-h-[85vh] rounded-2xl flex-col"
-          } ${
-            isPanelVisible
+            } ${isPanelVisible
               ? "opacity-100 translate-y-0 scale-100"
               : isFullscreen
                 ? "opacity-0 scale-[0.98]"
                 : "opacity-0 translate-y-2 scale-95 pointer-events-none"
-          }`}
+            }`}
         >
           {/* Drag and Drop Overlay */}
           <AnimatePresence>
@@ -2904,23 +2903,22 @@ export default function SnapcartAIChatbot({
             animate={
               isFullscreen
                 ? {
-                    width: sidebarOpen ? 280 : 0,
-                    opacity: sidebarOpen ? 1 : 0,
-                    x: 0,
-                  }
+                  width: sidebarOpen ? 280 : 0,
+                  opacity: sidebarOpen ? 1 : 0,
+                  x: 0,
+                }
                 : {
-                    width: 260,
-                    opacity: 1,
-                    x: showHistoryDrawer ? 0 : -260,
-                  }
+                  width: 260,
+                  opacity: 1,
+                  x: showHistoryDrawer ? 0 : -260,
+                }
             }
             transition={{ type: "tween", ease: "easeInOut", duration: 0.25 }}
             style={{ originX: 0 }}
-            className={`flex-shrink-0 flex flex-col border-r border-gray-250 bg-slate-50 overflow-hidden h-full z-30 ${
-              isFullscreen ? "relative" : "absolute bottom-0 left-0 top-[53px] z-[40]"
-            }`}
+            className={`flex-shrink-0 flex flex-col border-r border-gray-250 bg-slate-50 overflow-hidden h-full z-30 ${isFullscreen ? "relative" : "absolute bottom-0 left-0 top-[53px] z-[40]"
+              }`}
           >
-            <div 
+            <div
               style={{ width: isFullscreen ? 280 : 260, flexShrink: 0 }}
               className="p-3.5 flex flex-col h-full bg-slate-50 overflow-hidden"
             >
@@ -2982,11 +2980,10 @@ export default function SnapcartAIChatbot({
                       type="button"
                       key={flt.id}
                       onClick={() => setHistoryFilter(flt.id as any)}
-                      className={`text-[9px] font-extrabold px-2 py-1 rounded-lg border transition-all cursor-pointer flex items-center gap-1 select-none ${
-                        isActive
-                          ? `${themes[activeTheme].bg} border-transparent text-white shadow-sm`
-                          : "bg-white border-gray-150 text-gray-500 hover:bg-slate-100"
-                      }`}
+                      className={`text-[9px] font-extrabold px-2 py-1 rounded-lg border transition-all cursor-pointer flex items-center gap-1 select-none ${isActive
+                        ? `${themes[activeTheme].bg} border-transparent text-white shadow-sm`
+                        : "bg-white border-gray-150 text-gray-500 hover:bg-slate-100"
+                        }`}
                     >
                       <Icon className="w-2.5 h-2.5" />
                       <span>{flt.label}</span>
@@ -3010,11 +3007,10 @@ export default function SnapcartAIChatbot({
                           setShowHistoryDrawer(false);
                         }
                       }}
-                      className={`group relative text-xs rounded-xl p-2.5 cursor-pointer transition-all border flex items-center justify-between ${
-                        sessionId === item.id
-                          ? `${themes[activeTheme].bgLight} ${themes[activeTheme].borderHighlight} ${themes[activeTheme].textDark} font-bold shadow-sm`
-                          : "bg-white border-gray-100 text-gray-600 hover:bg-slate-100/50 hover:text-gray-800"
-                      }`}
+                      className={`group relative text-xs rounded-xl p-2.5 cursor-pointer transition-all border flex items-center justify-between ${sessionId === item.id
+                        ? `${themes[activeTheme].bgLight} ${themes[activeTheme].borderHighlight} ${themes[activeTheme].textDark} font-bold shadow-sm`
+                        : "bg-white border-gray-100 text-gray-600 hover:bg-slate-100/50 hover:text-gray-800"
+                        }`}
                     >
                       {editingSessionId === item.id ? (
                         <div className="flex items-center gap-1 w-full" onClick={(e) => e.stopPropagation()}>
@@ -3136,28 +3132,27 @@ export default function SnapcartAIChatbot({
             >
               <div className="flex items-center gap-2">
                 {chatbotSettings.chatHistoryEnabled && (
-                <button
-                  onClick={() => {
-                    if (isFullscreen) {
-                      setSidebarOpen(!sidebarOpen);
-                      saveChatbotSetting("sidebarOpen", !sidebarOpen);
-                    } else {
-                      setShowHistoryDrawer(!showHistoryDrawer);
-                    }
-                  }}
-                  className={`rounded-full p-1.5 hover:bg-white/20 transition-colors relative flex items-center justify-center cursor-pointer ${
-                    (isFullscreen ? sidebarOpen : showHistoryDrawer) ? "bg-white/35" : ""
-                  }`}
-                  aria-label="Toggle history"
-                  title="Chat History"
-                  type="button"
-                >
-                  {isFullscreen ? (
-                    <Menu className="w-4 h-4" />
-                  ) : (
-                    <History className="w-4 h-4" />
-                  )}
-                </button>
+                  <button
+                    onClick={() => {
+                      if (isFullscreen) {
+                        setSidebarOpen(!sidebarOpen);
+                        saveChatbotSetting("sidebarOpen", !sidebarOpen);
+                      } else {
+                        setShowHistoryDrawer(!showHistoryDrawer);
+                      }
+                    }}
+                    className={`rounded-full p-1.5 hover:bg-white/20 transition-colors relative flex items-center justify-center cursor-pointer ${(isFullscreen ? sidebarOpen : showHistoryDrawer) ? "bg-white/35" : ""
+                      }`}
+                    aria-label="Toggle history"
+                    title="Chat History"
+                    type="button"
+                  >
+                    {isFullscreen ? (
+                      <Menu className="w-4 h-4" />
+                    ) : (
+                      <History className="w-4 h-4" />
+                    )}
+                  </button>
                 )}
                 <Bot className="w-5 h-5 flex-shrink-0" />
                 <div>
@@ -3190,9 +3185,8 @@ export default function SnapcartAIChatbot({
                 </button>
                 <button
                   onClick={() => setShowSettings(!showSettings)}
-                  className={`rounded-full p-1 hover:bg-white/20 transition-colors relative flex items-center justify-center cursor-pointer ${
-                    showSettings ? "bg-white/30 text-white" : "text-white"
-                  }`}
+                  className={`rounded-full p-1 hover:bg-white/20 transition-colors relative flex items-center justify-center cursor-pointer ${showSettings ? "bg-white/30 text-white" : "text-white"
+                    }`}
                   aria-label="Settings"
                   title="Settings"
                   type="button"
@@ -3224,1271 +3218,1238 @@ export default function SnapcartAIChatbot({
                 </button>
                 <button
                   onClick={closeChatbot}
-                  className="rounded-full p-1 hover:bg-white/20 transition-colors"
+                  className="rounded-full p-1.5 sm:p-1 hover:bg-white/20 active:bg-white/30 transition-colors cursor-pointer"
                   aria-label="Close chatbot"
+                  title="Close"
                   type="button"
                 >
-                  <X className="w-4 h-4" />
+                  <X className="w-5 h-5 sm:w-4 sm:h-4" />
                 </button>
               </div>
             </div>
 
 
 
-          {/* Sliding Drawer Backdrop Overlay */}
-          {showHistoryDrawer && (
-            <div
-              onClick={() => setShowHistoryDrawer(false)}
-              className="absolute inset-0 bg-slate-900/10 backdrop-blur-[1px] z-[35] transition-opacity duration-300"
-            />
-          )}
-
-          {toast && (
-            <div className={`absolute top-16 left-1/2 -translate-x-1/2 px-4 py-2 rounded-xl shadow-lg border text-xs font-semibold z-[95] backdrop-blur-md transition-all duration-300 animate-bounce bg-emerald-50/95 border-emerald-250 text-emerald-800`}>
-              {toast.message}
-            </div>
-          )}
-
-          {/* Quick Actions Toolbar */}
-          <div 
-            className="flex gap-2 overflow-x-auto py-2.5 px-3 bg-white border-b border-gray-100 no-scrollbar scroll-smooth"
-            style={{ scrollbarWidth: "none", msOverflowStyle: "none" }}
-          >
-            <button
-              type="button"
-              onClick={() => sendMessage("Reorder my last delivery and apply coupon")}
-              className="flex-shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold bg-gradient-to-r from-emerald-500/10 to-teal-500/10 border border-emerald-500/20 text-emerald-700 hover:from-emerald-500 hover:to-teal-500 hover:text-white hover:border-transparent hover:scale-105 active:scale-95 transition-all duration-300 shadow-sm cursor-pointer"
-            >
-              🔄 Reorder & Coupon
-            </button>
-            <button
-              type="button"
-              onClick={() => sendMessage("Optimize my budget for current cart items")}
-              className="flex-shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold bg-gradient-to-r from-emerald-500/10 to-teal-500/10 border border-emerald-500/20 text-emerald-700 hover:from-emerald-500 hover:to-teal-500 hover:text-white hover:border-transparent hover:scale-105 active:scale-95 transition-all duration-300 shadow-sm cursor-pointer"
-            >
-              💰 Optimize Budget
-            </button>
-            <button
-              type="button"
-              onClick={() => sendMessage("Show my spend analytics dashboard")}
-              className="flex-shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold bg-gradient-to-r from-emerald-500/10 to-teal-500/10 border border-emerald-500/20 text-emerald-700 hover:from-emerald-500 hover:to-teal-500 hover:text-white hover:border-transparent hover:scale-105 active:scale-95 transition-all duration-300 shadow-sm cursor-pointer"
-            >
-              📊 Spend Analytics
-            </button>
-            <button
-              type="button"
-              onClick={() => sendMessage("Scan my current cart health for diet compatibility")}
-              className="flex-shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold bg-gradient-to-r from-emerald-500/10 to-teal-500/10 border border-emerald-500/20 text-emerald-700 hover:from-emerald-500 hover:to-teal-500 hover:text-white hover:border-transparent hover:scale-105 active:scale-95 transition-all duration-300 shadow-sm cursor-pointer"
-            >
-              🥗 Diet Scan
-            </button>
-          </div>
-
-          <div
-            ref={messagesScrollRef}
-            className={`flex-1 bg-slate-50 space-y-3 overflow-y-auto snapcart-scrollbar ${isFullscreen ? "p-5" : "p-3"}`}
-          >
-            {historyLoading ? (
-              <div className="flex flex-col items-center justify-center h-full py-20 space-y-3">
-                <div className="w-8 h-8 rounded-full border-2 border-emerald-500 border-t-transparent animate-spin" />
-                <span className="text-xs text-gray-500 font-medium tracking-wide">
-                  Loading chat session...
-                </span>
-              </div>
-            ) : (
+            {/* Sliding Drawer Backdrop Overlay */}
+            {showHistoryDrawer && (
               <div
-                className={`${
-                  isFullscreen
+                onClick={() => setShowHistoryDrawer(false)}
+                className="absolute inset-0 bg-slate-900/10 backdrop-blur-[1px] z-[35] transition-opacity duration-300"
+              />
+            )}
+
+            {toast && (
+              <div className={`absolute top-16 left-1/2 -translate-x-1/2 px-4 py-2 rounded-xl shadow-lg border text-xs font-semibold z-[95] backdrop-blur-md transition-all duration-300 animate-bounce bg-emerald-50/95 border-emerald-250 text-emerald-800`}>
+                {toast.message}
+              </div>
+            )}
+
+            {/* Quick Actions Toolbar */}
+            <div
+              className="flex gap-2 overflow-x-auto py-2.5 px-3 bg-white border-b border-gray-100 no-scrollbar scroll-smooth"
+              style={{ scrollbarWidth: "none", msOverflowStyle: "none" }}
+            >
+              <button
+                type="button"
+                onClick={() => sendMessage("Reorder my last delivery and apply coupon")}
+                className="flex-shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold bg-gradient-to-r from-emerald-500/10 to-teal-500/10 border border-emerald-500/20 text-emerald-700 hover:from-emerald-500 hover:to-teal-500 hover:text-white hover:border-transparent hover:scale-105 active:scale-95 transition-all duration-300 shadow-sm cursor-pointer"
+              >
+                🔄 Reorder & Coupon
+              </button>
+              <button
+                type="button"
+                onClick={() => sendMessage("Optimize my budget for current cart items")}
+                className="flex-shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold bg-gradient-to-r from-emerald-500/10 to-teal-500/10 border border-emerald-500/20 text-emerald-700 hover:from-emerald-500 hover:to-teal-500 hover:text-white hover:border-transparent hover:scale-105 active:scale-95 transition-all duration-300 shadow-sm cursor-pointer"
+              >
+                💰 Optimize Budget
+              </button>
+              <button
+                type="button"
+                onClick={() => sendMessage("Show my spend analytics dashboard")}
+                className="flex-shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold bg-gradient-to-r from-emerald-500/10 to-teal-500/10 border border-emerald-500/20 text-emerald-700 hover:from-emerald-500 hover:to-teal-500 hover:text-white hover:border-transparent hover:scale-105 active:scale-95 transition-all duration-300 shadow-sm cursor-pointer"
+              >
+                📊 Spend Analytics
+              </button>
+              <button
+                type="button"
+                onClick={() => sendMessage("Scan my current cart health for diet compatibility")}
+                className="flex-shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold bg-gradient-to-r from-emerald-500/10 to-teal-500/10 border border-emerald-500/20 text-emerald-700 hover:from-emerald-500 hover:to-teal-500 hover:text-white hover:border-transparent hover:scale-105 active:scale-95 transition-all duration-300 shadow-sm cursor-pointer"
+              >
+                🥗 Diet Scan
+              </button>
+            </div>
+
+            <div
+              ref={messagesScrollRef}
+              className={`flex-1 bg-slate-50 space-y-3 overflow-y-auto snapcart-scrollbar ${isFullscreen ? "p-5" : "p-3"}`}
+            >
+              {historyLoading ? (
+                <div className="flex flex-col items-center justify-center h-full py-20 space-y-3">
+                  <div className="w-8 h-8 rounded-full border-2 border-emerald-500 border-t-transparent animate-spin" />
+                  <span className="text-xs text-gray-500 font-medium tracking-wide">
+                    Loading chat session...
+                  </span>
+                </div>
+              ) : (
+                <div
+                  className={`${isFullscreen
                     ? `${chatbotSettings.chatWidth === "narrow" ? "max-w-3xl" : chatbotSettings.chatWidth === "wide" ? "max-w-7xl" : "max-w-5xl"} mx-auto`
                     : ""
-                } ${chatbotSettings.density === "compact" ? "space-y-1.5" : chatbotSettings.density === "spacious" ? "space-y-5" : "space-y-3"}`}
-              >
-              {messages.map((msg, index) => (
-                <div key={`${msg.role}-${index}`} className={`flex flex-col gap-2 ${chatbotSettings.animations ? "animate-fadeIn" : ""}`}>
-                  <div
-                    className={`flex items-start gap-2.5 ${msg.role === "user" ? "justify-end" : "justify-start"}`}
-                  >
-                    {msg.role === "assistant" && (
-                      <div className={`w-8 h-8 rounded-full flex-shrink-0 flex items-center justify-center text-white bg-gradient-to-tr ${themes[activeTheme].gradient} shadow-md`}>
-                        {activeMode === "agent" ? (
-                          <Bot className="w-4 h-4" />
-                        ) : activeMode === "expert" ? (
-                          <Sparkles className="w-4 h-4 text-emerald-100" />
-                        ) : (
-                          <Bot className="w-4 h-4" />
+                    } ${chatbotSettings.density === "compact" ? "space-y-1.5" : chatbotSettings.density === "spacious" ? "space-y-5" : "space-y-3"}`}
+                >
+                  {messages.map((msg, index) => (
+                    <div key={`${msg.role}-${index}`} className={`flex flex-col gap-2 ${chatbotSettings.animations ? "animate-fadeIn" : ""}`}>
+                      <div
+                        className={`flex items-start gap-2.5 ${msg.role === "user" ? "justify-end" : "justify-start"}`}
+                      >
+                        {msg.role === "assistant" && (
+                          <div className={`w-8 h-8 rounded-full flex-shrink-0 flex items-center justify-center text-white bg-gradient-to-tr ${themes[activeTheme].gradient} shadow-md`}>
+                            {activeMode === "agent" ? (
+                              <Bot className="w-4 h-4" />
+                            ) : activeMode === "expert" ? (
+                              <Sparkles className="w-4 h-4 text-emerald-100" />
+                            ) : (
+                              <Bot className="w-4 h-4" />
+                            )}
+                          </div>
                         )}
-                      </div>
-                    )}
 
-                    {(() => {
-                      const isAssistantPending =
-                        loading &&
-                        msg.role === "assistant" &&
-                        index === messages.length - 1 &&
-                        !msg.content.trim();
+                        {(() => {
+                          const isAssistantPending =
+                            loading &&
+                            msg.role === "assistant" &&
+                            index === messages.length - 1 &&
+                            !msg.content.trim();
 
-                      const primaryLang = chatbotSettings.primaryLanguage || "en";
-                      const secondaryLang = chatbotSettings.secondaryLanguage || "hi";
-                      const currentActiveLang = msg.activeLang || primaryLang;
-                      const hasTranslationLoaded = Boolean(msg.activeLang && msg.translatedContent && msg.translatedContent[msg.activeLang]);
-                      const activeContent = (hasTranslationLoaded && msg.translatedContent && msg.activeLang)
-                        ? (msg.translatedContent[msg.activeLang] as string)
-                        : msg.content;
+                          const primaryLang = chatbotSettings.primaryLanguage || "en";
+                          const secondaryLang = chatbotSettings.secondaryLanguage || "hi";
+                          const currentActiveLang = msg.activeLang || primaryLang;
+                          const hasTranslationLoaded = Boolean(msg.activeLang && msg.translatedContent && msg.translatedContent[msg.activeLang]);
+                          const activeContent = (hasTranslationLoaded && msg.translatedContent && msg.activeLang)
+                            ? (msg.translatedContent[msg.activeLang] as string)
+                            : msg.content;
 
-                      return (
-                        <div
-                          className={`${
-                            isFullscreen
-                              ? `max-w-[70%] ${chatbotSettings.fontSize === "small" ? "text-sm" : chatbotSettings.fontSize === "large" ? "text-lg" : "text-[15px]"} leading-relaxed px-4 py-3`
-                              : `max-w-[80%] ${chatbotSettings.fontSize === "small" ? "text-xs" : chatbotSettings.fontSize === "large" ? "text-base" : "text-sm"} px-3.5 py-2.5`
-                          } ${chatbotSettings.bubbleStyle === "sharp" ? "rounded-lg" : chatbotSettings.bubbleStyle === "modern" ? "rounded-xl" : "rounded-2xl"} whitespace-pre-wrap ${
-                            msg.role === "user"
-                              ? `bg-gradient-to-br ${themes[activeTheme].gradient} text-white ${chatbotSettings.bubbleStyle === "modern" ? "rounded-br-sm" : "rounded-br-none"} shadow-md ${themes[activeTheme].accentGlow} border-0`
-                              : `bg-white text-gray-800 border ${themes[activeTheme].borderLight} ${chatbotSettings.bubbleStyle === "modern" ? "rounded-bl-sm" : "rounded-bl-none"} shadow-sm`
-                          }`}
-                        >
-                          {isAssistantPending ? (
-                            <div className="inline-flex items-center gap-2 text-emerald-850">
-                              <span className="font-semibold text-xs tracking-wide animate-pulse">
-                                {agentStatus || getChatbotTypingLabel(
-                                  lastUserPrompt,
-                                  role,
-                                  Boolean(productContext),
-                                )}
-                              </span>
-                              <span className="inline-flex items-center gap-1">
-                                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-bounce" />
-                                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-bounce [animation-delay:120ms]" />
-                                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-bounce [animation-delay:240ms]" />
-                              </span>
-                            </div>
-                          ) : (
-                            renderMessageContent(activeContent)
-                          )}
-
-                          {msg.role === "assistant" && msg.content.trim() ? (
-                            <div className="mt-3 flex flex-wrap items-center gap-2 border-t border-gray-100/60 pt-2.5 justify-start sm:justify-end select-none">
-                              {/* Translate Dropdown */}
-                              <div className="inline-flex items-center h-7 rounded-full border border-gray-200 bg-white/95 px-2 text-[11px] text-gray-700 hover:bg-gray-50 transition-all shadow-sm relative">
-                                <Languages className={`w-3.5 h-3.5 text-gray-500 mr-1 flex-shrink-0 ${msg.isTranslating ? "animate-spin text-emerald-600" : ""}`} />
-                                <select
-                                  disabled={msg.isTranslating}
-                                  value={msg.activeLang || "original"}
-                                  onChange={(e) => handleTranslateMessage(index, e.target.value)}
-                                  className="bg-transparent border-none text-gray-700 text-[11px] font-bold focus:outline-none cursor-pointer pr-1 py-0 disabled:opacity-50"
-                                >
-                                  <option value="original">Original Response</option>
-                                  <option value="en">English</option>
-                                  <option value="hi">Hindi (हिन्दी)</option>
-                                  <option value="hinglish">Hinglish</option>
-                                  <option value="bn">Bengali (বাংলা)</option>
-                                  <option value="mr">Marathi (मराठी)</option>
-                                  <option value="ta">Tamil (தமிழ்)</option>
-                                  <option value="te">Telugu (తెలుగు)</option>
-                                  <option value="kn">Kannada (ಕನ್ನಡ)</option>
-                                  <option value="ml">Malayalam (മലയാളം)</option>
-                                  <option value="gu">Gujarati (ગુજરાતી)</option>
-                                  <option value="pa">Punjabi (ਪੰਜਾਬੀ)</option>
-                                  <option value="ur">Urdu (اردو)</option>
-                                  <option value="or">Odia (ଓଡ଼ିଆ)</option>
-                                  <option value="as">Assamese (অસમীয়া)</option>
-                                </select>
-                              </div>
-
-                              {/* Play Button */}
-                              <button
-                                type="button"
-                                onClick={() =>
-                                  toggleSpeechForMessage(
-                                    `assistant-${index}`,
-                                    activeContent,
-                                  )
-                                }
-                                className="inline-flex items-center h-7 gap-1 rounded-full border border-gray-200 bg-white/95 px-2.5 text-[11px] text-gray-700 hover:bg-gray-50 transition-all shadow-sm cursor-pointer font-bold"
-                                title={
-                                  speakingMessageId === `assistant-${index}` &&
-                                  !isSpeechPaused
-                                    ? "Pause audio"
-                                    : "Play audio"
-                                }
-                              >
-                                {speakingMessageId === `assistant-${index}` &&
-                                !isSpeechPaused ? (
-                                  <Pause className="w-3 h-3 text-red-500" />
-                                ) : (
-                                  <Play className="w-3 h-3 text-green-600" />
-                                )}
-                                <span>
-                                  {speakingMessageId === `assistant-${index}` &&
-                                  !isSpeechPaused
-                                    ? "Pause"
-                                    : "Listen"}
-                                </span>
-                              </button>
-
-                              {/* Copy Button */}
-                              <button
-                                type="button"
-                                onClick={() => {
-                                  navigator.clipboard.writeText(activeContent);
-                                  setToast({
-                                    type: "success",
-                                    message: "Response copied to clipboard!",
-                                  });
-                                }}
-                                className="inline-flex items-center h-7 gap-1 rounded-full border border-gray-200 bg-white/95 px-2.5 text-[11px] text-gray-700 hover:bg-gray-50 transition-all shadow-sm cursor-pointer font-bold active:scale-95"
-                                title="Copy response"
-                              >
-                                <Copy className="w-3 h-3 text-blue-500" />
-                                <span>Copy</span>
-                              </button>
-
-                              {/* Regenerate Button */}
-                              {index === messages.map((m) => m.role).lastIndexOf("assistant") && (
-                                <button
-                                  type="button"
-                                  disabled={loading}
-                                  onClick={() => sendMessage(undefined, true)}
-                                  className="inline-flex items-center h-7 gap-1 rounded-full border border-gray-200 bg-white/95 px-2.5 text-[11px] text-gray-700 hover:bg-gray-50 disabled:opacity-55 disabled:cursor-not-allowed transition-all shadow-sm cursor-pointer font-bold active:scale-95"
-                                  title="Regenerate response"
-                                >
-                                  <RotateCcw className="w-3 h-3 text-emerald-600" />
-                                  <span>Regenerate</span>
-                                </button>
+                          return (
+                            <div
+                              className={`${isFullscreen
+                                ? `max-w-[70%] ${chatbotSettings.fontSize === "small" ? "text-sm" : chatbotSettings.fontSize === "large" ? "text-lg" : "text-[15px]"} leading-relaxed px-4 py-3`
+                                : `max-w-[80%] ${chatbotSettings.fontSize === "small" ? "text-xs" : chatbotSettings.fontSize === "large" ? "text-base" : "text-sm"} px-3.5 py-2.5`
+                                } ${chatbotSettings.bubbleStyle === "sharp" ? "rounded-lg" : chatbotSettings.bubbleStyle === "modern" ? "rounded-xl" : "rounded-2xl"} whitespace-pre-wrap ${msg.role === "user"
+                                  ? `bg-gradient-to-br ${themes[activeTheme].gradient} text-white ${chatbotSettings.bubbleStyle === "modern" ? "rounded-br-sm" : "rounded-br-none"} shadow-md ${themes[activeTheme].accentGlow} border-0`
+                                  : `bg-white text-gray-800 border ${themes[activeTheme].borderLight} ${chatbotSettings.bubbleStyle === "modern" ? "rounded-bl-sm" : "rounded-bl-none"} shadow-sm`
+                                }`}
+                            >
+                              {isAssistantPending ? (
+                                <div className="inline-flex items-center gap-2 text-emerald-850">
+                                  <span className="font-semibold text-xs tracking-wide animate-pulse">
+                                    {agentStatus || getChatbotTypingLabel(
+                                      lastUserPrompt,
+                                      role,
+                                      Boolean(productContext),
+                                    )}
+                                  </span>
+                                  <span className="inline-flex items-center gap-1">
+                                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-bounce" />
+                                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-bounce [animation-delay:120ms]" />
+                                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-bounce [animation-delay:240ms]" />
+                                  </span>
+                                </div>
+                              ) : (
+                                renderMessageContent(activeContent)
                               )}
 
-                              {/* Speed Selector */}
-                              <div className="inline-flex items-center h-7 rounded-full border border-gray-200 bg-white/95 px-2 text-[11px] text-gray-700 shadow-sm">
-                                <select
-                                  value={speechRate}
-                                  onChange={(e) => setSpeechRate(parseFloat(e.target.value))}
-                                  className="bg-transparent border-none text-gray-600 text-[11px] font-bold focus:outline-none cursor-pointer pr-1"
-                                  title="Playback speed"
-                                >
-                                  <option value="0.5">0.5x</option>
-                                  <option value="1">1.0x</option>
-                                  <option value="1.5">1.5x</option>
-                                  <option value="2">2.0x</option>
-                                </select>
-                              </div>
-                            </div>
-                          ) : null}
-                        </div>
-                      );
-                    })()}
+                              {msg.role === "assistant" && msg.content.trim() ? (
+                                <div className="mt-3 flex flex-wrap items-center gap-2 border-t border-gray-100/60 pt-2.5 justify-start sm:justify-end select-none">
+                                  {/* Translate Dropdown */}
+                                  <div className="inline-flex items-center h-7 rounded-full border border-gray-200 bg-white/95 px-2 text-[11px] text-gray-700 hover:bg-gray-50 transition-all shadow-sm relative">
+                                    <Languages className={`w-3.5 h-3.5 text-gray-500 mr-1 flex-shrink-0 ${msg.isTranslating ? "animate-spin text-emerald-600" : ""}`} />
+                                    <select
+                                      disabled={msg.isTranslating}
+                                      value={msg.activeLang || "original"}
+                                      onChange={(e) => handleTranslateMessage(index, e.target.value)}
+                                      className="bg-transparent border-none text-gray-700 text-[11px] font-bold focus:outline-none cursor-pointer pr-1 py-0 disabled:opacity-50"
+                                    >
+                                      <option value="original">Original Response</option>
+                                      <option value="en">English</option>
+                                      <option value="hi">Hindi (हिन्दी)</option>
+                                      <option value="hinglish">Hinglish</option>
+                                      <option value="bn">Bengali (বাংলা)</option>
+                                      <option value="mr">Marathi (मराठी)</option>
+                                      <option value="ta">Tamil (தமிழ்)</option>
+                                      <option value="te">Telugu (తెలుగు)</option>
+                                      <option value="kn">Kannada (ಕನ್ನಡ)</option>
+                                      <option value="ml">Malayalam (മലയാളം)</option>
+                                      <option value="gu">Gujarati (ગુજરાતી)</option>
+                                      <option value="pa">Punjabi (ਪੰਜਾਬੀ)</option>
+                                      <option value="ur">Urdu (اردو)</option>
+                                      <option value="or">Odia (ଓଡ଼ିଆ)</option>
+                                      <option value="as">Assamese (অસમীয়া)</option>
+                                    </select>
+                                  </div>
 
-                    {msg.role === "user" && (
-                      <div className={`w-8 h-8 rounded-full flex-shrink-0 flex items-center justify-center text-white bg-gradient-to-br ${themes[activeTheme].gradient} shadow-md overflow-hidden font-extrabold text-xs uppercase border border-white/20 select-none`}>
-                        {session?.user?.image ? (
-                          <img src={session.user.image} alt="User avatar" className="w-full h-full object-cover" />
-                        ) : userName ? (
-                          userName.slice(0, 2)
-                        ) : (
-                          <User className="w-4 h-4 text-white" />
+                                  {/* Play Button */}
+                                  <button
+                                    type="button"
+                                    onClick={() =>
+                                      toggleSpeechForMessage(
+                                        `assistant-${index}`,
+                                        activeContent,
+                                      )
+                                    }
+                                    className="inline-flex items-center h-7 gap-1 rounded-full border border-gray-200 bg-white/95 px-2.5 text-[11px] text-gray-700 hover:bg-gray-50 transition-all shadow-sm cursor-pointer font-bold"
+                                    title={
+                                      speakingMessageId === `assistant-${index}` &&
+                                        !isSpeechPaused
+                                        ? "Pause audio"
+                                        : "Play audio"
+                                    }
+                                  >
+                                    {speakingMessageId === `assistant-${index}` &&
+                                      !isSpeechPaused ? (
+                                      <Pause className="w-3 h-3 text-red-500" />
+                                    ) : (
+                                      <Play className="w-3 h-3 text-green-600" />
+                                    )}
+                                    <span>
+                                      {speakingMessageId === `assistant-${index}` &&
+                                        !isSpeechPaused
+                                        ? "Pause"
+                                        : "Listen"}
+                                    </span>
+                                  </button>
+
+                                  {/* Copy Button */}
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      navigator.clipboard.writeText(activeContent);
+                                      setToast({
+                                        type: "success",
+                                        message: "Response copied to clipboard!",
+                                      });
+                                    }}
+                                    className="inline-flex items-center h-7 gap-1 rounded-full border border-gray-200 bg-white/95 px-2.5 text-[11px] text-gray-700 hover:bg-gray-50 transition-all shadow-sm cursor-pointer font-bold active:scale-95"
+                                    title="Copy response"
+                                  >
+                                    <Copy className="w-3 h-3 text-blue-500" />
+                                    <span>Copy</span>
+                                  </button>
+
+                                  {/* Regenerate Button */}
+                                  {index === messages.map((m) => m.role).lastIndexOf("assistant") && (
+                                    <button
+                                      type="button"
+                                      disabled={loading}
+                                      onClick={() => sendMessage(undefined, true)}
+                                      className="inline-flex items-center h-7 gap-1 rounded-full border border-gray-200 bg-white/95 px-2.5 text-[11px] text-gray-700 hover:bg-gray-50 disabled:opacity-55 disabled:cursor-not-allowed transition-all shadow-sm cursor-pointer font-bold active:scale-95"
+                                      title="Regenerate response"
+                                    >
+                                      <RotateCcw className="w-3 h-3 text-emerald-600" />
+                                      <span>Regenerate</span>
+                                    </button>
+                                  )}
+
+                                  {/* Speed Selector */}
+                                  <div className="inline-flex items-center h-7 rounded-full border border-gray-200 bg-white/95 px-2 text-[11px] text-gray-700 shadow-sm">
+                                    <select
+                                      value={speechRate}
+                                      onChange={(e) => setSpeechRate(parseFloat(e.target.value))}
+                                      className="bg-transparent border-none text-gray-600 text-[11px] font-bold focus:outline-none cursor-pointer pr-1"
+                                      title="Playback speed"
+                                    >
+                                      <option value="0.5">0.5x</option>
+                                      <option value="1">1.0x</option>
+                                      <option value="1.5">1.5x</option>
+                                      <option value="2">2.0x</option>
+                                    </select>
+                                  </div>
+                                </div>
+                              ) : null}
+                            </div>
+                          );
+                        })()}
+
+                        {msg.role === "user" && (
+                          <div className={`w-8 h-8 rounded-full flex-shrink-0 flex items-center justify-center text-white bg-gradient-to-br ${themes[activeTheme].gradient} shadow-md overflow-hidden font-extrabold text-xs uppercase border border-white/20 select-none`}>
+                            {session?.user?.image ? (
+                              <img src={session.user.image} alt="User avatar" className="w-full h-full object-cover" />
+                            ) : userName ? (
+                              userName.slice(0, 2)
+                            ) : (
+                              <User className="w-4 h-4 text-white" />
+                            )}
+                          </div>
                         )}
                       </div>
-                    )}
-                  </div>
 
-                  {/* Developer Debug Bar */}
-                  {chatbotSettings.developerMode && msg.role === "assistant" && msg.content.trim() && (
-                    <div className="flex items-center gap-3 px-2 py-1 ml-10 text-[9px] font-mono text-gray-400 select-none">
-                      <span>🔧 model: {(msg as any).model || "gemini-flash"}</span>
-                      <span>•</span>
-                      <span>tokens: ~{Math.round(msg.content.length / 4)}</span>
-                      <span>•</span>
-                      <span>session: {sessionId ? sessionId.slice(0, 8) + "…" : "guest"}</span>
-                    </div>
-                  )}
+                      {/* Developer Debug Bar */}
+                      {chatbotSettings.developerMode && msg.role === "assistant" && msg.content.trim() && (
+                        <div className="flex items-center gap-3 px-2 py-1 ml-10 text-[9px] font-mono text-gray-400 select-none">
+                          <span>🔧 model: {(msg as any).model || "gemini-flash"}</span>
+                          <span>•</span>
+                          <span>tokens: ~{Math.round(msg.content.length / 4)}</span>
+                          <span>•</span>
+                          <span>session: {sessionId ? sessionId.slice(0, 8) + "…" : "guest"}</span>
+                        </div>
+                      )}
 
-                  {/* Message Timestamp */}
-                  {chatbotSettings.messageTimestamps && msg.content.trim() && (
-                    <div className={`text-[9px] text-gray-400 select-none px-1 ${msg.role === "user" ? "text-right mr-10" : "ml-10"}`}>
-                      {(() => {
-                        const now = new Date();
-                        const h = now.getHours();
-                        const m = now.getMinutes().toString().padStart(2, "0");
-                        if (chatbotSettings.timeFormat === "24h") return `${h.toString().padStart(2, "0")}:${m}`;
-                        const ampm = h >= 12 ? "PM" : "AM";
-                        const h12 = h % 12 || 12;
-                        return `${h12}:${m} ${ampm}`;
-                      })()}
-                    </div>
-                  )}
+                      {/* Message Timestamp */}
+                      {chatbotSettings.messageTimestamps && msg.content.trim() && (
+                        <div className={`text-[9px] text-gray-400 select-none px-1 ${msg.role === "user" ? "text-right mr-10" : "ml-10"}`}>
+                          {(() => {
+                            const now = new Date();
+                            const h = now.getHours();
+                            const m = now.getMinutes().toString().padStart(2, "0");
+                            if (chatbotSettings.timeFormat === "24h") return `${h.toString().padStart(2, "0")}:${m}`;
+                            const ampm = h >= 12 ? "PM" : "AM";
+                            const h12 = h % 12 || 12;
+                            return `${h12}:${m} ${ampm}`;
+                          })()}
+                        </div>
+                      )}
 
-                  {/* Product Carousel Row */}
-                  {msg.role === "assistant" && msg.products && msg.products.length > 0 && (
-                    <div className="w-full py-1 animate-fadeIn">
-                      <div className="flex gap-2.5 overflow-x-auto pb-2 px-1 snapcart-scrollbar no-scrollbar scroll-smooth">
-                        {msg.products.map((prod: any) => (
-                          <ChatProductCard
-                            key={prod._id}
-                            product={prod}
-                            cartItems={cartItems}
-                            session={session}
-                            onUpdateCart={handleUpdateCart}
-                          />
-                        ))}
-                      </div>
+                      {/* Product Carousel Row */}
+                      {msg.role === "assistant" && msg.products && msg.products.length > 0 && (
+                        <div className="w-full py-1 animate-fadeIn">
+                          <div className="flex gap-2.5 overflow-x-auto pb-2 px-1 snapcart-scrollbar no-scrollbar scroll-smooth">
+                            {msg.products.map((prod: any) => (
+                              <ChatProductCard
+                                key={prod._id}
+                                product={prod}
+                                cartItems={cartItems}
+                                session={session}
+                                onUpdateCart={handleUpdateCart}
+                              />
+                            ))}
+                          </div>
+                        </div>
+                      )}
                     </div>
-                  )}
+                  ))}
                 </div>
-              ))}
+              )}
             </div>
-            )}
-          </div>
 
-          {chatbotSettings.smartSuggestions && suggestions.length > 0 ? (
-            <div
-              className={`border-t border-gray-200 bg-white flex gap-2 overflow-x-auto ${
-                isFullscreen
+            {chatbotSettings.smartSuggestions && suggestions.length > 0 ? (
+              <div
+                className={`border-t border-gray-200 bg-white flex gap-2 overflow-x-auto ${isFullscreen
                   ? "sticky bottom-[88px] z-[1] px-5 py-3"
                   : "px-3 py-2"
-              }`}
+                  }`}
+              >
+                <div
+                  className={
+                    isFullscreen
+                      ? "max-w-5xl mx-auto w-full space-y-2"
+                      : "w-full space-y-2"
+                  }
+                >
+                  <div className="flex gap-2 overflow-x-auto">
+                    {suggestions.map((suggestion) => (
+                      <button
+                        key={suggestion}
+                        type="button"
+                        onClick={() => sendMessage(suggestion)}
+                        className={`whitespace-nowrap rounded-full border border-green-200 bg-green-50 text-green-700 hover:bg-green-100 ${isFullscreen
+                          ? "text-sm px-3 py-1.5"
+                          : "text-xs px-2 py-1"
+                          }`}
+                      >
+                        {suggestion}
+                      </button>
+                    ))}
+                  </div>
+
+                  {session?.user?.id ? (
+                    <div className="flex items-center gap-2 text-[11px] text-gray-500">
+                      <span>Suggestions helpful?</span>
+                      <button
+                        type="button"
+                        onClick={() => submitSuggestionsFeedback("up")}
+                        disabled={suggestionFeedbackLoading}
+                        className="inline-flex items-center gap-1 px-2 py-1 rounded border border-gray-200 hover:bg-gray-100 disabled:opacity-50"
+                        title="Helpful suggestions"
+                      >
+                        <ThumbsUp className="w-3.5 h-3.5" />
+                        Yes
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => submitSuggestionsFeedback("down")}
+                        disabled={suggestionFeedbackLoading}
+                        className="inline-flex items-center gap-1 px-2 py-1 rounded border border-gray-200 hover:bg-gray-100 disabled:opacity-50"
+                        title="Not helpful suggestions"
+                      >
+                        <ThumbsDown className="w-3.5 h-3.5" />
+                        No
+                      </button>
+                    </div>
+                  ) : null}
+                </div>
+              </div>
+            ) : null}
+
+            {hasUnreadIndicator ? (
+              <button
+                type="button"
+                onClick={jumpToLatest}
+                className={`absolute right-4 rounded-full bg-green-600 text-white shadow-lg hover:bg-green-700 transition-colors flex items-center gap-1.5 z-[5] ring-2 ring-green-200 ${unreadPulseActive ? "animate-pulse" : ""
+                  } ${isFullscreen ? "bottom-28 px-3 py-2 text-xs" : "bottom-20 px-2.5 py-1.5 text-[11px]"}`}
+              >
+                <ArrowDown className="w-3.5 h-3.5" />
+                {unreadCount === 1 ? "1 new" : `${unreadCount} new`}
+              </button>
+            ) : null}
+
+            <form
+              className={`border-t border-gray-200 bg-white relative ${isFullscreen ? "sticky bottom-0 z-[2] p-5" : "p-3"
+                }`}
+              onSubmit={(e) => {
+                e.preventDefault();
+                sendMessage();
+              }}
             >
+              {/* Slash commands autocomplete dropdown */}
+              {showSlashMenu && filteredCommands.length > 0 && (
+                <div className="absolute bottom-[75px] left-4 right-4 bg-white border border-gray-200 rounded-2xl shadow-xl z-50 overflow-hidden max-w-md mx-auto p-1.5 space-y-0.5">
+                  <div className="text-[10px] font-extrabold text-emerald-850 uppercase px-2.5 py-1 tracking-wider border-b border-gray-100 select-none">
+                    Slash Actions
+                  </div>
+                  {filteredCommands.map((cmd, idx) => {
+                    const isSelected = selectedSlashIndex === idx;
+                    return (
+                      <div
+                        key={cmd.command}
+                        onClick={() => {
+                          setInput(cmd.command);
+                          setShowSlashMenu(false);
+                        }}
+                        className={`flex items-center justify-between px-2.5 py-2 rounded-xl text-xs cursor-pointer select-none transition-all ${isSelected
+                          ? `${themes[activeTheme].bgLight} ${themes[activeTheme].textDark} font-bold`
+                          : "text-gray-650 hover:bg-slate-100/50"
+                          }`}
+                      >
+                        <div className="flex items-center gap-2">
+                          <span className="text-sm">{(cmd as any).icon || "⚡"}</span>
+                          <span className={`font-mono ${themes[activeTheme].text} font-extrabold`}>{cmd.command}</span>
+                        </div>
+                        <span className="text-[10px] text-gray-400 font-medium max-w-[150px] truncate">{cmd.description}</span>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+              {/* Attachments preview list */}
+              {attachments.length > 0 && (
+                <div className="flex flex-wrap gap-2 mb-2 pb-2 border-b border-gray-100 max-w-5xl mx-auto">
+                  {attachments.map((file, i) => (
+                    <div
+                      key={i}
+                      className="flex items-center gap-1.5 bg-slate-50 border border-gray-200 rounded-xl p-1 pr-2 text-[11px] max-w-[155px] relative group"
+                    >
+                      {file.url ? (
+                        <img src={file.url} className="w-6 h-6 rounded object-cover flex-shrink-0" alt="Preview" />
+                      ) : (
+                        <FileText className="w-4 h-4 text-gray-400 flex-shrink-0" />
+                      )}
+                      <span className="truncate flex-1 font-semibold text-gray-750">{file.name}</span>
+                      <button
+                        type="button"
+                        onClick={() => setAttachments((prev) => prev.filter((_, idx) => idx !== i))}
+                        className="text-gray-400 hover:text-red-500 rounded-full hover:bg-slate-200/50 p-0.5"
+                      >
+                        <X className="w-3 h-3" />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+
               <div
                 className={
                   isFullscreen
-                    ? "max-w-5xl mx-auto w-full space-y-2"
-                    : "w-full space-y-2"
+                    ? "max-w-5xl mx-auto flex items-center gap-2"
+                    : "flex items-center gap-2"
                 }
               >
-                <div className="flex gap-2 overflow-x-auto">
-                  {suggestions.map((suggestion) => (
-                    <button
-                      key={suggestion}
-                      type="button"
-                      onClick={() => sendMessage(suggestion)}
-                      className={`whitespace-nowrap rounded-full border border-green-200 bg-green-50 text-green-700 hover:bg-green-100 ${
-                        isFullscreen
-                          ? "text-sm px-3 py-1.5"
-                          : "text-xs px-2 py-1"
+                <div className="relative">
+                  <button
+                    type="button"
+                    onClick={() => fileInputRef.current?.click()}
+                    className={`rounded-xl border border-gray-300 bg-slate-50 text-gray-500 hover:bg-slate-100 transition-all shadow-sm flex items-center justify-center cursor-pointer select-none ${isFullscreen ? "p-3" : "p-2"
                       }`}
-                    >
-                      {suggestion}
-                    </button>
-                  ))}
-                </div>
-
-                {session?.user?.id ? (
-                  <div className="flex items-center gap-2 text-[11px] text-gray-500">
-                    <span>Suggestions helpful?</span>
-                    <button
-                      type="button"
-                      onClick={() => submitSuggestionsFeedback("up")}
-                      disabled={suggestionFeedbackLoading}
-                      className="inline-flex items-center gap-1 px-2 py-1 rounded border border-gray-200 hover:bg-gray-100 disabled:opacity-50"
-                      title="Helpful suggestions"
-                    >
-                      <ThumbsUp className="w-3.5 h-3.5" />
-                      Yes
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => submitSuggestionsFeedback("down")}
-                      disabled={suggestionFeedbackLoading}
-                      className="inline-flex items-center gap-1 px-2 py-1 rounded border border-gray-200 hover:bg-gray-100 disabled:opacity-50"
-                      title="Not helpful suggestions"
-                    >
-                      <ThumbsDown className="w-3.5 h-3.5" />
-                      No
-                    </button>
-                  </div>
-                ) : null}
-              </div>
-            </div>
-          ) : null}
-
-          {hasUnreadIndicator ? (
-            <button
-              type="button"
-              onClick={jumpToLatest}
-              className={`absolute right-4 rounded-full bg-green-600 text-white shadow-lg hover:bg-green-700 transition-colors flex items-center gap-1.5 z-[5] ring-2 ring-green-200 ${
-                unreadPulseActive ? "animate-pulse" : ""
-              } ${isFullscreen ? "bottom-28 px-3 py-2 text-xs" : "bottom-20 px-2.5 py-1.5 text-[11px]"}`}
-            >
-              <ArrowDown className="w-3.5 h-3.5" />
-              {unreadCount === 1 ? "1 new" : `${unreadCount} new`}
-            </button>
-          ) : null}
-
-          <form
-            className={`border-t border-gray-200 bg-white relative ${
-              isFullscreen ? "sticky bottom-0 z-[2] p-5" : "p-3"
-            }`}
-            onSubmit={(e) => {
-              e.preventDefault();
-              sendMessage();
-            }}
-          >
-            {/* Slash commands autocomplete dropdown */}
-            {showSlashMenu && filteredCommands.length > 0 && (
-              <div className="absolute bottom-[75px] left-4 right-4 bg-white border border-gray-200 rounded-2xl shadow-xl z-50 overflow-hidden max-w-md mx-auto p-1.5 space-y-0.5">
-                <div className="text-[10px] font-extrabold text-emerald-850 uppercase px-2.5 py-1 tracking-wider border-b border-gray-100 select-none">
-                  Slash Actions
-                </div>
-                {filteredCommands.map((cmd, idx) => {
-                  const isSelected = selectedSlashIndex === idx;
-                  return (
-                    <div
-                      key={cmd.command}
-                      onClick={() => {
-                        setInput(cmd.command);
-                        setShowSlashMenu(false);
-                      }}
-                      className={`flex items-center justify-between px-2.5 py-2 rounded-xl text-xs cursor-pointer select-none transition-all ${
-                        isSelected
-                          ? `${themes[activeTheme].bgLight} ${themes[activeTheme].textDark} font-bold`
-                          : "text-gray-650 hover:bg-slate-100/50"
-                      }`}
-                    >
-                      <div className="flex items-center gap-2">
-                        <span className="text-sm">{(cmd as any).icon || "⚡"}</span>
-                        <span className={`font-mono ${themes[activeTheme].text} font-extrabold`}>{cmd.command}</span>
-                      </div>
-                      <span className="text-[10px] text-gray-400 font-medium max-w-[150px] truncate">{cmd.description}</span>
-                    </div>
-                  );
-                })}
-              </div>
-            )}
-            {/* Attachments preview list */}
-            {attachments.length > 0 && (
-              <div className="flex flex-wrap gap-2 mb-2 pb-2 border-b border-gray-100 max-w-5xl mx-auto">
-                {attachments.map((file, i) => (
-                  <div
-                    key={i}
-                    className="flex items-center gap-1.5 bg-slate-50 border border-gray-200 rounded-xl p-1 pr-2 text-[11px] max-w-[155px] relative group"
+                    title="Attach images, PDFs, lists, or documents"
                   >
-                    {file.url ? (
-                      <img src={file.url} className="w-6 h-6 rounded object-cover flex-shrink-0" alt="Preview" />
-                    ) : (
-                      <FileText className="w-4 h-4 text-gray-400 flex-shrink-0" />
-                    )}
-                    <span className="truncate flex-1 font-semibold text-gray-750">{file.name}</span>
-                    <button
-                      type="button"
-                      onClick={() => setAttachments((prev) => prev.filter((_, idx) => idx !== i))}
-                      className="text-gray-400 hover:text-red-500 rounded-full hover:bg-slate-200/50 p-0.5"
-                    >
-                      <X className="w-3 h-3" />
-                    </button>
-                  </div>
-                ))}
-              </div>
-            )}
+                    <Paperclip className="w-4 h-4 text-gray-500" />
+                  </button>
 
-            <div
-              className={
-                isFullscreen
-                  ? "max-w-5xl mx-auto flex items-center gap-2"
-                  : "flex items-center gap-2"
-              }
-            >
-              <div className="relative">
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    multiple
+                    accept="image/*,.pdf,.txt,.csv,.xlsx,.xls,.doc,.docx"
+                    onChange={(e) => {
+                      const files = Array.from(e.target.files || []);
+                      if (files.length > 0) {
+                        const newAttachments = files.map((f) => ({
+                          name: f.name,
+                          type: f.type,
+                          size: f.size,
+                          url: f.type.startsWith("image/") ? URL.createObjectURL(f) : undefined,
+                        }));
+                        setAttachments((prev) => [...prev, ...newAttachments]);
+                      }
+                      // Reset so the same file can be re-selected
+                      e.target.value = "";
+                    }}
+                    className="hidden"
+                  />
+                </div>
+
+                {/* Camera / Scan button */}
                 <button
                   type="button"
-                  onClick={() => fileInputRef.current?.click()}
-                  className={`rounded-xl border border-gray-300 bg-slate-50 text-gray-500 hover:bg-slate-100 transition-all shadow-sm flex items-center justify-center cursor-pointer select-none ${
-                    isFullscreen ? "p-3" : "p-2"
-                  }`}
-                  title="Attach images, PDFs, lists, or documents"
+                  onClick={() => {
+                    const camInput = document.createElement("input");
+                    camInput.type = "file";
+                    camInput.accept = "image/*";
+                    camInput.capture = "environment";
+                    camInput.onchange = (ev) => {
+                      const files = Array.from((ev.target as HTMLInputElement).files || []);
+                      if (files.length > 0) {
+                        const newAttachments = files.map((f) => ({
+                          name: f.name,
+                          type: f.type,
+                          size: f.size,
+                          url: URL.createObjectURL(f),
+                        }));
+                        setAttachments((prev) => [...prev, ...newAttachments]);
+                      }
+                    };
+                    camInput.click();
+                  }}
+                  className={`rounded-xl border border-gray-300 bg-slate-50 text-gray-500 hover:bg-slate-100 transition-all shadow-sm flex items-center justify-center cursor-pointer select-none ${isFullscreen ? "p-3" : "p-2"
+                    }`}
+                  title="Scan product or receipt with camera"
                 >
-                  <Paperclip className="w-4 h-4 text-gray-500" />
+                  <Camera className="w-4 h-4 text-gray-500" />
                 </button>
 
-                <input
-                  ref={fileInputRef}
-                  type="file"
-                  multiple
-                  accept="image/*,.pdf,.txt,.csv,.xlsx,.xls,.doc,.docx"
+                <textarea
+                  ref={inputRef}
+                  rows={1}
+                  value={input}
                   onChange={(e) => {
-                    const files = Array.from(e.target.files || []);
-                    if (files.length > 0) {
-                      const newAttachments = files.map((f) => ({
-                        name: f.name,
-                        type: f.type,
-                        size: f.size,
-                        url: f.type.startsWith("image/") ? URL.createObjectURL(f) : undefined,
-                      }));
-                      setAttachments((prev) => [...prev, ...newAttachments]);
-                    }
-                    // Reset so the same file can be re-selected
-                    e.target.value = "";
+                    setInput(e.target.value);
+                    adjustInputHeight();
                   }}
-                  className="hidden"
+                  onKeyDown={handleKeyDown}
+                  placeholder={historyLoading ? "Loading chat history..." : modePlaceholders[activeMode]}
+                  disabled={historyLoading}
+                  className={`flex-1 rounded-xl border border-gray-300 outline-none focus:ring-2 ${themes[activeTheme].ring} focus:border-transparent transition-all shadow-sm disabled:bg-gray-50 disabled:text-gray-400 disabled:cursor-not-allowed resize-none max-h-[160px] py-2 px-3 text-sm no-scrollbar`}
+                  style={{ height: "38px" }}
                 />
-              </div>
 
-              {/* Camera / Scan button */}
-              <button
-                type="button"
-                onClick={() => {
-                  const camInput = document.createElement("input");
-                  camInput.type = "file";
-                  camInput.accept = "image/*";
-                  camInput.capture = "environment";
-                  camInput.onchange = (ev) => {
-                    const files = Array.from((ev.target as HTMLInputElement).files || []);
-                    if (files.length > 0) {
-                      const newAttachments = files.map((f) => ({
-                        name: f.name,
-                        type: f.type,
-                        size: f.size,
-                        url: URL.createObjectURL(f),
-                      }));
-                      setAttachments((prev) => [...prev, ...newAttachments]);
-                    }
-                  };
-                  camInput.click();
-                }}
-                className={`rounded-xl border border-gray-300 bg-slate-50 text-gray-500 hover:bg-slate-100 transition-all shadow-sm flex items-center justify-center cursor-pointer select-none ${
-                  isFullscreen ? "p-3" : "p-2"
-                }`}
-                title="Scan product or receipt with camera"
-              >
-                <Camera className="w-4 h-4 text-gray-500" />
-              </button>
-
-              <textarea
-                ref={inputRef}
-                rows={1}
-                value={input}
-                onChange={(e) => {
-                  setInput(e.target.value);
-                  adjustInputHeight();
-                }}
-                onKeyDown={handleKeyDown}
-                placeholder={historyLoading ? "Loading chat history..." : modePlaceholders[activeMode]}
-                disabled={historyLoading}
-                className={`flex-1 rounded-xl border border-gray-300 outline-none focus:ring-2 ${themes[activeTheme].ring} focus:border-transparent transition-all shadow-sm disabled:bg-gray-50 disabled:text-gray-400 disabled:cursor-not-allowed resize-none max-h-[160px] py-2 px-3 text-sm no-scrollbar`}
-                style={{ height: "38px" }}
-              />
-
-              <button
-                type="button"
-                onClick={toggleSpeechRecognition}
-                disabled={historyLoading}
-                className={`rounded-xl border transition-all shadow-sm flex items-center justify-center cursor-pointer ${
-                  isRecording
+                <button
+                  type="button"
+                  onClick={toggleSpeechRecognition}
+                  disabled={historyLoading}
+                  className={`rounded-xl border transition-all shadow-sm flex items-center justify-center cursor-pointer ${isRecording
                     ? "bg-red-50 border-red-300 text-red-600 animate-pulse"
                     : "bg-slate-50 border-gray-300 text-gray-500 hover:bg-slate-100"
-                } ${isFullscreen ? "p-3" : "p-2"}`}
-                aria-label="Voice typing"
-                title="Voice typing"
-              >
-                {isRecording ? (
-                  <MicOff className="w-4 h-4 text-red-600" />
-                ) : (
-                  <Mic className="w-4 h-4 text-gray-500" />
-                )}
-              </button>
-              <button
-                type={loading ? "button" : "submit"}
-                onClick={loading ? stopGenerating : undefined}
-                disabled={historyLoading || (!loading && !input.trim())}
-                className={`rounded-xl bg-gradient-to-r ${themes[activeTheme].gradient} ${themes[activeTheme].hoverGradient} text-white disabled:opacity-50 active:scale-95 transition-all shadow-sm flex items-center justify-center ${
-                  isFullscreen ? "p-3" : "p-2"
-                }`}
-                aria-label={loading ? "Stop generating" : "Send"}
-              >
-                {loading ? (
-                  <Square className="w-4 h-4" />
-                ) : (
-                  <Send className="w-4 h-4" />
-                )}
-              </button>
-            </div>
-          </form>
-
-          {/* Custom Confirmation Modal */}
-          <AnimatePresence>
-            {confirmDialog.isOpen && (
-              <div className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm z-[100] flex items-center justify-center p-4">
-                <motion.div
-                  initial={{ opacity: 0, scale: 0.95, y: 10 }}
-                  animate={{ opacity: 1, scale: 1, y: 0 }}
-                  exit={{ opacity: 0, scale: 0.95, y: 10 }}
-                  transition={{ duration: 0.15, ease: "easeOut" }}
-                  className="bg-white rounded-2xl p-5 max-w-[280px] w-full border border-gray-150 shadow-2xl flex flex-col items-center text-center"
+                    } ${isFullscreen ? "p-3" : "p-2"}`}
+                  aria-label="Voice typing"
+                  title="Voice typing"
                 >
-                  <div className="w-12 h-12 rounded-full bg-red-50 flex items-center justify-center mb-3">
-                    <Trash2 className="w-6 h-6 text-red-500 animate-pulse" />
-                  </div>
-                  <h3 className="text-sm font-black text-gray-800 mb-1">
-                    {confirmDialog.title}
-                  </h3>
-                  <p className="text-xs text-gray-500 mb-5 leading-normal">
-                    {confirmDialog.message}
-                  </p>
-                  <div className="flex gap-2 w-full">
-                    <button
-                      type="button"
-                      onClick={() => setConfirmDialog((prev) => ({ ...prev, isOpen: false }))}
-                      className="flex-1 py-2 px-3 border border-gray-200 rounded-xl text-xs font-semibold text-gray-500 hover:bg-gray-50 active:scale-95 transition-all cursor-pointer"
-                    >
-                      Cancel
-                    </button>
-                    <button
-                      type="button"
-                      onClick={confirmDialog.onConfirm}
-                      className="flex-1 py-2 px-3 bg-red-500 text-white rounded-xl text-xs font-bold hover:bg-red-600 active:scale-95 transition-all shadow-sm shadow-red-550/15 cursor-pointer"
-                    >
-                      Confirm
-                    </button>
-                  </div>
-                </motion.div>
+                  {isRecording ? (
+                    <MicOff className="w-4 h-4 text-red-600" />
+                  ) : (
+                    <Mic className="w-4 h-4 text-gray-500" />
+                  )}
+                </button>
+                <button
+                  type={loading ? "button" : "submit"}
+                  onClick={loading ? stopGenerating : undefined}
+                  disabled={historyLoading || (!loading && !input.trim())}
+                  className={`rounded-xl bg-gradient-to-r ${themes[activeTheme].gradient} ${themes[activeTheme].hoverGradient} text-white disabled:opacity-50 active:scale-95 transition-all shadow-sm flex items-center justify-center ${isFullscreen ? "p-3" : "p-2"
+                    }`}
+                  aria-label={loading ? "Stop generating" : "Send"}
+                >
+                  {loading ? (
+                    <Square className="w-4 h-4" />
+                  ) : (
+                    <Send className="w-4 h-4" />
+                  )}
+                </button>
               </div>
-            )}
-          </AnimatePresence>
+            </form>
 
-          {/* Settings Panel Overlay */}
-          <AnimatePresence>
-            {showSettings && (
-              <motion.div
-                initial={{ opacity: 0, scale: 0.98 }}
-                animate={{ opacity: 1, scale: 1 }}
-                exit={{ opacity: 0, scale: 0.98 }}
-                transition={{ duration: 0.15 }}
-                className={`absolute inset-0 bg-white z-[99] flex flex-col overflow-hidden text-gray-700 ${isFullscreen ? "rounded-none" : "rounded-2xl"}`}
-              >
-                {/* Settings Header */}
-                <div className="p-4 border-b border-slate-800 flex items-center justify-between bg-slate-900 text-white shadow-sm">
-                  <div className="flex items-center gap-2">
-                    <Settings className="w-5 h-5 animate-spin-slow" />
-                    <h3 className="font-bold text-sm tracking-wide">AI Assistant Preferences</h3>
-                    {settingsSaved && (
-                      <span className="text-[10px] font-bold text-emerald-400 animate-pulse ml-1 select-none">✓ Saved</span>
-                    )}
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <button
-                      type="button"
-                      onClick={async () => {
-                        try {
-                          if (session?.user?.id) {
-                            const res = await axios.delete("/api/chatbot/settings");
-                            if (res.data?.success && res.data?.settings) {
-                              setChatbotSettings(res.data.settings);
+            {/* Custom Confirmation Modal */}
+            <AnimatePresence>
+              {confirmDialog.isOpen && (
+                <div className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm z-[100] flex items-center justify-center p-4">
+                  <motion.div
+                    initial={{ opacity: 0, scale: 0.95, y: 10 }}
+                    animate={{ opacity: 1, scale: 1, y: 0 }}
+                    exit={{ opacity: 0, scale: 0.95, y: 10 }}
+                    transition={{ duration: 0.15, ease: "easeOut" }}
+                    className="bg-white rounded-2xl p-5 max-w-[280px] w-full border border-gray-150 shadow-2xl flex flex-col items-center text-center"
+                  >
+                    <div className="w-12 h-12 rounded-full bg-red-50 flex items-center justify-center mb-3">
+                      <Trash2 className="w-6 h-6 text-red-500 animate-pulse" />
+                    </div>
+                    <h3 className="text-sm font-black text-gray-800 mb-1">
+                      {confirmDialog.title}
+                    </h3>
+                    <p className="text-xs text-gray-500 mb-5 leading-normal">
+                      {confirmDialog.message}
+                    </p>
+                    <div className="flex gap-2 w-full">
+                      <button
+                        type="button"
+                        onClick={() => setConfirmDialog((prev) => ({ ...prev, isOpen: false }))}
+                        className="flex-1 py-2 px-3 border border-gray-200 rounded-xl text-xs font-semibold text-gray-500 hover:bg-gray-50 active:scale-95 transition-all cursor-pointer"
+                      >
+                        Cancel
+                      </button>
+                      <button
+                        type="button"
+                        onClick={confirmDialog.onConfirm}
+                        className="flex-1 py-2 px-3 bg-red-500 text-white rounded-xl text-xs font-bold hover:bg-red-600 active:scale-95 transition-all shadow-sm shadow-red-550/15 cursor-pointer"
+                      >
+                        Confirm
+                      </button>
+                    </div>
+                  </motion.div>
+                </div>
+              )}
+            </AnimatePresence>
+
+            {/* Settings Panel Overlay */}
+            <AnimatePresence>
+              {showSettings && (
+                <motion.div
+                  initial={{ opacity: 0, scale: 0.98 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  exit={{ opacity: 0, scale: 0.98 }}
+                  transition={{ duration: 0.15 }}
+                  className={`absolute inset-0 bg-white z-[99] flex flex-col overflow-hidden text-gray-700 ${isFullscreen ? "rounded-none" : "rounded-2xl"}`}
+                >
+                  {/* Settings Header */}
+                  <div className="p-4 border-b border-slate-800 flex items-center justify-between bg-slate-900 text-white shadow-sm">
+                    <div className="flex items-center gap-2">
+                      <Settings className="w-5 h-5 animate-spin-slow" />
+                      <h3 className="font-bold text-sm tracking-wide">AI Assistant Preferences</h3>
+                      {settingsSaved && (
+                        <span className="text-[10px] font-bold text-emerald-400 animate-pulse ml-1 select-none">✓ Saved</span>
+                      )}
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <button
+                        type="button"
+                        onClick={async () => {
+                          try {
+                            if (session?.user?.id) {
+                              const res = await axios.delete("/api/chatbot/settings");
+                              if (res.data?.success && res.data?.settings) {
+                                setChatbotSettings(res.data.settings);
+                                setToast({ type: "success", message: "Restored default settings" });
+                              }
+                            } else {
+                              localStorage.removeItem("snapcart_chatbot_settings");
+                              setChatbotSettings(DEFAULT_SETTINGS);
                               setToast({ type: "success", message: "Restored default settings" });
                             }
-                          } else {
-                            localStorage.removeItem("snapcart_chatbot_settings");
-                            setChatbotSettings(DEFAULT_SETTINGS);
-                            setToast({ type: "success", message: "Restored default settings" });
+                          } catch {
+                            setToast({ type: "error", message: "Failed to reset settings" });
                           }
-                        } catch {
-                          setToast({ type: "error", message: "Failed to reset settings" });
-                        }
-                      }}
-                      className="text-xs px-2.5 py-1 bg-white/20 hover:bg-white/30 rounded-lg text-white font-semibold transition-all select-none cursor-pointer"
-                      title="Restore Default Settings"
-                    >
-                      Reset Defaults
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setShowSettings(false)}
-                      className="p-1 hover:bg-white/20 rounded-full transition-colors cursor-pointer"
-                    >
-                      <X className="w-5 h-5" />
-                    </button>
+                        }}
+                        className="text-xs px-2.5 py-1 bg-white/20 hover:bg-white/30 rounded-lg text-white font-semibold transition-all select-none cursor-pointer"
+                        title="Restore Default Settings"
+                      >
+                        Reset Defaults
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setShowSettings(false)}
+                        className="p-1 hover:bg-white/20 rounded-full transition-colors cursor-pointer"
+                      >
+                        <X className="w-5 h-5" />
+                      </button>
+                    </div>
                   </div>
-                </div>
 
-                {/* Settings Body: Split Panel */}
-                <div className="flex-1 flex overflow-hidden">
-                  {/* Left Tabs Nav */}
-                  <div className="w-[125px] sm:w-[155px] border-r border-gray-100 bg-slate-50/50 overflow-y-auto p-2 space-y-1 select-none no-scrollbar flex-shrink-0">
-                    {[
-                      { id: "general", label: "General", icon: Languages },
-                      { id: "appearance", label: "Appearance", icon: Sparkles },
-                      { id: "chat", label: "Chat Logic", icon: Bot },
-                      { id: "ai", label: "AI Config", icon: User },
-                      { id: "voice", label: "Voice", icon: Mic },
-                      { id: "notifications", label: "Notifications", icon: ArrowDown },
-                      { id: "privacy", label: "Privacy", icon: Archive },
-                      { id: "advanced", label: "Advanced", icon: Settings },
-                    ].map((tab) => {
-                      const Icon = tab.icon;
-                      const isActive = activeSettingsTab === tab.id;
-                      return (
-                        <button
-                          type="button"
-                          key={tab.id}
-                          onClick={() => setActiveSettingsTab(tab.id as any)}
-                          className={`w-full flex items-center gap-1.5 px-2 py-2 rounded-xl text-left text-[11px] font-bold transition-all cursor-pointer ${
-                            isActive
+                  {/* Settings Body: Split Panel */}
+                  <div className="flex-1 flex overflow-hidden">
+                    {/* Left Tabs Nav */}
+                    <div className="w-[125px] sm:w-[155px] border-r border-gray-100 bg-slate-50/50 overflow-y-auto p-2 space-y-1 select-none no-scrollbar flex-shrink-0">
+                      {[
+                        { id: "general", label: "General", icon: Languages },
+                        { id: "appearance", label: "Appearance", icon: Sparkles },
+                        { id: "chat", label: "Chat Logic", icon: Bot },
+                        { id: "ai", label: "AI Config", icon: User },
+                        { id: "voice", label: "Voice", icon: Mic },
+                        { id: "notifications", label: "Notifications", icon: ArrowDown },
+                        { id: "privacy", label: "Privacy", icon: Archive },
+                        { id: "advanced", label: "Advanced", icon: Settings },
+                      ].map((tab) => {
+                        const Icon = tab.icon;
+                        const isActive = activeSettingsTab === tab.id;
+                        return (
+                          <button
+                            type="button"
+                            key={tab.id}
+                            onClick={() => setActiveSettingsTab(tab.id as any)}
+                            className={`w-full flex items-center gap-1.5 px-2 py-2 rounded-xl text-left text-[11px] font-bold transition-all cursor-pointer ${isActive
                               ? `bg-white border-l-4 ${themes[activeTheme].borderLeftHighlight} ${themes[activeTheme].text} shadow-sm`
                               : "text-gray-500 hover:bg-slate-100 hover:text-gray-800"
-                          }`}
-                        >
-                          <Icon className="w-3.5 h-3.5 flex-shrink-0" />
-                          <span>{tab.label}</span>
-                        </button>
-                      );
-                    })}
-                  </div>
-
-                  {/* Right Tab Content */}
-                  <div className="flex-1 overflow-y-auto p-4 space-y-5 scroll-smooth snapcart-scrollbar">
-                    {/* General Tab */}
-                    {activeSettingsTab === "general" && (
-                      <div className="space-y-4 animate-fadeIn">
-                        <div className="space-y-1 border-b border-gray-100 pb-2">
-                          <h4 className="font-extrabold text-sm text-gray-800">General Settings</h4>
-                          <p className="text-[11px] text-gray-500">Configure language options and basic interface layouts.</p>
-                        </div>
-
-                        {/* Preferred Language Selection */}
-                        <div className="space-y-1.5">
-                          <label className={`text-[11px] font-extrabold ${themes[activeTheme].textDark} uppercase tracking-wider block`}>Preferred Language</label>
-                          <select
-                            value={chatbotSettings.primaryLanguage}
-                            onChange={(e) => updateSettings({ primaryLanguage: e.target.value })}
-                            className={`w-full text-xs bg-white border border-gray-200 rounded-xl px-3 py-2.5 focus:outline-none focus:ring-2 ${themes[activeTheme].ring} cursor-pointer`}
+                              }`}
                           >
-                            <option value="en">English</option>
-                            <option value="hi">Hindi (हिन्दी)</option>
-                            <option value="hinglish">Hinglish</option>
-                            <option value="bn">Bengali (বাংলা)</option>
-                            <option value="mr">Marathi (मরাठी)</option>
-                            <option value="ta">Tamil (தமிழ்)</option>
-                            <option value="te">Telugu (తెలుగు)</option>
-                            <option value="kn">Kannada (ಕನ್ನಡ)</option>
-                            <option value="ml">Malayalam (മലയാളം)</option>
-                            <option value="gu">Gujarati (ગુજરાતી)</option>
-                            <option value="pa">Punjabi (ਪੰਜਾਬੀ)</option>
-                            <option value="ur">Urdu (اردو)</option>
-                            <option value="or">Odia (ଓଡ଼ିଆ)</option>
-                            <option value="as">Assamese (অસમীয়া)</option>
-                          </select>
-                        </div>
+                            <Icon className="w-3.5 h-3.5 flex-shrink-0" />
+                            <span>{tab.label}</span>
+                          </button>
+                        );
+                      })}
+                    </div>
 
-                        {/* Font Size */}
-                        <div className="space-y-1.5">
-                          <label className={`text-[11px] font-extrabold ${themes[activeTheme].textDark} uppercase tracking-wider block`}>Font Size</label>
-                          <div className="grid grid-cols-3 gap-2">
-                            {(["small", "medium", "large"] as const).map((sz) => (
-                              <button
-                                type="button"
-                                key={sz}
-                                onClick={() => updateSettings({ fontSize: sz })}
-                                className={`text-xs py-2 px-2 rounded-xl border text-center font-bold capitalize transition-all cursor-pointer ${
-                                  chatbotSettings.fontSize === sz
+                    {/* Right Tab Content */}
+                    <div className="flex-1 overflow-y-auto p-4 space-y-5 scroll-smooth snapcart-scrollbar">
+                      {/* General Tab */}
+                      {activeSettingsTab === "general" && (
+                        <div className="space-y-4 animate-fadeIn">
+                          <div className="space-y-1 border-b border-gray-100 pb-2">
+                            <h4 className="font-extrabold text-sm text-gray-800">General Settings</h4>
+                            <p className="text-[11px] text-gray-500">Configure language options and basic interface layouts.</p>
+                          </div>
+
+                          {/* Preferred Language Selection */}
+                          <div className="space-y-1.5">
+                            <label className={`text-[11px] font-extrabold ${themes[activeTheme].textDark} uppercase tracking-wider block`}>Preferred Language</label>
+                            <select
+                              value={chatbotSettings.primaryLanguage}
+                              onChange={(e) => updateSettings({ primaryLanguage: e.target.value })}
+                              className={`w-full text-xs bg-white border border-gray-200 rounded-xl px-3 py-2.5 focus:outline-none focus:ring-2 ${themes[activeTheme].ring} cursor-pointer`}
+                            >
+                              <option value="en">English</option>
+                              <option value="hi">Hindi (हिन्दी)</option>
+                              <option value="hinglish">Hinglish</option>
+                              <option value="bn">Bengali (বাংলা)</option>
+                              <option value="mr">Marathi (मরাठी)</option>
+                              <option value="ta">Tamil (தமிழ்)</option>
+                              <option value="te">Telugu (తెలుగు)</option>
+                              <option value="kn">Kannada (ಕನ್ನಡ)</option>
+                              <option value="ml">Malayalam (മലയാളം)</option>
+                              <option value="gu">Gujarati (ગુજરાતી)</option>
+                              <option value="pa">Punjabi (ਪੰਜਾਬੀ)</option>
+                              <option value="ur">Urdu (اردو)</option>
+                              <option value="or">Odia (ଓଡ଼ିଆ)</option>
+                              <option value="as">Assamese (অસમীয়া)</option>
+                            </select>
+                          </div>
+
+                          {/* Font Size */}
+                          <div className="space-y-1.5">
+                            <label className={`text-[11px] font-extrabold ${themes[activeTheme].textDark} uppercase tracking-wider block`}>Font Size</label>
+                            <div className="grid grid-cols-3 gap-2">
+                              {(["small", "medium", "large"] as const).map((sz) => (
+                                <button
+                                  type="button"
+                                  key={sz}
+                                  onClick={() => updateSettings({ fontSize: sz })}
+                                  className={`text-xs py-2 px-2 rounded-xl border text-center font-bold capitalize transition-all cursor-pointer ${chatbotSettings.fontSize === sz
                                     ? `${themes[activeTheme].bgLight} ${themes[activeTheme].borderHighlight} ${themes[activeTheme].textDark}`
                                     : "bg-white border-gray-200 text-gray-500 hover:bg-slate-50"
-                                }`}
-                              >
-                                {sz}
-                              </button>
-                            ))}
+                                    }`}
+                                >
+                                  {sz}
+                                </button>
+                              ))}
+                            </div>
                           </div>
-                        </div>
 
-                        <div className="space-y-1.5">
-                          <label className={`text-[11px] font-extrabold ${themes[activeTheme].textDark} uppercase tracking-wider block`}>Display Density</label>
-                          <div className="grid grid-cols-3 gap-2">
-                            {(["compact", "cozy", "spacious"] as const).map((ds) => (
-                              <button
-                                type="button"
-                                key={ds}
-                                onClick={() => updateSettings({ density: ds })}
-                                className={`text-xs py-2 px-2 rounded-xl border text-center font-bold capitalize transition-all cursor-pointer ${
-                                  chatbotSettings.density === ds
+                          <div className="space-y-1.5">
+                            <label className={`text-[11px] font-extrabold ${themes[activeTheme].textDark} uppercase tracking-wider block`}>Display Density</label>
+                            <div className="grid grid-cols-3 gap-2">
+                              {(["compact", "cozy", "spacious"] as const).map((ds) => (
+                                <button
+                                  type="button"
+                                  key={ds}
+                                  onClick={() => updateSettings({ density: ds })}
+                                  className={`text-xs py-2 px-2 rounded-xl border text-center font-bold capitalize transition-all cursor-pointer ${chatbotSettings.density === ds
                                     ? `${themes[activeTheme].bgLight} ${themes[activeTheme].borderHighlight} ${themes[activeTheme].textDark}`
                                     : "bg-white border-gray-200 text-gray-500 hover:bg-slate-50"
-                                }`}
-                              >
-                                {ds}
-                              </button>
-                            ))}
+                                    }`}
+                                >
+                                  {ds}
+                                </button>
+                              ))}
+                            </div>
                           </div>
                         </div>
-                      </div>
-                    )}
+                      )}
 
-                    {/* Appearance Tab */}
-                    {activeSettingsTab === "appearance" && (
-                      <div className="space-y-4 animate-fadeIn">
-                        <div className="space-y-1 border-b border-gray-100 pb-2">
-                          <h4 className="font-extrabold text-sm text-gray-800">Appearance & Style</h4>
-                          <p className="text-[11px] text-gray-500">Fine-tune the colors, borders, and animations of the chat container.</p>
-                        </div>
-
-                        {/* Accent Colors */}
-                        <div className="space-y-1.5">
-                          <label className="text-[11px] font-extrabold text-emerald-800 uppercase tracking-wider block">Accent Highlight Color</label>
-                          <div className="flex items-center gap-3 pt-1">
-                            {(["emerald", "violet", "rose", "amber"] as const).map((t) => (
-                              <button
-                                type="button"
-                                key={t}
-                                onClick={() => updateSettings({ accentColor: t })}
-                                className={`w-8 h-8 rounded-full border-2 cursor-pointer transition-transform hover:scale-110 active:scale-95 shadow-sm flex items-center justify-center ${
-                                  t === "emerald" ? "bg-emerald-500" :
-                                  t === "violet" ? "bg-violet-500" :
-                                  t === "rose" ? "bg-rose-500" : "bg-amber-500"
-                                } ${
-                                  chatbotSettings.accentColor === t
-                                    ? "border-slate-800 scale-105"
-                                    : "border-transparent"
-                                }`}
-                              >
-                                {chatbotSettings.accentColor === t && (
-                                  <Check className="w-4 h-4 text-white font-bold" />
-                                )}
-                              </button>
-                            ))}
+                      {/* Appearance Tab */}
+                      {activeSettingsTab === "appearance" && (
+                        <div className="space-y-4 animate-fadeIn">
+                          <div className="space-y-1 border-b border-gray-100 pb-2">
+                            <h4 className="font-extrabold text-sm text-gray-800">Appearance & Style</h4>
+                            <p className="text-[11px] text-gray-500">Fine-tune the colors, borders, and animations of the chat container.</p>
                           </div>
-                        </div>
 
-                        {/* Chat Width */}
-                        <div className="space-y-1.5">
-                          <label className={`text-[11px] font-extrabold ${themes[activeTheme].textDark} uppercase tracking-wider block`}>Chat Viewport Width</label>
-                          <div className="grid grid-cols-3 gap-2">
-                            {(["narrow", "normal", "wide"] as const).map((wd) => (
-                              <button
-                                type="button"
-                                key={wd}
-                                onClick={() => updateSettings({ chatWidth: wd })}
-                                className={`text-xs py-2 px-2 rounded-xl border text-center font-bold capitalize transition-all cursor-pointer ${
-                                  chatbotSettings.chatWidth === wd
+                          {/* Accent Colors */}
+                          <div className="space-y-1.5">
+                            <label className="text-[11px] font-extrabold text-emerald-800 uppercase tracking-wider block">Accent Highlight Color</label>
+                            <div className="flex items-center gap-3 pt-1">
+                              {(["emerald", "violet", "rose", "amber"] as const).map((t) => (
+                                <button
+                                  type="button"
+                                  key={t}
+                                  onClick={() => updateSettings({ accentColor: t })}
+                                  className={`w-8 h-8 rounded-full border-2 cursor-pointer transition-transform hover:scale-110 active:scale-95 shadow-sm flex items-center justify-center ${t === "emerald" ? "bg-emerald-500" :
+                                    t === "violet" ? "bg-violet-500" :
+                                      t === "rose" ? "bg-rose-500" : "bg-amber-500"
+                                    } ${chatbotSettings.accentColor === t
+                                      ? "border-slate-800 scale-105"
+                                      : "border-transparent"
+                                    }`}
+                                >
+                                  {chatbotSettings.accentColor === t && (
+                                    <Check className="w-4 h-4 text-white font-bold" />
+                                  )}
+                                </button>
+                              ))}
+                            </div>
+                          </div>
+
+                          {/* Chat Width */}
+                          <div className="space-y-1.5">
+                            <label className={`text-[11px] font-extrabold ${themes[activeTheme].textDark} uppercase tracking-wider block`}>Chat Viewport Width</label>
+                            <div className="grid grid-cols-3 gap-2">
+                              {(["narrow", "normal", "wide"] as const).map((wd) => (
+                                <button
+                                  type="button"
+                                  key={wd}
+                                  onClick={() => updateSettings({ chatWidth: wd })}
+                                  className={`text-xs py-2 px-2 rounded-xl border text-center font-bold capitalize transition-all cursor-pointer ${chatbotSettings.chatWidth === wd
                                     ? `${themes[activeTheme].bgLight} ${themes[activeTheme].borderHighlight} ${themes[activeTheme].textDark}`
                                     : "bg-white border-gray-200 text-gray-500 hover:bg-slate-50"
-                                }`}
-                              >
-                                {wd}
-                              </button>
-                            ))}
+                                    }`}
+                                >
+                                  {wd}
+                                </button>
+                              ))}
+                            </div>
                           </div>
-                        </div>
 
-                        {/* Bubble Style */}
-                        <div className="space-y-1.5">
-                          <label className={`text-[11px] font-extrabold ${themes[activeTheme].textDark} uppercase tracking-wider block`}>Message Bubble Shape</label>
-                          <div className="grid grid-cols-3 gap-2">
-                            {(["rounded", "sharp", "modern"] as const).map((bs) => (
-                              <button
-                                type="button"
-                                key={bs}
-                                onClick={() => updateSettings({ bubbleStyle: bs })}
-                                className={`text-xs py-2 px-2 rounded-xl border text-center font-bold capitalize transition-all cursor-pointer ${
-                                  chatbotSettings.bubbleStyle === bs
+                          {/* Bubble Style */}
+                          <div className="space-y-1.5">
+                            <label className={`text-[11px] font-extrabold ${themes[activeTheme].textDark} uppercase tracking-wider block`}>Message Bubble Shape</label>
+                            <div className="grid grid-cols-3 gap-2">
+                              {(["rounded", "sharp", "modern"] as const).map((bs) => (
+                                <button
+                                  type="button"
+                                  key={bs}
+                                  onClick={() => updateSettings({ bubbleStyle: bs })}
+                                  className={`text-xs py-2 px-2 rounded-xl border text-center font-bold capitalize transition-all cursor-pointer ${chatbotSettings.bubbleStyle === bs
                                     ? `${themes[activeTheme].bgLight} ${themes[activeTheme].borderHighlight} ${themes[activeTheme].textDark}`
                                     : "bg-white border-gray-200 text-gray-500 hover:bg-slate-50"
+                                    }`}
+                                >
+                                  {bs}
+                                </button>
+                              ))}
+                            </div>
+                          </div>
+
+                          {/* Animations Toggle */}
+                          <div className="flex items-center justify-between pt-1">
+                            <span className="text-xs font-bold text-gray-700">Enable UI Motion & Animations</span>
+                            <button
+                              type="button"
+                              onClick={() => updateSettings({ animations: !chatbotSettings.animations })}
+                              className={`w-10 h-5.5 rounded-full transition-colors relative cursor-pointer outline-none ${chatbotSettings.animations ? themes[activeTheme].bg : "bg-gray-200"
                                 }`}
-                              >
-                                {bs}
-                              </button>
-                            ))}
+                            >
+                              <span className={`w-3.5 h-3.5 bg-white rounded-full absolute top-1 transition-transform ${chatbotSettings.animations ? "left-5.5" : "left-1"}`} />
+                            </button>
+                          </div>
+
+                          {/* Blur Effects Toggle */}
+                          <div className="flex items-center justify-between pt-1">
+                            <span className="text-xs font-bold text-gray-700">Glassmorphism Blur Effects</span>
+                            <button
+                              type="button"
+                              onClick={() => updateSettings({ blurEffects: !chatbotSettings.blurEffects })}
+                              className={`w-10 h-5.5 rounded-full transition-colors relative cursor-pointer outline-none ${chatbotSettings.blurEffects ? themes[activeTheme].bg : "bg-gray-200"
+                                }`}
+                            >
+                              <span className={`w-3.5 h-3.5 bg-white rounded-full absolute top-1 transition-transform ${chatbotSettings.blurEffects ? "left-5.5" : "left-1"}`} />
+                            </button>
                           </div>
                         </div>
+                      )}
 
-                        {/* Animations Toggle */}
-                        <div className="flex items-center justify-between pt-1">
-                          <span className="text-xs font-bold text-gray-700">Enable UI Motion & Animations</span>
-                          <button
-                            type="button"
-                            onClick={() => updateSettings({ animations: !chatbotSettings.animations })}
-                            className={`w-10 h-5.5 rounded-full transition-colors relative cursor-pointer outline-none ${
-                              chatbotSettings.animations ? themes[activeTheme].bg : "bg-gray-200"
-                            }`}
-                          >
-                            <span className={`w-3.5 h-3.5 bg-white rounded-full absolute top-1 transition-transform ${chatbotSettings.animations ? "left-5.5" : "left-1"}`} />
-                          </button>
-                        </div>
-
-                        {/* Blur Effects Toggle */}
-                        <div className="flex items-center justify-between pt-1">
-                          <span className="text-xs font-bold text-gray-700">Glassmorphism Blur Effects</span>
-                          <button
-                            type="button"
-                            onClick={() => updateSettings({ blurEffects: !chatbotSettings.blurEffects })}
-                            className={`w-10 h-5.5 rounded-full transition-colors relative cursor-pointer outline-none ${
-                              chatbotSettings.blurEffects ? themes[activeTheme].bg : "bg-gray-200"
-                            }`}
-                          >
-                            <span className={`w-3.5 h-3.5 bg-white rounded-full absolute top-1 transition-transform ${chatbotSettings.blurEffects ? "left-5.5" : "left-1"}`} />
-                          </button>
-                        </div>
-                      </div>
-                    )}
-
-                    {/* Chat Tab */}
-                    {activeSettingsTab === "chat" && (
-                      <div className="space-y-4 animate-fadeIn">
-                        <div className="space-y-1 border-b border-gray-100 pb-2">
-                          <h4 className="font-extrabold text-sm text-gray-800">Chat & Input Behavior</h4>
-                          <p className="text-[11px] text-gray-500">Configure key binding preferences and content presentation controls.</p>
-                        </div>
-
-                        {/* Enter to Send Toggle */}
-                        <div className="flex items-center justify-between pt-1">
-                          <div className="space-y-0.5">
-                            <span className="text-xs font-bold text-gray-700 block">Enter Key to Send Message</span>
-                            <span className="text-[10px] text-gray-400">If disabled, use Shift+Enter or click the submit icon.</span>
+                      {/* Chat Tab */}
+                      {activeSettingsTab === "chat" && (
+                        <div className="space-y-4 animate-fadeIn">
+                          <div className="space-y-1 border-b border-gray-100 pb-2">
+                            <h4 className="font-extrabold text-sm text-gray-800">Chat & Input Behavior</h4>
+                            <p className="text-[11px] text-gray-500">Configure key binding preferences and content presentation controls.</p>
                           </div>
-                          <button
-                            type="button"
-                            onClick={() => updateSettings({ enterToSend: !chatbotSettings.enterToSend })}
-                            className={`w-10 h-5.5 rounded-full transition-colors relative cursor-pointer outline-none ${
-                              chatbotSettings.enterToSend ? themes[activeTheme].bg : "bg-gray-200"
-                            }`}
-                          >
-                            <span className={`w-3.5 h-3.5 bg-white rounded-full absolute top-1 transition-transform ${chatbotSettings.enterToSend ? "left-5.5" : "left-1"}`} />
-                          </button>
-                        </div>
 
-                        {/* Markdown Toggle */}
-                        <div className="flex items-center justify-between pt-1">
-                          <span className="text-xs font-bold text-gray-700">Enable Rich Markdown Rendering</span>
-                          <button
-                            type="button"
-                            onClick={() => updateSettings({ markdownEnabled: !chatbotSettings.markdownEnabled })}
-                            className={`w-10 h-5.5 rounded-full transition-colors relative cursor-pointer outline-none ${
-                              chatbotSettings.markdownEnabled ? themes[activeTheme].bg : "bg-gray-200"
-                            }`}
-                          >
-                            <span className={`w-3.5 h-3.5 bg-white rounded-full absolute top-1 transition-transform ${chatbotSettings.markdownEnabled ? "left-5.5" : "left-1"}`} />
-                          </button>
-                        </div>
-
-                        {/* Streaming Toggle */}
-                        <div className="flex items-center justify-between pt-1">
-                          <span className="text-xs font-bold text-gray-700">Stream Token Responses in Real-time</span>
-                          <button
-                            type="button"
-                            onClick={() => updateSettings({ streamingEnabled: !chatbotSettings.streamingEnabled })}
-                            className={`w-10 h-5.5 rounded-full transition-colors relative cursor-pointer outline-none ${
-                              chatbotSettings.streamingEnabled ? themes[activeTheme].bg : "bg-gray-200"
-                            }`}
-                          >
-                            <span className={`w-3.5 h-3.5 bg-white rounded-full absolute top-1 transition-transform ${chatbotSettings.streamingEnabled ? "left-5.5" : "left-1"}`} />
-                          </button>
-                        </div>
-
-                        {/* Auto scroll Toggle */}
-                        <div className="flex items-center justify-between pt-1">
-                          <span className="text-xs font-bold text-gray-700">Auto Scroll on New Message</span>
-                          <button
-                            type="button"
-                            onClick={() => updateSettings({ autoScroll: !chatbotSettings.autoScroll })}
-                            className={`w-10 h-5.5 rounded-full transition-colors relative cursor-pointer outline-none ${
-                              chatbotSettings.autoScroll ? themes[activeTheme].bg : "bg-gray-200"
-                            }`}
-                          >
-                            <span className={`w-3.5 h-3.5 bg-white rounded-full absolute top-1 transition-transform ${chatbotSettings.autoScroll ? "left-5.5" : "left-1"}`} />
-                          </button>
-                        </div>
-
-                        {/* Message Timestamps Toggle */}
-                        <div className="flex items-center justify-between pt-1">
-                          <span className="text-xs font-bold text-gray-700">Show Message Timestamps</span>
-                          <button
-                            type="button"
-                            onClick={() => updateSettings({ messageTimestamps: !chatbotSettings.messageTimestamps })}
-                            className={`w-10 h-5.5 rounded-full transition-colors relative cursor-pointer outline-none ${
-                              chatbotSettings.messageTimestamps ? themes[activeTheme].bg : "bg-gray-200"
-                            }`}
-                          >
-                            <span className={`w-3.5 h-3.5 bg-white rounded-full absolute top-1 transition-transform ${chatbotSettings.messageTimestamps ? "left-5.5" : "left-1"}`} />
-                          </button>
-                        </div>
-
-                        {/* Smart Suggestions Toggle */}
-                        <div className="flex items-center justify-between pt-1">
-                          <span className="text-xs font-bold text-gray-700">Smart Quick Suggestions</span>
-                          <button
-                            type="button"
-                            onClick={() => updateSettings({ smartSuggestions: !chatbotSettings.smartSuggestions })}
-                            className={`w-10 h-5.5 rounded-full transition-colors relative cursor-pointer outline-none ${
-                              chatbotSettings.smartSuggestions ? themes[activeTheme].bg : "bg-gray-200"
-                            }`}
-                          >
-                            <span className={`w-3.5 h-3.5 bg-white rounded-full absolute top-1 transition-transform ${chatbotSettings.smartSuggestions ? "left-5.5" : "left-1"}`} />
-                          </button>
-                        </div>
-                      </div>
-                    )}
-
-                    {/* AI Preferences Tab */}
-                    {activeSettingsTab === "ai" && (
-                      <div className="space-y-4 animate-fadeIn">
-                        <div className="space-y-1 border-b border-gray-100 pb-2">
-                          <h4 className="font-extrabold text-sm text-gray-800">AI Engine Parameters</h4>
-                          <p className="text-[11px] text-gray-500">Fine-tune the model parameters, context limits, and base system prompt.</p>
-                        </div>
-
-                        {/* Preferred Model */}
-                        <div className="space-y-1.5">
-                          <label className={`text-[11px] font-extrabold ${themes[activeTheme].textDark} uppercase tracking-wider block`}>Preferred Model</label>
-                          <select
-                            value={chatbotSettings.preferredModel}
-                            onChange={(e) => updateSettings({ preferredModel: e.target.value })}
-                            className="w-full text-xs bg-white border border-gray-200 rounded-xl px-3 py-2.5 focus:outline-none cursor-pointer"
-                          >
-                            <option value="gemini-1.5-flash">Gemini 1.5 Flash (Default)</option>
-                            <option value="gemini-1.5-pro">Gemini 1.5 Pro (Analytical)</option>
-                          </select>
-                        </div>
-
-                        {/* Creativity Temperature Slider */}
-                        <div className="space-y-1.5">
-                          <div className="flex justify-between items-center text-xs">
-                            <span className="font-bold text-gray-700">Temperature (Creativity)</span>
-                            <span className="font-bold bg-slate-100 px-2 py-0.5 rounded text-gray-600">{chatbotSettings.temperature}</span>
+                          {/* Enter to Send Toggle */}
+                          <div className="flex items-center justify-between pt-1">
+                            <div className="space-y-0.5">
+                              <span className="text-xs font-bold text-gray-700 block">Enter Key to Send Message</span>
+                              <span className="text-[10px] text-gray-400">If disabled, use Shift+Enter or click the submit icon.</span>
+                            </div>
+                            <button
+                              type="button"
+                              onClick={() => updateSettings({ enterToSend: !chatbotSettings.enterToSend })}
+                              className={`w-10 h-5.5 rounded-full transition-colors relative cursor-pointer outline-none ${chatbotSettings.enterToSend ? themes[activeTheme].bg : "bg-gray-200"
+                                }`}
+                            >
+                              <span className={`w-3.5 h-3.5 bg-white rounded-full absolute top-1 transition-transform ${chatbotSettings.enterToSend ? "left-5.5" : "left-1"}`} />
+                            </button>
                           </div>
-                          <input
-                            type="range"
-                            min="0"
-                            max="1"
-                            step="0.1"
-                            value={chatbotSettings.temperature}
-                            onChange={(e) => updateSettings({ temperature: parseFloat(e.target.value) })}
-                            className="w-full accent-emerald-600 cursor-pointer"
-                          />
-                        </div>
 
-                        {/* Response Length */}
-                        <div className="space-y-1.5">
-                          <label className={`text-[11px] font-extrabold ${themes[activeTheme].textDark} uppercase tracking-wider block`}>Response Length</label>
-                          <div className="grid grid-cols-3 gap-2">
-                            {(["short", "medium", "detailed"] as const).map((len) => (
-                              <button
-                                type="button"
-                                key={len}
-                                onClick={() => updateSettings({ responseLength: len })}
-                                className={`text-xs font-bold py-2 rounded-xl border transition-all cursor-pointer capitalize ${
-                                  chatbotSettings.responseLength === len
+                          {/* Markdown Toggle */}
+                          <div className="flex items-center justify-between pt-1">
+                            <span className="text-xs font-bold text-gray-700">Enable Rich Markdown Rendering</span>
+                            <button
+                              type="button"
+                              onClick={() => updateSettings({ markdownEnabled: !chatbotSettings.markdownEnabled })}
+                              className={`w-10 h-5.5 rounded-full transition-colors relative cursor-pointer outline-none ${chatbotSettings.markdownEnabled ? themes[activeTheme].bg : "bg-gray-200"
+                                }`}
+                            >
+                              <span className={`w-3.5 h-3.5 bg-white rounded-full absolute top-1 transition-transform ${chatbotSettings.markdownEnabled ? "left-5.5" : "left-1"}`} />
+                            </button>
+                          </div>
+
+                          {/* Streaming Toggle */}
+                          <div className="flex items-center justify-between pt-1">
+                            <span className="text-xs font-bold text-gray-700">Stream Token Responses in Real-time</span>
+                            <button
+                              type="button"
+                              onClick={() => updateSettings({ streamingEnabled: !chatbotSettings.streamingEnabled })}
+                              className={`w-10 h-5.5 rounded-full transition-colors relative cursor-pointer outline-none ${chatbotSettings.streamingEnabled ? themes[activeTheme].bg : "bg-gray-200"
+                                }`}
+                            >
+                              <span className={`w-3.5 h-3.5 bg-white rounded-full absolute top-1 transition-transform ${chatbotSettings.streamingEnabled ? "left-5.5" : "left-1"}`} />
+                            </button>
+                          </div>
+
+                          {/* Auto scroll Toggle */}
+                          <div className="flex items-center justify-between pt-1">
+                            <span className="text-xs font-bold text-gray-700">Auto Scroll on New Message</span>
+                            <button
+                              type="button"
+                              onClick={() => updateSettings({ autoScroll: !chatbotSettings.autoScroll })}
+                              className={`w-10 h-5.5 rounded-full transition-colors relative cursor-pointer outline-none ${chatbotSettings.autoScroll ? themes[activeTheme].bg : "bg-gray-200"
+                                }`}
+                            >
+                              <span className={`w-3.5 h-3.5 bg-white rounded-full absolute top-1 transition-transform ${chatbotSettings.autoScroll ? "left-5.5" : "left-1"}`} />
+                            </button>
+                          </div>
+
+                          {/* Message Timestamps Toggle */}
+                          <div className="flex items-center justify-between pt-1">
+                            <span className="text-xs font-bold text-gray-700">Show Message Timestamps</span>
+                            <button
+                              type="button"
+                              onClick={() => updateSettings({ messageTimestamps: !chatbotSettings.messageTimestamps })}
+                              className={`w-10 h-5.5 rounded-full transition-colors relative cursor-pointer outline-none ${chatbotSettings.messageTimestamps ? themes[activeTheme].bg : "bg-gray-200"
+                                }`}
+                            >
+                              <span className={`w-3.5 h-3.5 bg-white rounded-full absolute top-1 transition-transform ${chatbotSettings.messageTimestamps ? "left-5.5" : "left-1"}`} />
+                            </button>
+                          </div>
+
+                          {/* Smart Suggestions Toggle */}
+                          <div className="flex items-center justify-between pt-1">
+                            <span className="text-xs font-bold text-gray-700">Smart Quick Suggestions</span>
+                            <button
+                              type="button"
+                              onClick={() => updateSettings({ smartSuggestions: !chatbotSettings.smartSuggestions })}
+                              className={`w-10 h-5.5 rounded-full transition-colors relative cursor-pointer outline-none ${chatbotSettings.smartSuggestions ? themes[activeTheme].bg : "bg-gray-200"
+                                }`}
+                            >
+                              <span className={`w-3.5 h-3.5 bg-white rounded-full absolute top-1 transition-transform ${chatbotSettings.smartSuggestions ? "left-5.5" : "left-1"}`} />
+                            </button>
+                          </div>
+                        </div>
+                      )}
+
+                      {/* AI Preferences Tab */}
+                      {activeSettingsTab === "ai" && (
+                        <div className="space-y-4 animate-fadeIn">
+                          <div className="space-y-1 border-b border-gray-100 pb-2">
+                            <h4 className="font-extrabold text-sm text-gray-800">AI Engine Parameters</h4>
+                            <p className="text-[11px] text-gray-500">Fine-tune the model parameters, context limits, and base system prompt.</p>
+                          </div>
+
+                          {/* Preferred Model */}
+                          <div className="space-y-1.5">
+                            <label className={`text-[11px] font-extrabold ${themes[activeTheme].textDark} uppercase tracking-wider block`}>Preferred Model</label>
+                            <select
+                              value={chatbotSettings.preferredModel}
+                              onChange={(e) => updateSettings({ preferredModel: e.target.value })}
+                              className="w-full text-xs bg-white border border-gray-200 rounded-xl px-3 py-2.5 focus:outline-none cursor-pointer"
+                            >
+                              <option value="gemini-1.5-flash">Gemini 1.5 Flash (Default)</option>
+                              <option value="gemini-1.5-pro">Gemini 1.5 Pro (Analytical)</option>
+                            </select>
+                          </div>
+
+                          {/* Creativity Temperature Slider */}
+                          <div className="space-y-1.5">
+                            <div className="flex justify-between items-center text-xs">
+                              <span className="font-bold text-gray-700">Temperature (Creativity)</span>
+                              <span className="font-bold bg-slate-100 px-2 py-0.5 rounded text-gray-600">{chatbotSettings.temperature}</span>
+                            </div>
+                            <input
+                              type="range"
+                              min="0"
+                              max="1"
+                              step="0.1"
+                              value={chatbotSettings.temperature}
+                              onChange={(e) => updateSettings({ temperature: parseFloat(e.target.value) })}
+                              className="w-full accent-emerald-600 cursor-pointer"
+                            />
+                          </div>
+
+                          {/* Response Length */}
+                          <div className="space-y-1.5">
+                            <label className={`text-[11px] font-extrabold ${themes[activeTheme].textDark} uppercase tracking-wider block`}>Response Length</label>
+                            <div className="grid grid-cols-3 gap-2">
+                              {(["short", "medium", "detailed"] as const).map((len) => (
+                                <button
+                                  type="button"
+                                  key={len}
+                                  onClick={() => updateSettings({ responseLength: len })}
+                                  className={`text-xs font-bold py-2 rounded-xl border transition-all cursor-pointer capitalize ${chatbotSettings.responseLength === len
                                     ? `${themes[activeTheme].bg} text-white border-transparent shadow-md`
                                     : "bg-white border-gray-200 text-gray-600 hover:bg-gray-50"
+                                    }`}
+                                >
+                                  {len === "short" ? "⚡ Short" : len === "medium" ? "📝 Medium" : "📖 Detailed"}
+                                </button>
+                              ))}
+                            </div>
+                          </div>
+
+                          {/* System Prompt Customizer */}
+                          <div className="space-y-1.5">
+                            <label className={`text-[11px] font-extrabold ${themes[activeTheme].textDark} uppercase tracking-wider block`}>Custom System Prompt Override</label>
+                            <textarea
+                              value={chatbotSettings.systemPrompt}
+                              onChange={(e) => updateSettings({ systemPrompt: e.target.value })}
+                              placeholder="Add additional instructions for the AI assistant..."
+                              rows={3}
+                              className="w-full text-xs border border-gray-200 rounded-xl p-2.5 focus:ring-2 focus:ring-emerald-500 focus:outline-none resize-none"
+                            />
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Voice Tab */}
+                      {activeSettingsTab === "voice" && (
+                        <div className="space-y-4 animate-fadeIn">
+                          <div className="space-y-1 border-b border-gray-100 pb-2">
+                            <h4 className="font-extrabold text-sm text-gray-800">Voice Playback & Dictation</h4>
+                            <p className="text-[11px] text-gray-500">Configure text-to-speech output speeds and voice profiles.</p>
+                          </div>
+
+                          {/* Voice Input Toggle */}
+                          <div className="flex items-center justify-between pt-1">
+                            <span className="text-xs font-bold text-gray-700">Enable Voice Input (Microphone)</span>
+                            <button
+                              type="button"
+                              onClick={() => updateSettings({ voiceInputEnabled: !chatbotSettings.voiceInputEnabled })}
+                              className={`w-10 h-5.5 rounded-full transition-colors relative cursor-pointer outline-none ${chatbotSettings.voiceInputEnabled ? themes[activeTheme].bg : "bg-gray-200"
                                 }`}
+                            >
+                              <span className={`w-3.5 h-3.5 bg-white rounded-full absolute top-1 transition-transform ${chatbotSettings.voiceInputEnabled ? "left-5.5" : "left-1"}`} />
+                            </button>
+                          </div>
+
+                          {/* Voice Output Toggle */}
+                          <div className="flex items-center justify-between pt-1">
+                            <span className="text-xs font-bold text-gray-700">Enable Voice Output (Speaker)</span>
+                            <button
+                              type="button"
+                              onClick={() => updateSettings({ voiceOutputEnabled: !chatbotSettings.voiceOutputEnabled })}
+                              className={`w-10 h-5.5 rounded-full transition-colors relative cursor-pointer outline-none ${chatbotSettings.voiceOutputEnabled ? themes[activeTheme].bg : "bg-gray-200"
+                                }`}
+                            >
+                              <span className={`w-3.5 h-3.5 bg-white rounded-full absolute top-1 transition-transform ${chatbotSettings.voiceOutputEnabled ? "left-5.5" : "left-1"}`} />
+                            </button>
+                          </div>
+
+                          {/* Speech Speed slider */}
+                          <div className="space-y-1.5">
+                            <div className="flex justify-between items-center text-xs">
+                              <span className="font-bold text-gray-700">Speaking Pace (Speed)</span>
+                              <span className="font-bold bg-slate-100 px-2 py-0.5 rounded text-gray-600">{chatbotSettings.speechSpeed}x</span>
+                            </div>
+                            <input
+                              type="range"
+                              min="0.5"
+                              max="2.0"
+                              step="0.25"
+                              value={chatbotSettings.speechSpeed}
+                              onChange={(e) => updateSettings({ speechSpeed: parseFloat(e.target.value) })}
+                              className="w-full accent-emerald-600 cursor-pointer"
+                            />
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Notifications Tab */}
+                      {activeSettingsTab === "notifications" && (
+                        <div className="space-y-4 animate-fadeIn">
+                          <div className="space-y-1 border-b border-gray-100 pb-2">
+                            <h4 className="font-extrabold text-sm text-gray-800">Alerts & Notifications</h4>
+                            <p className="text-[11px] text-gray-500">Configure sound effects and browser toast notifications.</p>
+                          </div>
+
+                          {/* Browser Notifications Toggle */}
+                          <div className="flex items-center justify-between pt-1">
+                            <span className="text-xs font-bold text-gray-700">Send Browser Toast Alerts</span>
+                            <button
+                              type="button"
+                              onClick={() => updateSettings({ browserNotifications: !chatbotSettings.browserNotifications })}
+                              className={`w-10 h-5.5 rounded-full transition-colors relative cursor-pointer outline-none ${chatbotSettings.browserNotifications ? themes[activeTheme].bg : "bg-gray-200"
+                                }`}
+                            >
+                              <span className={`w-3.5 h-3.5 bg-white rounded-full absolute top-1 transition-transform ${chatbotSettings.browserNotifications ? "left-5.5" : "left-1"}`} />
+                            </button>
+                          </div>
+
+                          {/* Sound Toggle */}
+                          <div className="flex items-center justify-between pt-1">
+                            <span className="text-xs font-bold text-gray-700">Play UI Sound Effects</span>
+                            <button
+                              type="button"
+                              onClick={() => updateSettings({ soundEnabled: !chatbotSettings.soundEnabled })}
+                              className={`w-10 h-5.5 rounded-full transition-colors relative cursor-pointer outline-none ${chatbotSettings.soundEnabled ? themes[activeTheme].bg : "bg-gray-200"
+                                }`}
+                            >
+                              <span className={`w-3.5 h-3.5 bg-white rounded-full absolute top-1 transition-transform ${chatbotSettings.soundEnabled ? "left-5.5" : "left-1"}`} />
+                            </button>
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Privacy Tab */}
+                      {activeSettingsTab === "privacy" && (
+                        <div className="space-y-4 animate-fadeIn">
+                          <div className="space-y-1 border-b border-gray-100 pb-2">
+                            <h4 className="font-extrabold text-sm text-gray-800">Privacy & Data</h4>
+                            <p className="text-[11px] text-gray-500">Manage your history settings and session database state.</p>
+                          </div>
+
+                          {/* Chat History Switch */}
+                          <div className="flex items-center justify-between pt-1">
+                            <div className="space-y-0.5 flex-1 pr-4">
+                              <span className="text-xs font-bold text-gray-700 block">Record Conversation History</span>
+                              <span className="text-[10px] text-gray-400 leading-normal">Save active chat sessions to your database profile.</span>
+                            </div>
+                            <button
+                              type="button"
+                              onClick={() => updateSettings({ chatHistoryEnabled: !chatbotSettings.chatHistoryEnabled })}
+                              className={`w-10 h-5.5 rounded-full transition-colors relative cursor-pointer outline-none flex-shrink-0 ${chatbotSettings.chatHistoryEnabled ? themes[activeTheme].bg : "bg-gray-200"
+                                }`}
+                            >
+                              <span className={`w-3.5 h-3.5 bg-white rounded-full absolute top-1 transition-transform ${chatbotSettings.chatHistoryEnabled ? "left-5.5" : "left-1"}`} />
+                            </button>
+                          </div>
+
+                          {/* Data Portability Actions */}
+                          <div className="space-y-2 pt-2 border-t border-gray-100">
+                            <span className="text-[11px] font-extrabold text-emerald-800 uppercase tracking-wider block">Data Actions</span>
+                            <div className="flex flex-col gap-2">
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(messages));
+                                  const dlAnchorElem = document.createElement("a");
+                                  dlAnchorElem.setAttribute("href", dataStr);
+                                  dlAnchorElem.setAttribute("download", `snapcart_chat_${sessionId || "guest"}.json`);
+                                  dlAnchorElem.click();
+                                  setToast({ type: "success", message: "History JSON exported" });
+                                }}
+                                className="text-xs font-bold text-left py-2 px-3 border border-gray-200 rounded-xl hover:bg-slate-50 transition-all cursor-pointer"
                               >
-                                {len === "short" ? "⚡ Short" : len === "medium" ? "📝 Medium" : "📖 Detailed"}
+                                📥 Export Active Chat Session Data
                               </button>
-                            ))}
-                          </div>
-                        </div>
-
-                        {/* System Prompt Customizer */}
-                        <div className="space-y-1.5">
-                          <label className={`text-[11px] font-extrabold ${themes[activeTheme].textDark} uppercase tracking-wider block`}>Custom System Prompt Override</label>
-                          <textarea
-                            value={chatbotSettings.systemPrompt}
-                            onChange={(e) => updateSettings({ systemPrompt: e.target.value })}
-                            placeholder="Add additional instructions for the AI assistant..."
-                            rows={3}
-                            className="w-full text-xs border border-gray-200 rounded-xl p-2.5 focus:ring-2 focus:ring-emerald-500 focus:outline-none resize-none"
-                          />
-                        </div>
-                      </div>
-                    )}
-
-                    {/* Voice Tab */}
-                    {activeSettingsTab === "voice" && (
-                      <div className="space-y-4 animate-fadeIn">
-                        <div className="space-y-1 border-b border-gray-100 pb-2">
-                          <h4 className="font-extrabold text-sm text-gray-800">Voice Playback & Dictation</h4>
-                          <p className="text-[11px] text-gray-500">Configure text-to-speech output speeds and voice profiles.</p>
-                        </div>
-
-                        {/* Voice Input Toggle */}
-                        <div className="flex items-center justify-between pt-1">
-                          <span className="text-xs font-bold text-gray-700">Enable Voice Input (Microphone)</span>
-                          <button
-                            type="button"
-                            onClick={() => updateSettings({ voiceInputEnabled: !chatbotSettings.voiceInputEnabled })}
-                            className={`w-10 h-5.5 rounded-full transition-colors relative cursor-pointer outline-none ${
-                              chatbotSettings.voiceInputEnabled ? themes[activeTheme].bg : "bg-gray-200"
-                            }`}
-                          >
-                            <span className={`w-3.5 h-3.5 bg-white rounded-full absolute top-1 transition-transform ${chatbotSettings.voiceInputEnabled ? "left-5.5" : "left-1"}`} />
-                          </button>
-                        </div>
-
-                        {/* Voice Output Toggle */}
-                        <div className="flex items-center justify-between pt-1">
-                          <span className="text-xs font-bold text-gray-700">Enable Voice Output (Speaker)</span>
-                          <button
-                            type="button"
-                            onClick={() => updateSettings({ voiceOutputEnabled: !chatbotSettings.voiceOutputEnabled })}
-                            className={`w-10 h-5.5 rounded-full transition-colors relative cursor-pointer outline-none ${
-                              chatbotSettings.voiceOutputEnabled ? themes[activeTheme].bg : "bg-gray-200"
-                            }`}
-                          >
-                            <span className={`w-3.5 h-3.5 bg-white rounded-full absolute top-1 transition-transform ${chatbotSettings.voiceOutputEnabled ? "left-5.5" : "left-1"}`} />
-                          </button>
-                        </div>
-
-                        {/* Speech Speed slider */}
-                        <div className="space-y-1.5">
-                          <div className="flex justify-between items-center text-xs">
-                            <span className="font-bold text-gray-700">Speaking Pace (Speed)</span>
-                            <span className="font-bold bg-slate-100 px-2 py-0.5 rounded text-gray-600">{chatbotSettings.speechSpeed}x</span>
-                          </div>
-                          <input
-                            type="range"
-                            min="0.5"
-                            max="2.0"
-                            step="0.25"
-                            value={chatbotSettings.speechSpeed}
-                            onChange={(e) => updateSettings({ speechSpeed: parseFloat(e.target.value) })}
-                            className="w-full accent-emerald-600 cursor-pointer"
-                          />
-                        </div>
-                      </div>
-                    )}
-
-                    {/* Notifications Tab */}
-                    {activeSettingsTab === "notifications" && (
-                      <div className="space-y-4 animate-fadeIn">
-                        <div className="space-y-1 border-b border-gray-100 pb-2">
-                          <h4 className="font-extrabold text-sm text-gray-800">Alerts & Notifications</h4>
-                          <p className="text-[11px] text-gray-500">Configure sound effects and browser toast notifications.</p>
-                        </div>
-
-                        {/* Browser Notifications Toggle */}
-                        <div className="flex items-center justify-between pt-1">
-                          <span className="text-xs font-bold text-gray-700">Send Browser Toast Alerts</span>
-                          <button
-                            type="button"
-                            onClick={() => updateSettings({ browserNotifications: !chatbotSettings.browserNotifications })}
-                            className={`w-10 h-5.5 rounded-full transition-colors relative cursor-pointer outline-none ${
-                              chatbotSettings.browserNotifications ? themes[activeTheme].bg : "bg-gray-200"
-                            }`}
-                          >
-                            <span className={`w-3.5 h-3.5 bg-white rounded-full absolute top-1 transition-transform ${chatbotSettings.browserNotifications ? "left-5.5" : "left-1"}`} />
-                          </button>
-                        </div>
-
-                        {/* Sound Toggle */}
-                        <div className="flex items-center justify-between pt-1">
-                          <span className="text-xs font-bold text-gray-700">Play UI Sound Effects</span>
-                          <button
-                            type="button"
-                            onClick={() => updateSettings({ soundEnabled: !chatbotSettings.soundEnabled })}
-                            className={`w-10 h-5.5 rounded-full transition-colors relative cursor-pointer outline-none ${
-                              chatbotSettings.soundEnabled ? themes[activeTheme].bg : "bg-gray-200"
-                            }`}
-                          >
-                            <span className={`w-3.5 h-3.5 bg-white rounded-full absolute top-1 transition-transform ${chatbotSettings.soundEnabled ? "left-5.5" : "left-1"}`} />
-                          </button>
-                        </div>
-                      </div>
-                    )}
-
-                    {/* Privacy Tab */}
-                    {activeSettingsTab === "privacy" && (
-                      <div className="space-y-4 animate-fadeIn">
-                        <div className="space-y-1 border-b border-gray-100 pb-2">
-                          <h4 className="font-extrabold text-sm text-gray-800">Privacy & Data</h4>
-                          <p className="text-[11px] text-gray-500">Manage your history settings and session database state.</p>
-                        </div>
-
-                        {/* Chat History Switch */}
-                        <div className="flex items-center justify-between pt-1">
-                          <div className="space-y-0.5 flex-1 pr-4">
-                            <span className="text-xs font-bold text-gray-700 block">Record Conversation History</span>
-                            <span className="text-[10px] text-gray-400 leading-normal">Save active chat sessions to your database profile.</span>
-                          </div>
-                          <button
-                            type="button"
-                            onClick={() => updateSettings({ chatHistoryEnabled: !chatbotSettings.chatHistoryEnabled })}
-                            className={`w-10 h-5.5 rounded-full transition-colors relative cursor-pointer outline-none flex-shrink-0 ${
-                              chatbotSettings.chatHistoryEnabled ? themes[activeTheme].bg : "bg-gray-200"
-                            }`}
-                          >
-                            <span className={`w-3.5 h-3.5 bg-white rounded-full absolute top-1 transition-transform ${chatbotSettings.chatHistoryEnabled ? "left-5.5" : "left-1"}`} />
-                          </button>
-                        </div>
-
-                        {/* Data Portability Actions */}
-                        <div className="space-y-2 pt-2 border-t border-gray-100">
-                          <span className="text-[11px] font-extrabold text-emerald-800 uppercase tracking-wider block">Data Actions</span>
-                          <div className="flex flex-col gap-2">
-                            <button
-                              type="button"
-                              onClick={() => {
-                                const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(messages));
-                                const dlAnchorElem = document.createElement("a");
-                                dlAnchorElem.setAttribute("href", dataStr);
-                                dlAnchorElem.setAttribute("download", `snapcart_chat_${sessionId || "guest"}.json`);
-                                dlAnchorElem.click();
-                                setToast({ type: "success", message: "History JSON exported" });
-                              }}
-                              className="text-xs font-bold text-left py-2 px-3 border border-gray-200 rounded-xl hover:bg-slate-50 transition-all cursor-pointer"
-                            >
-                              📥 Export Active Chat Session Data
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => {
-                                setConfirmDialog({
-                                  isOpen: true,
-                                  title: "Delete All Chat History",
-                                  message: "Are you sure you want to clear your entire chat session database? This will remove all previous conversations forever.",
-                                  onConfirm: async () => {
-                                    setConfirmDialog((p) => ({ ...p, isOpen: false }));
-                                    try {
-                                      await axios.delete("/api/chatbot/history");
-                                      setSessionOptions([]);
-                                      setSessionId(null);
-                                      setMessages([getModeGreeting(activeMode, userName)]);
-                                      setToast({ type: "success", message: "Deleted all chats from database" });
-                                    } catch {
-                                      setToast({ type: "error", message: "Deletion failed" });
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setConfirmDialog({
+                                    isOpen: true,
+                                    title: "Delete All Chat History",
+                                    message: "Are you sure you want to clear your entire chat session database? This will remove all previous conversations forever.",
+                                    onConfirm: async () => {
+                                      setConfirmDialog((p) => ({ ...p, isOpen: false }));
+                                      try {
+                                        await axios.delete("/api/chatbot/history");
+                                        setSessionOptions([]);
+                                        setSessionId(null);
+                                        setMessages([getModeGreeting(activeMode, userName)]);
+                                        setToast({ type: "success", message: "Deleted all chats from database" });
+                                      } catch {
+                                        setToast({ type: "error", message: "Deletion failed" });
+                                      }
                                     }
-                                  }
-                                });
-                              }}
-                              className="text-xs font-bold text-left py-2 px-3 border border-red-200 bg-red-50 text-red-700 hover:bg-red-100 transition-all cursor-pointer"
-                            >
-                              🚨 Clear Entire Conversation History
-                            </button>
+                                  });
+                                }}
+                                className="text-xs font-bold text-left py-2 px-3 border border-red-200 bg-red-50 text-red-700 hover:bg-red-100 transition-all cursor-pointer"
+                              >
+                                🚨 Clear Entire Conversation History
+                              </button>
+                            </div>
                           </div>
                         </div>
-                      </div>
-                    )}
+                      )}
 
-                    {/* Advanced Tab */}
-                    {activeSettingsTab === "advanced" && (
-                      <div className="space-y-4 animate-fadeIn">
-                        <div className="space-y-1 border-b border-gray-100 pb-2">
-                          <h4 className="font-extrabold text-sm text-gray-800">Advanced Developer Controls</h4>
-                          <p className="text-[11px] text-gray-500">Access debugging information, system diagnostics, and experimental configurations.</p>
-                        </div>
+                      {/* Advanced Tab */}
+                      {activeSettingsTab === "advanced" && (
+                        <div className="space-y-4 animate-fadeIn">
+                          <div className="space-y-1 border-b border-gray-100 pb-2">
+                            <h4 className="font-extrabold text-sm text-gray-800">Advanced Developer Controls</h4>
+                            <p className="text-[11px] text-gray-500">Access debugging information, system diagnostics, and experimental configurations.</p>
+                          </div>
 
-                        {/* Developer Mode */}
-                        <div className="flex items-center justify-between pt-1">
-                          <span className="text-xs font-bold text-gray-700">Developer Debug Mode</span>
-                          <button
-                            type="button"
-                            onClick={() => updateSettings({ developerMode: !chatbotSettings.developerMode })}
-                            className={`w-10 h-5.5 rounded-full transition-colors relative cursor-pointer outline-none ${
-                              chatbotSettings.developerMode ? themes[activeTheme].bg : "bg-gray-200"
-                            }`}
-                          >
-                            <span className={`w-3.5 h-3.5 bg-white rounded-full absolute top-1 transition-transform ${chatbotSettings.developerMode ? "left-5.5" : "left-1"}`} />
-                          </button>
-                        </div>
+                          {/* Developer Mode */}
+                          <div className="flex items-center justify-between pt-1">
+                            <span className="text-xs font-bold text-gray-700">Developer Debug Mode</span>
+                            <button
+                              type="button"
+                              onClick={() => updateSettings({ developerMode: !chatbotSettings.developerMode })}
+                              className={`w-10 h-5.5 rounded-full transition-colors relative cursor-pointer outline-none ${chatbotSettings.developerMode ? themes[activeTheme].bg : "bg-gray-200"
+                                }`}
+                            >
+                              <span className={`w-3.5 h-3.5 bg-white rounded-full absolute top-1 transition-transform ${chatbotSettings.developerMode ? "left-5.5" : "left-1"}`} />
+                            </button>
+                          </div>
 
-                        {/* Diagnostic info cards */}
-                        <div className="bg-slate-50 border border-gray-100 rounded-xl p-3.5 space-y-2 text-[10px] font-mono text-gray-500">
-                          <div><span className="font-bold text-gray-700">Client Platform:</span> {typeof window !== "undefined" ? window.navigator.userAgent.slice(0, 50) : "Server"}</div>
-                          <div><span className="font-bold text-gray-700">Chatbot Version:</span> v1.5.0-production</div>
-                          <div><span className="font-bold text-gray-700">Active Mode:</span> {activeMode}</div>
-                          <div><span className="font-bold text-gray-700">Active Session ID:</span> {sessionId || "Guest Instance"}</div>
+                          {/* Diagnostic info cards */}
+                          <div className="bg-slate-50 border border-gray-100 rounded-xl p-3.5 space-y-2 text-[10px] font-mono text-gray-500">
+                            <div><span className="font-bold text-gray-700">Client Platform:</span> {typeof window !== "undefined" ? window.navigator.userAgent.slice(0, 50) : "Server"}</div>
+                            <div><span className="font-bold text-gray-700">Chatbot Version:</span> v1.5.0-production</div>
+                            <div><span className="font-bold text-gray-700">Active Mode:</span> {activeMode}</div>
+                            <div><span className="font-bold text-gray-700">Active Session ID:</span> {sessionId || "Guest Instance"}</div>
+                          </div>
                         </div>
-                      </div>
-                    )}
+                      )}
+                    </div>
                   </div>
-                </div>
-              </motion.div>
-            )}
-          </AnimatePresence>
+                </motion.div>
+              )}
+            </AnimatePresence>
+          </div>
         </div>
-      </div>
       ) : showLauncher && !isProductDetailsPage ? (
         <button
           type="button"
@@ -4506,7 +4467,8 @@ export default function SnapcartAIChatbot({
         </button>
       ) : null}
 
-      <style dangerouslySetInnerHTML={{ __html: `
+      <style dangerouslySetInnerHTML={{
+        __html: `
         .snapcart-scrollbar::-webkit-scrollbar {
           width: 5px;
           height: 5px;

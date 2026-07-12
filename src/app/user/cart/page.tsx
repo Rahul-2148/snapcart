@@ -37,6 +37,8 @@ import {
   updateGuestCartApi,
   clearCartApi,
   clearGuestCart,
+  addToCartApi,
+  addGuestCartApi,
 } from "@/hooks/cart.api";
 
 const CartPage = () => {
@@ -62,6 +64,42 @@ const CartPage = () => {
   const [couponCode, setCouponCode] = useState("");
   const [couponError, setCouponError] = useState("");
   const [showCouponInput, setShowCouponInput] = useState(false);
+  const [deliverySettings, setDeliverySettings] = useState<any>(null);
+  const [upsellItems, setUpsellItems] = useState<any[]>([]);
+
+  /* ================= FETCH PUBLIC SETTINGS & UPSELLS ================= */
+  useEffect(() => {
+    const fetchDeliverySettings = async () => {
+      try {
+        const res = await fetch("/api/delivery/settings");
+        const data = await res.json();
+        if (data.success) {
+          setDeliverySettings(data.settings);
+        }
+      } catch (err) {
+        console.error("Failed to load delivery settings:", err);
+      }
+    };
+
+    const fetchUpsellItems = async () => {
+      try {
+        const res = await fetch("/api/recommendations/cart", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ cartItems }),
+        });
+        const data = await res.json();
+        if (data.success && data.recommendations) {
+          setUpsellItems(data.recommendations);
+        }
+      } catch (err) {
+        console.error("Failed to load upsell items:", err);
+      }
+    };
+
+    fetchDeliverySettings();
+    fetchUpsellItems();
+  }, [cartItems]);
   const [availableCoupons, setAvailableCoupons] = useState<any[]>([]);
   const [showAvailableCoupons, setShowAvailableCoupons] = useState(false);
   const [isInitialLoad, setIsInitialLoad] = useState(true);
@@ -914,6 +952,48 @@ const CartPage = () => {
     }
   };
 
+  const handleAddUpsell = async (variant: any) => {
+    try {
+      if (isGuest) {
+        const tempId = `temp-${Date.now()}`;
+        const updatedItems = [...cartItems, {
+          _id: tempId,
+          variant: variant,
+          quantity: 1,
+          priceAtAdd: { mrp: variant.price.mrp, selling: variant.price.selling }
+        }];
+        dispatch(setCart({ items: updatedItems, cartId: null, isGuest: true }));
+        toast.success("Added to cart!");
+        await addGuestCartApi(variant._id, 1);
+      } else {
+        const res = await addToCartApi(variant._id, 1);
+        if (res) {
+          let serverAppliedCoupon: AppliedCoupon | null = null;
+          if (res.coupon) {
+            serverAppliedCoupon = {
+              code: res.coupon.code,
+              discountValue: res.coupon.discountValue || 0,
+              type: res.coupon.discountType?.toLowerCase() === "percentage" ? "percentage" : "flat",
+              maxDiscount: res.coupon.maxDiscountAmount,
+              minCartValue: res.coupon.minCartValue,
+            };
+          }
+          dispatch(
+            setCart({
+              items: res.items,
+              cartId: res._id ?? res.cartId,
+              isGuest: false,
+              appliedCoupon: serverAppliedCoupon,
+            })
+          );
+          toast.success("Added to cart!");
+        }
+      }
+    } catch (err: any) {
+      toast.error(err.message || "Failed to add to cart");
+    }
+  };
+
   /* ================= EMPTY CART ================= */
   if (!loading && cartItems.length === 0) {
     return (
@@ -969,6 +1049,66 @@ const CartPage = () => {
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
         {/* CART ITEMS */}
         <div className="lg:col-span-2 space-y-4">
+          {/* Free Delivery Progress Tracker */}
+          {cartItems.length > 0 && (
+            <motion.div
+              initial={{ opacity: 0, y: -10 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="bg-white border border-emerald-500/15 shadow-sm rounded-xl p-4 flex flex-col gap-3 relative overflow-hidden"
+            >
+              {(() => {
+                const threshold = deliverySettings?.freeDeliveryThreshold ?? 199;
+                const difference = threshold - subTotal;
+                const percent = Math.min(100, (subTotal / threshold) * 100);
+                const isUnlocked = subTotal >= threshold;
+
+                return (
+                  <>
+                    <div className="flex items-center gap-3">
+                      <div className={`w-8 h-8 rounded-lg flex items-center justify-center border ${
+                        isUnlocked
+                          ? "bg-green-100 border-green-300 text-green-700"
+                          : "bg-orange-100 border-orange-200 text-orange-655"
+                      }`}>
+                        {isUnlocked ? "🎉" : "🚴"}
+                      </div>
+                      <div className="flex-1">
+                        <p className="text-sm font-bold text-gray-800">
+                          {isUnlocked ? (
+                            "You have unlocked FREE delivery!"
+                          ) : (
+                            <>
+                              Add <span className="text-orange-600 font-extrabold">₹{difference.toFixed(0)}</span> more for <span className="text-green-600 font-extrabold">FREE delivery</span>
+                            </>
+                          )}
+                        </p>
+                        <p className="text-[11px] text-gray-500 font-medium mt-0.5">
+                          {isUnlocked
+                            ? "Savings applied automatically to your bill details."
+                            : `Shop above ₹${threshold} to save delivery charges.`}
+                        </p>
+                      </div>
+                    </div>
+
+                    {/* Progress Bar */}
+                    <div className="w-full h-2 bg-gray-100 rounded-full overflow-hidden relative">
+                      <motion.div
+                        initial={{ width: 0 }}
+                        animate={{ width: `${percent}%` }}
+                        transition={{ duration: 0.5, ease: "easeOut" }}
+                        className={`h-full rounded-full bg-gradient-to-r ${
+                          isUnlocked
+                            ? "from-green-500 to-emerald-400"
+                            : "from-orange-500 to-amber-400"
+                        }`}
+                      />
+                    </div>
+                  </>
+                );
+              })()}
+            </motion.div>
+          )}
+
           {loading ? (
             <div className="space-y-4">
               {[1, 2, 3].map((i) => (
@@ -1114,6 +1254,78 @@ const CartPage = () => {
                 );
               })}
             </AnimatePresence>
+          )}
+
+          {/* One-Tap Smart Upsell Carousel */}
+          {cartItems.length > 0 && upsellItems.length > 0 && (
+            <motion.div
+              initial={{ opacity: 0, y: 15 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.1 }}
+              className="bg-white border border-emerald-500/20 shadow-md rounded-2xl p-5"
+            >
+              <div className="flex items-center gap-2 mb-4">
+                <div className="w-8 h-8 bg-emerald-50 rounded-lg flex items-center justify-center border border-emerald-100">
+                  <Zap className="w-4 h-4 text-emerald-600 fill-emerald-600" />
+                </div>
+                <div>
+                  <h3 className="text-sm font-extrabold text-gray-855">Before You Checkout</h3>
+                  <p className="text-[10px] text-gray-500 font-semibold mt-0.5">Frequently bought together with your items</p>
+                </div>
+              </div>
+
+              <div className="flex gap-3 overflow-x-auto pb-2 scrollbar-hide scroll-smooth">
+                {upsellItems.map((grocery) => {
+                  const variant = grocery.variants?.find((v: any) => v.isDefault) || grocery.variants?.[0];
+                  if (!variant) return null;
+
+                  return (
+                    <div
+                      key={grocery._id}
+                      className="flex-shrink-0 w-[145px] sm:w-[160px] bg-slate-50/60 border border-gray-150 rounded-xl p-2.5 flex flex-col justify-between hover:border-emerald-500/30 hover:shadow-sm transition-all duration-200 group"
+                    >
+                      {/* Product Image */}
+                      <div className="w-full h-20 bg-white rounded-lg flex items-center justify-center overflow-hidden mb-2 relative border border-gray-100">
+                        {grocery.images && grocery.images[0]?.url ? (
+                          <img
+                            src={grocery.images[0].url}
+                            alt={grocery.name}
+                            className="w-full h-full object-contain p-1.5 group-hover:scale-105 transition-transform duration-200"
+                          />
+                        ) : (
+                          <span className="text-gray-400 text-[10px]">No image</span>
+                        )}
+                      </div>
+
+                      {/* Info & Price */}
+                      <div className="space-y-1">
+                        <h5 className="text-[11px] font-bold text-gray-800 line-clamp-1 truncate leading-tight group-hover:text-emerald-700 transition-colors">
+                          {grocery.name}
+                        </h5>
+                        <p className="text-[9px] text-gray-400 font-bold">{variant.label}</p>
+                        
+                        <div className="flex items-center justify-between mt-2 pt-1.5 border-t border-gray-200/50">
+                          <div className="flex flex-col">
+                            <span className="text-xs font-black text-emerald-600">₹{variant.price.selling}</span>
+                            {variant.price.mrp > variant.price.selling && (
+                              <span className="text-[9px] text-gray-400 line-through">₹{variant.price.mrp}</span>
+                            )}
+                          </div>
+
+                          <button
+                            type="button"
+                            onClick={() => handleAddUpsell(variant)}
+                            className="bg-emerald-50 hover:bg-emerald-100 text-emerald-600 border border-emerald-300 font-extrabold text-[10px] px-2.5 py-1 rounded-lg hover:scale-105 active:scale-95 transition-all cursor-pointer shadow-sm"
+                          >
+                            + ADD
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </motion.div>
           )}
         </div>
 
@@ -1367,7 +1579,7 @@ const CartPage = () => {
             </motion.button>
 
             <div className="mt-4 text-xs text-gray-500 space-y-1">
-              <p>• Free delivery on orders above ₹500</p>
+              <p>• Free delivery on orders above ₹{deliverySettings?.freeDeliveryThreshold ?? 199}</p>
               <p>• Easy returns within 30 minutes</p>
               <p>• Best prices guaranteed</p>
             </div>

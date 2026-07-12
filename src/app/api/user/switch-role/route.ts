@@ -36,29 +36,18 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // Check if user has this role
+    // Check if user has this role (allow deliveryBoy and storeManager to proceed to verification gates)
     if (!user.roles?.includes(role)) {
-      return NextResponse.json(
-        { success: false, message: "You don't have access to this role" },
-        { status: 403 },
-      );
+      if (role !== "deliveryBoy" && role !== "storeManager") {
+        return NextResponse.json(
+          { success: false, message: "You don't have access to this role" },
+          { status: 403 },
+        );
+      }
     }
 
     // Security Verification Check for Store Manager and Delivery Partner
     if (role === "storeManager" || role === "deliveryBoy") {
-      // 1. Verify OTP
-      if (!user.isRoleOtpVerified) {
-        return NextResponse.json(
-          { 
-            success: false, 
-            code: "OTP_REQUIRED", 
-            message: "Verification OTP required before role switch." 
-          },
-          { status: 403 },
-        );
-      }
-
-      // 2. Verify KYC approval
       if (role === "deliveryBoy") {
         let partner = await DeliveryPartner.findOne({ user: user._id });
         if (!partner) {
@@ -71,7 +60,24 @@ export async function POST(req: NextRequest) {
             kyc: { status: "not_submitted", documents: [] }
           });
         }
-        if (partner.kyc?.status !== "approved") {
+
+        // If KYC is already approved, they can switch instantly without OTP verification
+        const isKycApproved = partner.kyc?.status === "approved";
+        
+        if (!isKycApproved) {
+          // Verify OTP first-time
+          if (!user.isRoleOtpVerified) {
+            return NextResponse.json(
+              { 
+                success: false, 
+                code: "OTP_REQUIRED", 
+                message: "Verification OTP required before role switch." 
+              },
+              { status: 403 },
+            );
+          }
+
+          // Verify KYC approval next
           return NextResponse.json(
             { 
               success: false, 
@@ -83,7 +89,22 @@ export async function POST(req: NextRequest) {
           );
         }
       } else if (role === "storeManager") {
-        if (user.kyc?.status !== "approved") {
+        const isKycApproved = user.kyc?.status === "approved";
+
+        if (!isKycApproved) {
+          // Verify OTP first-time
+          if (!user.isRoleOtpVerified) {
+            return NextResponse.json(
+              { 
+                success: false, 
+                code: "OTP_REQUIRED", 
+                message: "Verification OTP required before role switch." 
+              },
+              { status: 403 },
+            );
+          }
+
+          // Verify KYC approval next
           return NextResponse.json(
             { 
               success: false, 
@@ -97,10 +118,23 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    // Update current role and reset otp verification flag
+    // Update current role and reset otp verification flag only if not approved yet
     user.currentRole = role;
     if (role === "storeManager" || role === "deliveryBoy") {
-      user.isRoleOtpVerified = false; // reset for security so they must verify next time they switch back
+      let isApproved = false;
+      if (role === "deliveryBoy") {
+        const partner = await DeliveryPartner.findOne({ user: user._id });
+        isApproved = partner?.kyc?.status === "approved";
+      } else {
+        isApproved = user.kyc?.status === "approved";
+      }
+      if (!isApproved) {
+        user.isRoleOtpVerified = false;
+      } else {
+        if (!user.roles.includes(role)) {
+          user.roles.push(role);
+        }
+      }
     }
     await user.save();
 

@@ -35,6 +35,19 @@ export async function PATCH(
       user.kyc.status = "approved";
       user.kyc.reviewedAt = new Date();
       user.kyc.rejectionReason = undefined;
+
+      // Also ensure storeManager is in the user's roles array!
+      if (!user.roles) {
+        user.roles = ["user"];
+      }
+      if (!user.roles.includes("storeManager")) {
+        user.roles.push("storeManager");
+      }
+      // If they requested a role change, resolve it
+      if (user.roleChangeRequest === "pending" && user.requestedRole === "storeManager") {
+        user.roleChangeRequest = "none";
+        user.requestedRole = undefined;
+      }
     }
 
     if (action === "reject") {

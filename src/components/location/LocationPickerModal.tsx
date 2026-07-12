@@ -172,45 +172,52 @@ const LocationPickerModal = () => {
 
   // ── Select saved address ──────────────────────────────────────────
   const handleSelectSavedAddress = async (address: any) => {
-    if (address.latitude && address.longitude) {
-      dispatch(
-        setLocation({
-          latitude: address.latitude,
-          longitude: address.longitude,
-          fullAddress: address.fullAddress || address.street,
-          area: "",
-          city: address.city,
-          state: address.state,
-          country: address.country || "India",
-          pincode: address.zipCode,
-          source: "saved",
-        }),
-      );
-      dispatch(
-        fetchNearbyStores({
-          lat: address.latitude,
-          lng: address.longitude,
-        }),
-      );
-    } else {
-      // Address without coordinates — use city name for geocoding
-      dispatch(
-        setLocation({
-          latitude: 0,
-          longitude: 0,
-          fullAddress: address.street,
-          area: "",
-          city: address.city,
-          state: address.state,
-          country: address.country || "India",
-          pincode: address.zipCode,
-          source: "saved",
-        }),
-      );
-    }
+    try {
+      await axios.post("/api/address/select", { addressId: address._id });
 
-    dispatch(setLocationPickerOpen(false));
-    toast.success("Address selected!");
+      if (address.latitude && address.longitude) {
+        dispatch(
+          setLocation({
+            latitude: address.latitude,
+            longitude: address.longitude,
+            fullAddress: address.fullAddress || address.street,
+            area: "",
+            city: address.city,
+            state: address.state,
+            country: address.country || "India",
+            pincode: address.zipCode,
+            source: "saved",
+          }),
+        );
+        dispatch(
+          fetchNearbyStores({
+            lat: address.latitude,
+            lng: address.longitude,
+          }),
+        );
+      } else {
+        // Address without coordinates — use city name for geocoding
+        dispatch(
+          setLocation({
+            latitude: 0,
+            longitude: 0,
+            fullAddress: address.street,
+            area: "",
+            city: address.city,
+            state: address.state,
+            country: address.country || "India",
+            pincode: address.zipCode,
+            source: "saved",
+          }),
+        );
+      }
+
+      dispatch(setLocationPickerOpen(false));
+      toast.success("Delivery address updated!");
+    } catch (err) {
+      console.error(err);
+      toast.error("Failed to select address");
+    }
   };
 
   // ── Pincode check ─────────────────────────────────────────────────
@@ -293,6 +300,55 @@ const LocationPickerModal = () => {
                 </div>
               </button>
             </div>
+
+            {/* Saved Addresses (Horizontal Carousel) */}
+            {savedAddresses.length > 0 && !searchQuery && (
+              <div className="px-5 pt-4">
+                <p className="text-xs font-bold text-gray-400 uppercase tracking-wide mb-2">
+                  Choose from saved addresses
+                </p>
+                <div 
+                  className="flex gap-3 overflow-x-auto pb-2 scrollbar-none snap-x snap-mandatory"
+                  style={{ scrollbarWidth: "none" }}
+                >
+                  {savedAddresses.map((addr) => (
+                    <button
+                      key={addr._id}
+                      onClick={() => handleSelectSavedAddress(addr)}
+                      className="flex-shrink-0 snap-start w-60 flex items-start gap-2.5 p-3 bg-gray-50 hover:bg-green-50 border border-gray-100 hover:border-green-200 rounded-xl transition cursor-pointer text-left"
+                    >
+                      <div className="w-8 h-8 rounded-lg bg-white flex items-center justify-center flex-shrink-0 border border-gray-100">
+                        {addr.type === "home" ? (
+                          <Home className="w-4 h-4 text-blue-500" />
+                        ) : addr.type === "work" ? (
+                          <Briefcase className="w-4 h-4 text-green-500" />
+                        ) : (
+                          <MapPin className="w-4 h-4 text-amber-500" />
+                        )}
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-center gap-1.5 justify-between">
+                          <p className="text-xs font-bold text-gray-700 capitalize truncate">
+                            {addr.type === "others" ? (addr.customLabel || "Other") : addr.type}
+                          </p>
+                          {addr.isDefault && (
+                            <span className="text-[8px] font-bold text-green-600 bg-green-100 px-1.5 py-0.5 rounded-full flex-shrink-0">
+                              Active
+                            </span>
+                          )}
+                        </div>
+                        <p className="text-[10px] text-gray-500 truncate mt-0.5 font-medium">
+                          {addr.street}
+                        </p>
+                        <p className="text-[9px] text-gray-400 truncate">
+                          {addr.city}, {addr.zipCode}
+                        </p>
+                      </div>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
 
             {/* Search Box */}
             <div className="px-5 pt-4">
@@ -390,61 +446,7 @@ const LocationPickerModal = () => {
               )}
             </div>
 
-            {/* Saved Addresses */}
-            {savedAddresses.length > 0 && !searchQuery && (
-              <div className="px-5 pt-4 pb-2">
-                <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">
-                  Saved addresses
-                </p>
-                <div className="space-y-2">
-                  {savedAddresses.map((addr) => (
-                    <button
-                      key={addr._id}
-                      onClick={() => handleSelectSavedAddress(addr)}
-                      className="w-full flex items-start gap-3 p-3 border border-gray-100 rounded-xl hover:border-green-300 hover:bg-green-50/50 transition text-left"
-                    >
-                      <div className="w-8 h-8 rounded-lg bg-gray-100 flex items-center justify-center flex-shrink-0">
-                        {addr.type === "home" ? (
-                          <Home className="w-4 h-4 text-blue-500" />
-                        ) : addr.type === "work" ? (
-                          <Briefcase className="w-4 h-4 text-green-500" />
-                        ) : (
-                          <MapPin className="w-4 h-4 text-gray-400" />
-                        )}
-                      </div>
-                      <div className="min-w-0 flex-1">
-                        <div className="flex items-center gap-2">
-                          <p className="text-sm font-semibold text-gray-700 capitalize">
-                            {addr.type === "others" ? (addr.customLabel || "Other") : addr.type}
-                          </p>
-                          {addr.fullName && (
-                            <span className="text-[10px] text-gray-400">
-                              • {addr.fullName}
-                            </span>
-                          )}
-                        </div>
-                        <p className="text-xs text-gray-500 leading-normal">
-                          {addr.street}
-                        </p>
-                        {addr.label && (
-                          <p className="text-[10px] text-green-600 font-semibold truncate">
-                            📍 Landmark: {addr.label}
-                          </p>
-                        )}
-                        {addr.mobile && (
-                          <p className="text-[10px] text-gray-400">
-                            📞 {addr.mobile}{addr.alternateMobile ? `, Alt: ${addr.alternateMobile}` : ""}
-                          </p>
-                        )}
-                        <p className="text-[10px] text-gray-400">
-                          {addr.city}, {addr.state} - {addr.zipCode}
-                        </p>
-                      </div>
-                    </button>
-                  ))}
-                </div>
-              </div>
-            )}
+
 
             {/* Current Location Info */}
             {currentLocation.city && !searchQuery && (

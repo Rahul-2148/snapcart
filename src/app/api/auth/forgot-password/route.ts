@@ -76,6 +76,13 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // Always save reset details in MongoDB as a reliable fallback
+    user.passwordResetOtp = otp;
+    user.passwordResetOtpExpires = new Date(Date.now() + 10 * 60 * 1000); // 10 minutes
+    user.passwordResetToken = resetToken;
+    user.passwordResetTokenExpires = new Date(Date.now() + 24 * 60 * 60 * 1000); // 24 hours
+    await user.save();
+
     // Build reset link
     const resetLink = buildAppUrl(`/reset-password/${resetToken}`);
 

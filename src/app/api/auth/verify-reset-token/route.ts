@@ -35,20 +35,34 @@ export async function POST(request: NextRequest) {
     }
 
     // Verify reset token
-    const tokenData = await verifyResetToken(token);
-    if (!tokenData) {
+    let user: any = null;
+    let emailAddress = "";
+
+    try {
+      const tokenData = await verifyResetToken(token);
+      if (tokenData) {
+        emailAddress = tokenData.email;
+        user = await User.findOne({ email: emailAddress });
+      }
+    } catch (redisError) {
+      console.warn("Redis verify reset token failed, checking DB:", redisError);
+    }
+
+    if (!user) {
+      // Fallback to database check
+      user = await User.findOne({
+        passwordResetToken: token,
+        passwordResetTokenExpires: { $gt: new Date() },
+      });
+      if (user) {
+        emailAddress = user.email;
+      }
+    }
+
+    if (!user) {
       return NextResponse.json(
         { success: false, message: "Invalid or expired reset link" },
         { status: 400 }
-      );
-    }
-
-    // Find user
-    const user = await User.findOne({ email: tokenData.email });
-    if (!user) {
-      return NextResponse.json(
-        { success: false, message: "User not found" },
-        { status: 404 }
       );
     }
 
@@ -56,14 +70,18 @@ export async function POST(request: NextRequest) {
     const salt = await bcrypt.genSalt(10);
     const hashedPassword = await bcrypt.hash(newPassword, salt);
 
-    // Update password
+    // Update password and clear reset fields
     user.password = hashedPassword;
+    user.passwordResetToken = undefined;
+    user.passwordResetTokenExpires = undefined;
+    user.passwordResetOtp = undefined;
+    user.passwordResetOtpExpires = undefined;
     await user.save();
 
     // Send success email
     try {
       await sendEmailRaw(
-        tokenData.email,
+        emailAddress,
         "✅ Password Reset Successful",
         passwordResetSuccessEmail(user.name || "User")
       );
@@ -96,8 +114,31 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    const tokenData = await verifyResetToken(token);
-    if (!tokenData) {
+    let emailAddress = "";
+    let isTokenValid = false;
+
+    try {
+      const tokenData = await verifyResetToken(token);
+      if (tokenData) {
+        emailAddress = tokenData.email;
+        isTokenValid = true;
+      }
+    } catch (redisError) {
+      console.warn("Redis verify reset token failed, checking DB:", redisError);
+    }
+
+    if (!isTokenValid) {
+      const user = await User.findOne({
+        passwordResetToken: token,
+        passwordResetTokenExpires: { $gt: new Date() },
+      });
+      if (user) {
+        emailAddress = user.email;
+        isTokenValid = true;
+      }
+    }
+
+    if (!isTokenValid) {
       return NextResponse.json(
         { success: false, message: "Invalid or expired reset link" },
         { status: 400 }
@@ -105,7 +146,7 @@ export async function GET(request: NextRequest) {
     }
 
     return NextResponse.json(
-      { success: true, message: "Token is valid", email: tokenData.email, type: tokenData.type },
+      { success: true, message: "Token is valid", email: emailAddress, type: "link" },
       { status: 200 }
     );
   } catch (error) {

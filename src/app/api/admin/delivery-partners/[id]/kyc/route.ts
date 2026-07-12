@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/auth";
 import connectDb from "@/lib/server/db";
 import { DeliveryPartner } from "@/models/deliveryPartner.model";
+import { User } from "@/models/user.model";
 
 export async function PATCH(
   req: NextRequest,
@@ -36,6 +37,23 @@ export async function PATCH(
       partner.kyc.reviewedAt = new Date();
       partner.kyc.reviewedBy = session.user.id as any;
       partner.kyc.rejectionReason = undefined;
+
+      // Also ensure deliveryBoy is in the user's roles array!
+      const user = await User.findById(partner.user);
+      if (user) {
+        if (!user.roles) {
+          user.roles = ["user"];
+        }
+        if (!user.roles.includes("deliveryBoy")) {
+          user.roles.push("deliveryBoy");
+        }
+        // If they requested a role change, resolve it
+        if (user.roleChangeRequest === "pending" && user.requestedRole === "deliveryBoy") {
+          user.roleChangeRequest = "none";
+          user.requestedRole = undefined;
+        }
+        await user.save();
+      }
     }
 
     if (action === "reject") {

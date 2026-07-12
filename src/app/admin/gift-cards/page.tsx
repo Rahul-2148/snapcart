@@ -28,7 +28,7 @@ export default function AdminGiftCardsPage() {
   const { data: session, status } = useSession({
     required: true,
     onUnauthenticated() {
-      router.push("/unauthorized");
+      router.push("/login?redirect=/admin/gift-cards");
     },
   });
   const router = useRouter();

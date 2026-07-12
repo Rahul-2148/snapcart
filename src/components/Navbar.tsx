@@ -905,78 +905,80 @@ const Navbar = ({ user: propUser }: NavbarProps = {}) => {
                         )}
                       </div>
 
-                      {/* ROLE SWITCHER - Show if user has multiple roles */}
-                      {authenticatedUser?.roles && authenticatedUser.roles.length > 1 && (
-                        <div className="border-b border-gray-100">
-                          {/* Accordion Header */}
-                          <button
-                            onClick={() => setIsRoleAccordionOpen(!isRoleAccordionOpen)}
-                            className="w-full flex items-center justify-between px-3 py-3 hover:bg-gray-50 transition-colors"
-                          >
-                            <p className="text-xs text-gray-600 flex items-center gap-1 font-semibold">
-                              <Repeat className="w-3.5 h-3.5" />
-                              Switch Account Type
-                            </p>
-                            <ChevronDown
-                              className={`w-4 h-4 text-gray-400 transition-transform ${isRoleAccordionOpen ? "rotate-180" : ""
-                                }`}
-                            />
-                          </button>
+                      {/* ROLE SWITCHER - Show if user has multiple switchable non-admin roles */}
+                      {(() => {
+                        const switchableRoles = (authenticatedUser?.roles || []).filter((r: string) => r !== "admin");
+                        if (switchableRoles.length <= 1) return null;
+                        return (
+                          <div className="border-b border-gray-100">
+                            {/* Accordion Header */}
+                            <button
+                              onClick={() => setIsRoleAccordionOpen(!isRoleAccordionOpen)}
+                              className="w-full flex items-center justify-between px-3 py-3 hover:bg-gray-50 transition-colors"
+                            >
+                              <p className="text-xs text-gray-600 flex items-center gap-1 font-semibold">
+                                <Repeat className="w-3.5 h-3.5" />
+                                Switch Account Type
+                              </p>
+                              <ChevronDown
+                                className={`w-4 h-4 text-gray-400 transition-transform ${isRoleAccordionOpen ? "rotate-180" : ""
+                                  }`}
+                              />
+                            </button>
 
-                          {/* Accordion Content */}
-                          <AnimatePresence>
-                            {isRoleAccordionOpen && (
-                              <motion.div
-                                initial={{ opacity: 0, height: 0 }}
-                                animate={{ opacity: 1, height: "auto" }}
-                                exit={{ opacity: 0, height: 0 }}
-                                transition={{ duration: 0.2 }}
-                                className="overflow-hidden bg-gray-50"
-                              >
-                                <div className="px-3 py-2 space-y-2">
-                                  {(authenticatedUser.roles as string[]).map((role) => {
-                                    const isActive = role === authenticatedUser.currentRole;
-                                    return (
-                                      <button
-                                        key={role}
-                                        disabled={isActive || isSwitchingRole}
-                                        onClick={() => {
-                                          handleRoleSwitch(role);
-                                          setIsRoleAccordionOpen(false);
-                                        }}
-                                        className={`w-full flex items-center justify-between gap-1 px-3 py-2 rounded-lg text-[11px] font-semibold transition-all border whitespace-nowrap ${isActive
-                                            ? "bg-green-600 text-white border-green-600 shadow-sm"
-                                            : "bg-white text-gray-700 border-gray-200 hover:border-green-300 hover:bg-green-50"
-                                          } disabled:opacity-60`}
-                                      >
-                                        <span className="flex items-center gap-1 flex-shrink-0">
-                                          <span className="flex-shrink-0">
-                                            {role === "user" && "🛒"}
-                                            {role === "deliveryBoy" && "🚴"}
-                                            {role === "admin" && "👑"}
+                            {/* Accordion Content */}
+                            <AnimatePresence>
+                              {isRoleAccordionOpen && (
+                                <motion.div
+                                  initial={{ opacity: 0, height: 0 }}
+                                  animate={{ opacity: 1, height: "auto" }}
+                                  exit={{ opacity: 0, height: 0 }}
+                                  transition={{ duration: 0.2 }}
+                                  className="overflow-hidden bg-gray-50"
+                                >
+                                  <div className="px-3 py-2 space-y-2">
+                                    {switchableRoles.map((role: string) => {
+                                      const isActive = role === authenticatedUser.currentRole;
+                                      return (
+                                        <button
+                                          key={role}
+                                          disabled={isActive || isSwitchingRole}
+                                          onClick={() => {
+                                            handleRoleSwitch(role);
+                                            setIsRoleAccordionOpen(false);
+                                          }}
+                                          className={`w-full flex items-center justify-between gap-1 px-3 py-2 rounded-lg text-[11px] font-semibold transition-all border whitespace-nowrap ${isActive
+                                              ? "bg-green-600 text-white border-green-600 shadow-sm"
+                                              : "bg-white text-gray-700 border-gray-200 hover:border-green-300 hover:bg-green-50"
+                                            } disabled:opacity-60`}
+                                        >
+                                          <span className="flex items-center gap-1 flex-shrink-0">
+                                            <span className="flex-shrink-0">
+                                              {role === "user" && "🛒"}
+                                              {role === "deliveryBoy" && "🚴"}
+                                            </span>
+                                            <span className="truncate">
+                                              {role === "user" && "Customer"}
+                                              {role === "deliveryBoy" && "Delivery Partner"}
+                                            </span>
                                           </span>
-                                          <span className="truncate">
-                                            {role === "user" && "Customer"}
-                                            {role === "deliveryBoy" && "Delivery Partner"}
-                                            {role === "admin" && "Admin"}
-                                          </span>
-                                        </span>
-                                        {isActive ? (
-                                          <span className="text-[10px] font-bold bg-white/20 px-2 py-0.5 rounded-full flex-shrink-0">
-                                            Active
-                                          </span>
-                                        ) : (
-                                          <span className="text-[10px] text-gray-500 flex-shrink-0">Switch</span>
-                                        )}
-                                      </button>
-                                    );
-                                  })}
-                                </div>
-                              </motion.div>
-                            )}
-                          </AnimatePresence>
-                        </div>
-                      )}
+                                          {isActive ? (
+                                            <span className="text-[10px] font-bold bg-white/20 px-2 py-0.5 rounded-full flex-shrink-0">
+                                              Active
+                                            </span>
+                                          ) : (
+                                            <span className="text-[10px] text-gray-500 flex-shrink-0">Switch</span>
+                                          )}
+                                        </button>
+                                      );
+                                    })}
+                                  </div>
+                                </motion.div>
+                              )}
+                            </AnimatePresence>
+                          </div>
+                        );
+                      })()}
 
                       <Link
                         href={"/user/account"}

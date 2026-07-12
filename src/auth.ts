@@ -54,6 +54,7 @@ function parseUserAgent(ua: string) {
 }
 
 export const { handlers, signIn, signOut, auth } = NextAuth({
+  trustHost: true,
   providers: [
     Credentials({
       credentials: {
@@ -79,16 +80,16 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
         if (!isPasswordMatch) {
           throw new Error("Incorrect password");
         }
-        
+
         console.log("🔐 Credentials Login - User from DB:", {
           id: user._id,
           roles: user.roles,
           currentRole: user.currentRole,
           hasImage: !!user.image?.url
         });
-        
+
         const currentRole = user.currentRole || user.roles?.[0] || "user";
-        
+
         const userData = {
           id: user._id.toString(),
           name: user.name,
@@ -98,9 +99,9 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
           roles: user.roles || ["user"],
           currentRole: currentRole,
         };
-        
+
         console.log("✅ Returning user data:", userData);
-        
+
         return userData;
       },
     }),
@@ -183,16 +184,26 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
     },
     async jwt({ token, user, trigger, session }) {
       if (user) {
-        token.id = user?.id;
-        token.name = user?.name;
-        token.email = user?.email;
-        token.image = user?.image;
-        token.mobileNumber = (user as any)?.mobileNumber;
-        token.roles = JSON.stringify((user as any)?.roles || ["user"]);
-        token.currentRole =
-          (user as any)?.currentRole || (user as any)?.roles?.[0] || "user";
-        token.profileCompleted = (user as any)?.profileCompleted ?? true;
-        
+        // Query database to ensure token has the MongoDB ObjectId and correct metadata (especially for Google OAuth)
+        let dbUser = null;
+        if (user.email) {
+          try {
+            await connectDb();
+            dbUser = await User.findOne({ email: user.email });
+          } catch (dbErr) {
+            console.error("Error finding user in JWT callback:", dbErr);
+          }
+        }
+
+        token.id = dbUser ? dbUser._id.toString() : user.id;
+        token.name = dbUser ? dbUser.name : user.name;
+        token.email = dbUser ? dbUser.email : user.email;
+        token.image = dbUser?.image?.url || user.image;
+        token.mobileNumber = dbUser ? dbUser.mobileNumber : (user as any).mobileNumber;
+        token.roles = JSON.stringify(dbUser ? (dbUser.roles || ["user"]) : ["user"]);
+        token.currentRole = dbUser ? (dbUser.currentRole || dbUser.roles?.[0] || "user") : "user";
+        token.profileCompleted = dbUser ? (dbUser.profileCompleted ?? true) : true;
+
         // Use a custom sessionId to avoid NextAuth JTI overwriting
         if (!token.sessionId) {
           token.sessionId = crypto.randomUUID();
@@ -202,7 +213,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
         if (token.id && token.sessionId) {
           try {
             await connectDb();
-            
+
             // Read headers with fallbacks
             let ua = "";
             let ip = "127.0.0.1";
@@ -214,9 +225,9 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
             } catch (headerErr) {
               console.error("Failed to read headers in JWT:", headerErr);
             }
-            
+
             const { browser, os, deviceType } = parseUserAgent(ua);
-            
+
             await Session.findOneAndUpdate(
               { jti: token.sessionId },
               {
@@ -236,6 +247,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
           }
         }
       }
+
       if (trigger === "update") {
         try {
           if (token.email) {
@@ -317,7 +329,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
   },
   session: {
     strategy: "jwt",
-    maxAge: 30 * 24 * 60 * 60, // 30 days
+    maxAge: 60 * 24 * 60 * 60, // 60 days
   },
   secret: process.env.NEXTAUTH_SECRET,
 });

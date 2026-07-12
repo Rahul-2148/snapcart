@@ -8,7 +8,7 @@ export default function AdminPage() {
   const { data: session, status } = useSession({
     required: true,
     onUnauthenticated() {
-      router.push("/unauthorized");
+      router.push("/login?redirect=/admin");
     },
   });
   const router = useRouter();
