@@ -31,14 +31,14 @@ export function useStoreInventory() {
   useEffect(() => {
     if (!selectedStore?._id) return;
 
-    // Only fetch if store actually changed
-    if (prevStoreIdRef.current === selectedStore._id) return;
-    prevStoreIdRef.current = selectedStore._id;
+    // Only fetch inventory if store actually changed
+    const storeChanged = prevStoreIdRef.current !== selectedStore._id;
+    if (storeChanged) {
+      prevStoreIdRef.current = selectedStore._id;
+      dispatch(fetchStoreInventory({ storeId: selectedStore._id }));
+    }
 
-    // Fetch store inventory
-    dispatch(fetchStoreInventory({ storeId: selectedStore._id }));
-
-    // Fetch delivery ETA
+    // Fetch delivery ETA whenever store OR coordinates change
     if (latitude && longitude) {
       dispatch(
         fetchDeliveryEta({

@@ -3,7 +3,7 @@ import { NextRequest, NextResponse } from "next/server";
 import connectDb from "@/lib/server/db";
 import { Store } from "@/models/store.model";
 import { DeliverySettings } from "@/models/deliverySettings.model";
-import { haversineDistance } from "@/lib/utils/haversine";
+import { haversineDistance, estimateDeliveryTime } from "@/lib/utils/haversine";
 
 /**
  * GET /api/stores/serviceable?lat=X&lng=Y
@@ -110,6 +110,12 @@ export async function GET(req: NextRequest) {
     }
 
     const nearest = openStores[0];
+    const eta = estimateDeliveryTime(
+      nearest.distanceKm,
+      nearest.estimatedDeliveryMinutes?.min || 8,
+      nearest.estimatedDeliveryMinutes?.max || 15,
+    );
+
     return NextResponse.json({
       success: true,
       serviceable: true,
@@ -119,7 +125,7 @@ export async function GET(req: NextRequest) {
         name: nearest.name,
         distanceKm: Math.round(nearest.distanceKm * 10) / 10,
         isOpen: true,
-        estimatedDeliveryMinutes: nearest.estimatedDeliveryMinutes,
+        estimatedDeliveryMinutes: eta,
         deliveryFee: nearest.deliveryFee,
       },
       totalServiceable: serviceableStores.length,

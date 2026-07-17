@@ -13,7 +13,12 @@ import {
   Truck, 
   PackageCheck,
   AlertCircle,
-  XCircle
+  XCircle,
+  RefreshCw,
+  Ban,
+  ArrowRightLeft,
+  Wallet,
+  Search
 } from "lucide-react";
 import axios from "axios";
 import { toast } from "sonner";
@@ -25,13 +30,27 @@ interface OrderItem {
     name: string;
     image?: { url: string };
     images?: Array<{ url: string }>;
+    category?: string;
   } | null;
+  groceryName?: string;
   variant: {
+    variantId?: string;
     label: string;
     price: { selling: number };
   } | null;
   quantity: number;
-  price: number;
+  price: { sellingPrice: number; mrpPrice: number };
+  substituteOption?: "none" | "similar" | "specific";
+  substituteVariantId?: string | null;
+  substituteName?: string;
+  isSubstituted?: boolean;
+  substituteStatus?: "pending" | "original_packed" | "substituted" | "out_of_stock_refunded" | "extra_amount_requested";
+  substitutedWith?: {
+    variantId?: string;
+    label?: string;
+    price?: number;
+    name?: string;
+  };
 }
 
 interface IOrder {
@@ -65,6 +84,9 @@ export default function StoreManagerOrders() {
   const [activeTab, setActiveTab] = useState<string>("all");
   const [isLoading, setIsLoading] = useState(true);
   const [updatingId, setUpdatingId] = useState<string | null>(null);
+  const [packingItemId, setPackingItemId] = useState<string | null>(null);
+  const [substituteSearch, setSubstituteSearch] = useState<Record<string, any[]>>({});
+  const [searchingSubId, setSearchingSubId] = useState<string | null>(null);
 
   const tabs = [
     { id: "all", label: "All Orders" },
@@ -103,6 +125,71 @@ export default function StoreManagerOrders() {
     } finally {
       setUpdatingId(null);
     }
+  };
+
+  const handlePackItem = async (orderId: string, orderItemId: string) => {
+    setPackingItemId(orderItemId);
+    try {
+      await axios.post("/api/store-manager/orders/substitute", {
+        orderId,
+        orderItemId,
+        action: "pack",
+      });
+      toast.success("Item packed successfully");
+      fetchOrders();
+    } catch (error: any) {
+      toast.error(error.response?.data?.error || "Failed to pack item");
+    } finally {
+      setPackingItemId(null);
+    }
+  };
+
+  const handleOutOfStock = async (orderId: string, orderItemId: string, substituteVariantId?: string) => {
+    setPackingItemId(orderItemId);
+    try {
+      await axios.post("/api/store-manager/orders/substitute", {
+        orderId,
+        orderItemId,
+        action: "out_of_stock",
+        substituteVariantId,
+      });
+      toast.success("Substitute action processed");
+      fetchOrders();
+    } catch (error: any) {
+      toast.error(error.response?.data?.error || "Failed to process substitute");
+    } finally {
+      setPackingItemId(null);
+    }
+  };
+
+  const loadSubstitutes = async (orderItemId: string, categoryId: string) => {
+    setSearchingSubId(orderItemId);
+    try {
+      const res = await axios.get(`/api/checkout/substitutes?categoryId=${categoryId}`);
+      setSubstituteSearch((prev) => ({ ...prev, [orderItemId]: res.data.substitutes || [] }));
+    } catch {
+      toast.error("Failed to load substitutes");
+    } finally {
+      setSearchingSubId(null);
+    }
+  };
+
+  const getSubStatusBadge = (item: OrderItem) => {
+    const status = item.substituteStatus;
+    if (!status || status === "pending") return null;
+    const map: Record<string, { label: string; color: string }> = {
+      original_packed: { label: "✓ Packed", color: "bg-green-50 text-green-700 border-green-200" },
+      substituted: { label: "↔ Substituted", color: "bg-blue-50 text-blue-700 border-blue-200" },
+      out_of_stock_refunded: { label: "↩ Refunded", color: "bg-amber-50 text-amber-700 border-amber-200" },
+      extra_amount_requested: { label: "💰 Awaiting Customer", color: "bg-purple-50 text-purple-700 border-purple-200" },
+    };
+    const badge = map[status];
+    if (!badge) return null;
+    return (
+      <span className={`text-[10px] px-2 py-0.5 rounded-full font-bold border ${badge.color}`}>
+        {badge.label}
+      </span>
+    );
   };
 
   const formatDate = (dateStr: string) => {
@@ -194,42 +281,126 @@ export default function StoreManagerOrders() {
                   </span>
                 </div>
 
-                {/* Items List */}
+                {/* Items List with Packing Actions */}
                 <div className="space-y-3">
                   {order.orderItems.map((item) => (
-                    <div key={item._id} className="flex items-center gap-3 text-xs">
-                      <div className="relative w-8 h-8 bg-slate-50 border border-slate-100 rounded-md overflow-hidden flex-shrink-0">
-                        {item.grocery?.image?.url ? (
-                          <Image
-                            src={item.grocery.image.url}
-                            alt={item.grocery?.name || "Grocery"}
-                            fill
-                            sizes="32px"
-                            className="object-contain p-0.5"
-                          />
-                        ) : item.grocery?.images?.[0]?.url ? (
-                          <Image
-                            src={item.grocery.images[0].url}
-                            alt={item.grocery?.name || "Grocery"}
-                            fill
-                            sizes="32px"
-                            className="object-contain p-0.5"
-                          />
-                        ) : (
-                          <ShoppingBag className="w-4 h-4 text-slate-300 absolute inset-0 m-auto" />
-                        )}
+                    <div key={item._id} className="border border-slate-100 rounded-xl p-3 space-y-2">
+                      <div className="flex items-center gap-3 text-xs">
+                        <div className="relative w-10 h-10 bg-slate-50 border border-slate-100 rounded-lg overflow-hidden flex-shrink-0">
+                          {item.grocery?.image?.url ? (
+                            <Image
+                              src={item.grocery.image.url}
+                              alt={item.grocery?.name || "Grocery"}
+                              fill
+                              sizes="40px"
+                              className="object-contain p-0.5"
+                            />
+                          ) : item.grocery?.images?.[0]?.url ? (
+                            <Image
+                              src={item.grocery.images[0].url}
+                              alt={item.grocery?.name || "Grocery"}
+                              fill
+                              sizes="40px"
+                              className="object-contain p-0.5"
+                            />
+                          ) : (
+                            <ShoppingBag className="w-4 h-4 text-slate-300 absolute inset-0 m-auto" />
+                          )}
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className="font-semibold text-slate-700 truncate">
+                            {item.grocery?.name || item.groceryName || "Deleted Grocery"}
+                          </p>
+                          <p className="text-[10px] text-slate-400">
+                            {item.variant?.label || "Unknown Variant"} | Qty: {item.quantity}
+                          </p>
+                          {/* Substitute preference badge */}
+                          {item.substituteOption && item.substituteOption !== "none" && (
+                            <p className="text-[10px] mt-0.5 font-semibold text-orange-600">
+                              {item.substituteOption === "similar" ? "🔄 Wants: Similar Brand" : `📍 Wants: ${item.substituteName || "Specific item"}`}
+                            </p>
+                          )}
+                        </div>
+                        <div className="text-right flex flex-col items-end gap-1">
+                          <p className="font-bold text-slate-800">
+                            ₹{(item.price?.sellingPrice || 0) * item.quantity}
+                          </p>
+                          {getSubStatusBadge(item)}
+                        </div>
                       </div>
-                      <div className="flex-1 min-w-0">
-                        <p className="font-semibold text-slate-700 truncate">
-                          {item.grocery?.name || "Deleted Grocery"}
-                        </p>
-                        <p className="text-[10px] text-slate-400">
-                          {item.variant?.label || "Unknown Variant"} | Qty: {item.quantity}
-                        </p>
-                      </div>
-                      <p className="font-bold text-slate-800 text-right">
-                        ₹{item.price * item.quantity}
-                      </p>
+
+                      {/* Substituted with info */}
+                      {item.isSubstituted && item.substitutedWith?.name && (
+                        <div className="text-[10px] bg-blue-50 text-blue-800 border border-blue-100 rounded-lg px-2.5 py-1.5 font-medium flex items-center gap-1.5">
+                          <ArrowRightLeft className="w-3 h-3" />
+                          Replaced with: <strong>{item.substitutedWith.name}</strong> (₹{item.substitutedWith.price})
+                        </div>
+                      )}
+
+                      {/* Packing Actions — only show for confirmed orders with pending substitute status */}
+                      {order.orderStatus === "confirmed" && (!item.substituteStatus || item.substituteStatus === "pending") && (
+                        <div className="flex gap-2 pt-1">
+                          <button
+                            disabled={packingItemId === item._id}
+                            onClick={() => handlePackItem(order._id, item._id)}
+                            className="flex-1 flex items-center justify-center gap-1 px-2.5 py-1.5 bg-green-600 hover:bg-green-700 text-white text-[10px] font-bold rounded-lg cursor-pointer transition disabled:opacity-50"
+                          >
+                            {packingItemId === item._id ? (
+                              <Loader2 className="w-3 h-3 animate-spin" />
+                            ) : (
+                              <Check className="w-3 h-3" />
+                            )}
+                            Pack
+                          </button>
+                          <button
+                            disabled={packingItemId === item._id}
+                            onClick={() => {
+                              if (item.substituteOption === "none") {
+                                handleOutOfStock(order._id, item._id);
+                              } else if (item.substituteOption === "specific" && item.substituteVariantId) {
+                                handleOutOfStock(order._id, item._id, item.substituteVariantId);
+                              } else if (item.substituteOption === "similar" && item.grocery?.category) {
+                                loadSubstitutes(item._id, item.grocery.category);
+                              } else {
+                                handleOutOfStock(order._id, item._id);
+                              }
+                            }}
+                            className="flex-1 flex items-center justify-center gap-1 px-2.5 py-1.5 bg-red-50 hover:bg-red-100 text-red-600 border border-red-200 text-[10px] font-bold rounded-lg cursor-pointer transition disabled:opacity-50"
+                          >
+                            {packingItemId === item._id ? (
+                              <Loader2 className="w-3 h-3 animate-spin" />
+                            ) : (
+                              <Ban className="w-3 h-3" />
+                            )}
+                            Out of Stock
+                          </button>
+                        </div>
+                      )}
+
+                      {/* Similar substitute search results */}
+                      {substituteSearch[item._id] && item.substituteOption === "similar" && (!item.substituteStatus || item.substituteStatus === "pending") && (
+                        <div className="mt-1 bg-amber-50/50 border border-amber-100 rounded-lg p-2.5 space-y-2">
+                          <p className="text-[10px] text-amber-700 font-bold uppercase">Pick a similar substitute:</p>
+                          {substituteSearch[item._id].length === 0 ? (
+                            <p className="text-[10px] text-slate-500">No substitutes available in this category.</p>
+                          ) : (
+                            <div className="space-y-1 max-h-32 overflow-y-auto">
+                              {substituteSearch[item._id]
+                                .filter((s: any) => s.variantId !== item.variant?.variantId)
+                                .map((sub: any) => (
+                                <button
+                                  key={sub.variantId}
+                                  onClick={() => handleOutOfStock(order._id, item._id, sub.variantId)}
+                                  className="w-full flex items-center justify-between gap-2 px-2.5 py-1.5 bg-white hover:bg-green-50 border border-slate-100 rounded-lg text-[10px] cursor-pointer transition"
+                                >
+                                  <span className="font-semibold text-slate-700 truncate">{sub.name}</span>
+                                  <span className="font-bold text-green-700 flex-shrink-0">₹{sub.price}</span>
+                                </button>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                      )}
                     </div>
                   ))}
                 </div>

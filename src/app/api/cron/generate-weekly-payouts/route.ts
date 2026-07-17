@@ -35,62 +35,81 @@ export async function POST(req: NextRequest) {
     const weekStart = new Date(now);
     weekStart.setDate(weekStart.getDate() - 7);
 
+    const { startDbSession } = await import("@/lib/server/db");
+
     for (const partner of partners) {
       const user = partner.user as any;
-
-      const primaryBank = await BankAccount.findOne({
-        userId: user._id,
-        isPrimary: true,
-      });
-
-      if (!primaryBank) {
-        console.log(
-          `Skipping ${user.name} - no primary bank account`,
-        );
+      if (!user) {
+        console.log(`Skipping partner ID ${partner._id} - populated user not found`);
         continue;
       }
 
-      // Count deliveries in the week
-      const deliveriesThisWeek = partner.stats.totalDeliveries || 0;
+      const partnerSession = await startDbSession();
+      try {
+        const primaryBank = await BankAccount.findOne({
+          userId: user._id,
+          isPrimary: true,
+        }).session(partnerSession);
 
-      // Calculate deductions
-      const cancellationDeduction =
-        (partner.stats.cancelledDeliveries || 0) * 50; // ₹50 per cancellation
+        if (!primaryBank) {
+          console.log(`Skipping ${user.name} - no primary bank account`);
+          if (partnerSession) await partnerSession.abortTransaction();
+          continue;
+        }
 
-      const finalAmount = Math.max(
-        0,
-        partner.earnings.pendingPayout - cancellationDeduction,
-      );
+        // Count deliveries in the week
+        const deliveriesThisWeek = partner.stats.totalDeliveries || 0;
 
-      // Create payout record
-      const payout = await Payout.create({
-        deliveryPartner: partner.user,
-        amount: finalAmount,
-        currency: "INR",
-        status: "pending",
-        period: {
-          startDate: weekStart,
-          endDate: weekEnd,
-        },
-        bankDetails: {
-          accountNumber: primaryBank.accountNumber,
-          ifsc: primaryBank.ifsc,
-          beneficiaryName: primaryBank.beneficiaryName,
-        },
-        deliveriesCount: deliveriesThisWeek,
-        earnedAmount: partner.earnings.pendingPayout,
-        deductedAmount: cancellationDeduction,
-        notes: `Weekly payout - ${deliveriesThisWeek} deliveries completed`,
-      });
+        // Calculate deductions
+        const cancellationDeduction =
+          (partner.stats.cancelledDeliveries || 0) * 50; // ₹50 per cancellation
 
-      partner.earnings.pendingPayout = 0;
-      partner.earnings.lastPayoutAt = new Date();
-      await partner.save();
+        const finalAmount = Math.max(
+          0,
+          partner.earnings.pendingPayout - cancellationDeduction,
+        );
 
-      payoutsCreated++;
-      console.log(
-        `Created payout for ${user.name}: ₹${finalAmount}`,
-      );
+        // Create payout record
+        await Payout.create(
+          [
+            {
+              deliveryPartner: partner.user,
+              amount: finalAmount,
+              currency: "INR",
+              status: "pending",
+              period: {
+                startDate: weekStart,
+                endDate: weekEnd,
+              },
+              bankDetails: {
+                accountNumber: primaryBank.accountNumber,
+                ifsc: primaryBank.ifsc,
+                beneficiaryName: primaryBank.beneficiaryName,
+              },
+              deliveriesCount: deliveriesThisWeek,
+              earnedAmount: partner.earnings.pendingPayout,
+              deductedAmount: cancellationDeduction,
+              notes: `Weekly payout - ${deliveriesThisWeek} deliveries completed`,
+            },
+          ],
+          { session: partnerSession }
+        );
+
+        partner.earnings.pendingPayout = 0;
+        partner.earnings.lastPayoutAt = new Date();
+        await partner.save({ session: partnerSession });
+
+        if (partnerSession) await partnerSession.commitTransaction();
+        payoutsCreated++;
+        console.log(
+          `Created payout for ${user.name}: ₹${finalAmount}`,
+        );
+      } catch (err) {
+        if (partnerSession) await partnerSession.abortTransaction();
+        console.error(`Error processing payout for partner ${user.name || partner._id}:`, err);
+      } finally {
+        if (partnerSession) partnerSession.endSession();
+      }
     }
 
     return NextResponse.json({

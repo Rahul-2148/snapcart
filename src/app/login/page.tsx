@@ -176,16 +176,19 @@ const LoginContent = () => {
         }
       }
 
-      // 4️⃣ If merge didn't happen, fetch fresh user cart
+      // 4️⃣ Fetch user cart to sync items and gold member status
       let cartItems = mergedItems;
-      if (cartItems.length === 0) {
-        try {
-          const userCart = await fetchCartApi();
+      let isGoldMember = false;
+      try {
+        const userCart = await fetchCartApi();
+        if (cartItems.length === 0) {
           cartItems = userCart.items || [];
           cartId = userCart.cart?._id || null;
-        } catch (cartErr: any) {
-          // Cart fetch might fail if session isn't actually valid
-          console.error("Cart fetch error:", cartErr);
+        }
+        isGoldMember = !!userCart.isGoldMember;
+      } catch (cartErr: any) {
+        console.error("Cart fetch error:", cartErr);
+        if (cartItems.length === 0) {
           const errorMsg = "Incorrect password";
           setError(errorMsg);
           toast.error(errorMsg);
@@ -200,6 +203,7 @@ const LoginContent = () => {
           cartId,
           isGuest: false,
           appliedCoupon: null,
+          isGoldMember,
         }),
       );
 

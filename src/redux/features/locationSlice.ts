@@ -58,6 +58,7 @@ export interface PersistedLocation {
   latitude: number;
   longitude: number;
   fullAddress: string;
+  shortAddress: string;
   area: string;
   city: string;
   state: string;
@@ -82,6 +83,7 @@ interface LocationState {
 
   // Parsed address
   fullAddress: string;
+  shortAddress: string;
   area: string;
   city: string;
   state: string;
@@ -110,6 +112,7 @@ interface LocationState {
   isLocationPickerOpen: boolean;
   isPermissionPromptShown: boolean;
   hasInitialized: boolean;
+  showGpsOverlay: boolean;
 }
 
 // ─── localStorage Keys ───────────────────────────────────────────────
@@ -167,6 +170,7 @@ const initialState: LocationState = {
   latitude: null,
   longitude: null,
   fullAddress: "",
+  shortAddress: "",
   area: "",
   city: "",
   state: "",
@@ -185,6 +189,7 @@ const initialState: LocationState = {
   isLocationPickerOpen: false,
   isPermissionPromptShown: false,
   hasInitialized: false,
+  showGpsOverlay: false,
 };
 
 // ─── Async Thunks ────────────────────────────────────────────────────
@@ -202,8 +207,42 @@ export const reverseGeocodeCoords = createAsyncThunk(
       const data = await res.json();
 
       const addr = data.address || {};
+      const landmark =
+        data.name ||
+        addr.building ||
+        addr.amenity ||
+        addr.shop ||
+        addr.office ||
+        addr.apartments ||
+        addr.house_name ||
+        addr.residential ||
+        "";
+
+      let shortAddress = landmark;
+      if (!shortAddress) {
+        const parts = [];
+        if (addr.house_number) parts.push(addr.house_number);
+        if (addr.road) parts.push(addr.road);
+
+        const roadOrHouse = parts.join(", ");
+        if (roadOrHouse) {
+          shortAddress = roadOrHouse;
+        } else {
+          // If no road/house number, use suburb or neighbourhood
+          const specificArea = addr.suburb || addr.neighbourhood || addr.quarter || addr.city_district || "";
+          if (specificArea) {
+            shortAddress = specificArea;
+          } else {
+            // Absolute fallback: extract first 2 parts of display_name
+            const displayParts = (data.display_name || "").split(",");
+            shortAddress = displayParts.slice(0, 2).join(",").trim() || "Detected Location";
+          }
+        }
+      }
+
       return {
         fullAddress: data.display_name || "",
+        shortAddress,
         area:
           addr.suburb ||
           addr.neighbourhood ||
@@ -272,6 +311,7 @@ const locationSlice = createSlice({
         state.latitude = savedLoc.latitude;
         state.longitude = savedLoc.longitude;
         state.fullAddress = savedLoc.fullAddress;
+        state.shortAddress = savedLoc.shortAddress || "";
         state.area = savedLoc.area;
         state.city = savedLoc.city;
         state.state = savedLoc.state;
@@ -288,7 +328,7 @@ const locationSlice = createSlice({
           slug: "",
           distanceKm: savedStore.distanceKm,
           isOpen: true,
-          deliveryFee: { base: 25, freeAbove: 500 },
+          deliveryFee: { base: 15, freeAbove: 199 },
           estimatedDeliveryMinutes: savedStore.eta,
           location: { address: "", city: "", state: "", pincode: "" },
         };
@@ -305,6 +345,7 @@ const locationSlice = createSlice({
         latitude: number;
         longitude: number;
         fullAddress: string;
+        shortAddress?: string;
         area: string;
         city: string;
         state: string;
@@ -317,6 +358,15 @@ const locationSlice = createSlice({
       state.latitude = p.latitude;
       state.longitude = p.longitude;
       state.fullAddress = p.fullAddress;
+
+      // Extract shortAddress with fallback
+      let sAddr = p.shortAddress;
+      if (!sAddr) {
+        const parts = p.fullAddress.split(",");
+        sAddr = parts.slice(0, 2).join(",").trim() || p.fullAddress;
+      }
+      state.shortAddress = sAddr;
+
       state.area = p.area;
       state.city = p.city;
       state.state = p.state;
@@ -331,6 +381,7 @@ const locationSlice = createSlice({
         latitude: p.latitude,
         longitude: p.longitude,
         fullAddress: p.fullAddress,
+        shortAddress: sAddr,
         area: p.area,
         city: p.city,
         state: p.state,
@@ -378,6 +429,10 @@ const locationSlice = createSlice({
       state.isPermissionPromptShown = action.payload;
     },
 
+    setShowGpsOverlay(state, action: PayloadAction<boolean>) {
+      state.showGpsOverlay = action.payload;
+    },
+
     clearLocation(state) {
       Object.assign(state, {
         ...initialState,
@@ -415,6 +470,7 @@ const locationSlice = createSlice({
       .addCase(reverseGeocodeCoords.fulfilled, (state, action) => {
         state.isReverseGeocoding = false;
         state.fullAddress = action.payload.fullAddress;
+        state.shortAddress = action.payload.shortAddress;
         state.area = action.payload.area;
         state.city = action.payload.city;
         state.state = action.payload.state;
@@ -428,6 +484,7 @@ const locationSlice = createSlice({
             latitude: state.latitude,
             longitude: state.longitude,
             fullAddress: action.payload.fullAddress,
+            shortAddress: action.payload.shortAddress,
             area: action.payload.area,
             city: action.payload.city,
             state: action.payload.state,
@@ -539,6 +596,7 @@ export const {
   setServiceableStatus,
   setLocationPickerOpen,
   setPermissionPromptShown,
+  setShowGpsOverlay,
   clearLocation,
   checkStale,
 } = locationSlice.actions;
@@ -555,13 +613,18 @@ export const selectIsLocationReady = (state: RootState) =>
   state.location.latitude !== null && state.location.longitude !== null;
 export const selectLocationDisplayText = (state: RootState) => {
   const loc = state.location;
-  if (loc.area && loc.city) return `${loc.area}, ${loc.city}`;
-  if (loc.city) return loc.city;
+  if (loc.shortAddress) {
+    return loc.shortAddress.length > 35
+      ? loc.shortAddress.slice(0, 35) + "..."
+      : loc.shortAddress;
+  }
   if (loc.fullAddress) {
     // Truncate long addresses
-    return loc.fullAddress.length > 40
-      ? loc.fullAddress.slice(0, 40) + "..."
+    return loc.fullAddress.length > 35
+      ? loc.fullAddress.slice(0, 35) + "..."
       : loc.fullAddress;
   }
+  if (loc.area && loc.city) return `${loc.area}, ${loc.city}`;
+  if (loc.city) return loc.city;
   return "";
 };

@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { useParams } from "next/navigation";
 import Link from "next/link";
 import Image from "next/image";
-import { Package, Download, Loader2, RotateCw, CheckCircle2, Clock, Truck, AlertCircle } from "lucide-react";
+import { Package, Download, Loader2, RotateCw, CheckCircle2, Clock, Truck, AlertCircle, ArrowRightLeft, Wallet } from "lucide-react";
 import TimelineStepper from "@/components/TimelineStepper";
 import { useSnackbar } from "notistack";
 import { ReturnRequestForm } from "@/components/ReturnRequestForm";
@@ -33,6 +33,15 @@ interface OrderItem {
     _id?: string;
   };
   image?: string;
+  substituteOption?: "none" | "similar" | "specific";
+  substituteStatus?: "pending" | "original_packed" | "substituted" | "out_of_stock_refunded" | "extra_amount_requested";
+  isSubstituted?: boolean;
+  substitutedWith?: {
+    variantId?: string;
+    label?: string;
+    price?: number;
+    name?: string;
+  };
 }
 
 interface Order {
@@ -702,6 +711,38 @@ export default function OrderDetailPage() {
                           Quantity: {item.quantity}
                           {item.variant && ` (${item.variant.label})`}
                         </p>
+                        {/* Substitute Status Badge */}
+                        {item.substituteStatus && item.substituteStatus !== "pending" && (
+                          <div className="mt-1.5">
+                            {item.substituteStatus === "original_packed" && (
+                              <span className="inline-flex items-center gap-1 text-[11px] px-2 py-0.5 rounded-full bg-green-50 text-green-700 border border-green-200 font-semibold">
+                                <CheckCircle2 className="w-3 h-3" /> Original Packed
+                              </span>
+                            )}
+                            {item.substituteStatus === "substituted" && (
+                              <span className="inline-flex items-center gap-1 text-[11px] px-2 py-0.5 rounded-full bg-blue-50 text-blue-700 border border-blue-200 font-semibold">
+                                <ArrowRightLeft className="w-3 h-3" /> Substituted
+                              </span>
+                            )}
+                            {item.substituteStatus === "out_of_stock_refunded" && (
+                              <span className="inline-flex items-center gap-1 text-[11px] px-2 py-0.5 rounded-full bg-amber-50 text-amber-700 border border-amber-200 font-semibold">
+                                <Wallet className="w-3 h-3" /> Refunded to Wallet
+                              </span>
+                            )}
+                            {item.substituteStatus === "extra_amount_requested" && (
+                              <span className="inline-flex items-center gap-1 text-[11px] px-2 py-0.5 rounded-full bg-purple-50 text-purple-700 border border-purple-200 font-semibold animate-pulse">
+                                <AlertCircle className="w-3 h-3" /> Action Needed
+                              </span>
+                            )}
+                          </div>
+                        )}
+                        {/* Substituted With Info */}
+                        {item.isSubstituted && item.substitutedWith?.name && (
+                          <div className="mt-1.5 text-xs bg-blue-50 text-blue-800 border border-blue-100 rounded-lg px-2.5 py-1.5 font-medium inline-flex items-center gap-1.5">
+                            <ArrowRightLeft className="w-3 h-3" />
+                            Replaced with: <strong>{item.substitutedWith.name}</strong> (₹{item.substitutedWith.price})
+                          </div>
+                        )}
                       </div>
                       <div className="text-right flex flex-col items-end gap-2">
                         <div>
@@ -771,6 +812,65 @@ export default function OrderDetailPage() {
                           }}
                           onCancel={() => setShowReturnForm(null)}
                         />
+                      </div>
+                    )}
+                    {/* Substitute Approval/Rejection Action */}
+                    {item.substituteStatus === "extra_amount_requested" && item.substitutedWith && (
+                      <div className="mt-4 p-4 bg-purple-50 rounded-lg border border-purple-200">
+                        <h4 className="text-sm font-bold text-purple-900 mb-2 flex items-center gap-1.5">
+                          <AlertCircle className="w-4 h-4" /> Substitute Requires Your Approval
+                        </h4>
+                        <p className="text-xs text-purple-700 mb-3">
+                          <strong>{item.groceryName}</strong> is out of stock. The store suggests <strong>{item.substitutedWith.name}</strong> at ₹{item.substitutedWith.price}/unit.
+                          {(() => {
+                            const extra = ((item.substitutedWith.price || 0) - (item.price?.sellingPrice || 0)) * item.quantity;
+                            return extra > 0 ? (
+                              <span className="block mt-1 font-semibold text-purple-900">
+                                Extra amount: ₹{extra.toFixed(2)} (will be deducted from your wallet)
+                              </span>
+                            ) : null;
+                          })()}
+                        </p>
+                        <div className="flex gap-2">
+                          <button
+                            onClick={async () => {
+                              try {
+                                await import("axios").then(({ default: ax }) =>
+                                  ax.post("/api/order/substitute/resolve", {
+                                    orderId: order._id,
+                                    orderItemId: item._id,
+                                    action: "approve",
+                                  })
+                                );
+                                window.location.reload();
+                              } catch (err: any) {
+                                enqueueSnackbar(err.response?.data?.error || "Failed to approve", { variant: "error" });
+                              }
+                            }}
+                            className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 bg-green-600 hover:bg-green-700 text-white text-xs font-bold rounded-lg cursor-pointer transition"
+                          >
+                            <CheckCircle2 className="w-3.5 h-3.5" /> Approve & Pay via Wallet
+                          </button>
+                          <button
+                            onClick={async () => {
+                              try {
+                                await import("axios").then(({ default: ax }) =>
+                                  ax.post("/api/order/substitute/resolve", {
+                                    orderId: order._id,
+                                    orderItemId: item._id,
+                                    action: "reject",
+                                  })
+                                );
+                                window.location.reload();
+                              } catch (err: any) {
+                                enqueueSnackbar(err.response?.data?.error || "Failed to reject", { variant: "error" });
+                              }
+                            }}
+                            className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 bg-red-50 hover:bg-red-100 text-red-600 border border-red-200 text-xs font-bold rounded-lg cursor-pointer transition"
+                          >
+                            <RotateCw className="w-3.5 h-3.5" /> Reject & Refund Original
+                          </button>
+                        </div>
                       </div>
                     )}
                   </div>

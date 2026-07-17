@@ -4,7 +4,7 @@ import { auth } from "@/auth";
 import connectDb from "@/lib/server/db";
 import { Store } from "@/models/store.model";
 import { Order } from "@/models/order.model";
-import "@/models/orderItem.model";
+import { OrderItem } from "@/models/orderItem.model";
 import "@/models/grocery.model";
 import "@/models/groceryVariant.model";
 
@@ -45,7 +45,7 @@ export async function GET(req: NextRequest) {
       .populate({
         path: "orderItems",
         populate: [
-          { path: "grocery", select: "name image images" },
+          { path: "grocery", select: "name image images category" },
           { path: "variant", select: "label price" },
         ],
       })
@@ -102,6 +102,22 @@ export async function PUT(req: NextRequest) {
     if (status === "confirmed") {
       order.confirmedAt = now;
     } else if (status === "packed") {
+      // Validate that all items are packed or resolved (not pending/awaiting customer approval)
+      const orderItems = await OrderItem.find({ order: order._id });
+      const unresolvedItems = orderItems.filter(
+        (item) => !item.substituteStatus || item.substituteStatus === "pending" || item.substituteStatus === "extra_amount_requested"
+      );
+      if (unresolvedItems.length > 0) {
+        const hasAwaitingApproval = unresolvedItems.some(item => item.substituteStatus === "extra_amount_requested");
+        return NextResponse.json(
+          { 
+            error: hasAwaitingApproval 
+              ? "Cannot pack order. Awaiting customer approval on substitute items." 
+              : "Cannot pack order. Please pack or mark all items as out-of-stock first." 
+          },
+          { status: 400 }
+        );
+      }
       order.packedAt = now;
     } else if (status === "shipped") {
       order.shippedAt = now;

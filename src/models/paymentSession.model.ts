@@ -21,6 +21,13 @@ export interface IPaymentSessionItem {
     mrpPrice: number;
     sellingPrice: number;
   };
+  substituteOption?: "none" | "similar" | "specific";
+  substituteVariantId?: mongoose.Types.ObjectId | null;
+  substituteName?: string;
+  addedBy?: {
+    memberId: string;
+    name: string;
+  };
 }
 
 export interface IPaymentSession extends Document {
@@ -82,6 +89,24 @@ const PaymentSessionItemSchema = new Schema<IPaymentSessionItem>(
     price: {
       mrpPrice: { type: Number, required: true },
       sellingPrice: { type: Number, required: true },
+    },
+    substituteOption: {
+      type: String,
+      enum: ["none", "similar", "specific"],
+      default: "none",
+    },
+    substituteVariantId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "GroceryVariant",
+      default: null,
+    },
+    substituteName: {
+      type: String,
+      default: "",
+    },
+    addedBy: {
+      memberId: { type: String, default: null },
+      name: { type: String, default: null },
     },
   },
   { _id: false },

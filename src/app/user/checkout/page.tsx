@@ -30,6 +30,7 @@ import {
   Send,
   Sparkles,
   Plus,
+  ShoppingBag,
   X,
 } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
@@ -56,12 +57,201 @@ const stripePromise = loadStripe(
   process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY!
 );
 
+const SubstituteChoiceSelector = ({
+  item,
+  choice,
+  onChange,
+}: {
+  item: any;
+  choice: { option: "none" | "similar" | "specific"; variantId: string | null; name: string };
+  onChange: (newChoice: { option: "none" | "similar" | "specific"; variantId: string | null; name: string }) => void;
+}) => {
+  const [substitutes, setSubstitutes] = useState<any[]>([]);
+  const [loading, setLoading] = useState(false);
+  const categoryId = item.variant.grocery?.category;
+
+  useEffect(() => {
+    if (choice.option === "specific" && substitutes.length === 0) {
+      const fetchSubstitutes = async () => {
+        setLoading(true);
+        try {
+          const res = await axios.get(`/api/checkout/substitutes?categoryId=${categoryId}`);
+          const suggestions = (res.data.substitutes || []).filter(
+            (s: any) => s.variantId !== item.variant._id
+          );
+          setSubstitutes(suggestions);
+        } catch (err) {
+          console.error("Failed to load substitutes", err);
+        } finally {
+          setLoading(false);
+        }
+      };
+      fetchSubstitutes();
+    }
+  }, [choice.option, categoryId, item.variant._id, substitutes.length]);
+
+  return (
+    <div className="mt-3 p-4 bg-gradient-to-r from-emerald-50/20 to-teal-50/5 dark:from-emerald-950/10 dark:to-slate-900/5 rounded-2xl border border-emerald-250 dark:border-emerald-800 border-l-4 border-l-emerald-600 dark:border-l-emerald-500 text-left shadow-sm">
+      <div className="flex items-center justify-between mb-3">
+        <span className="text-[10px] font-extrabold text-emerald-850 dark:text-emerald-405 uppercase tracking-wider flex items-center gap-1.5">
+          <Sparkles className="w-3.5 h-3.5 text-emerald-600 animate-pulse fill-emerald-500/20" />
+          If Out of Stock
+        </span>
+        <span className="text-[9px] font-extrabold text-emerald-850 dark:text-emerald-350 bg-emerald-100/70 dark:bg-emerald-900/40 px-2.5 py-0.5 rounded-full border border-emerald-200/50 dark:border-emerald-850/30">
+          Substitution Preference
+        </span>
+      </div>
+
+      {/* Grid of Options */}
+      <div className="grid grid-cols-3 gap-2">
+        {/* Option 1: Refund */}
+        <button
+          type="button"
+          onClick={() => onChange({ option: "none", variantId: null, name: "" })}
+          className={`flex flex-col items-center justify-center p-2 rounded-xl border text-center transition-all cursor-pointer ${choice.option === "none"
+              ? "bg-emerald-500/10 border-2 border-emerald-600 text-emerald-950 dark:text-emerald-250 ring-1 ring-emerald-500/20 font-bold shadow-sm"
+              : "bg-white dark:bg-slate-900 border border-slate-350 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 hover:border-slate-450 font-semibold"
+            }`}
+        >
+          <X className={`w-4 h-4 mb-1 ${choice.option === "none" ? "text-emerald-600 stroke-[3px]" : "text-gray-400"}`} />
+          <span className="text-[11px] font-bold block leading-tight">Refund</span>
+          <span className="text-[8px] font-medium text-gray-400 dark:text-gray-505 block mt-0.5 leading-none">Don't replace</span>
+        </button>
+
+        {/* Option 2: Similar */}
+        <button
+          type="button"
+          onClick={() => onChange({ option: "similar", variantId: null, name: "" })}
+          className={`flex flex-col items-center justify-center p-2 rounded-xl border text-center transition-all cursor-pointer ${choice.option === "similar"
+              ? "bg-emerald-500/10 border-2 border-emerald-600 text-emerald-950 dark:text-emerald-250 ring-1 ring-emerald-500/20 font-bold shadow-sm"
+              : "bg-white dark:bg-slate-900 border border-slate-350 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 hover:border-slate-450 font-semibold"
+            }`}
+        >
+          <svg className={`w-4 h-4 mb-1 ${choice.option === "similar" ? "text-emerald-600 stroke-[3px]" : "text-gray-400"}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5">
+            <path strokeLinecap="round" strokeLinejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 1121.21 8H18.5" />
+          </svg>
+          <span className="text-[11px] font-bold block leading-tight">Similar</span>
+          <span className="text-[8px] font-medium text-gray-400 dark:text-gray-505 block mt-0.5 leading-none">Auto-replace</span>
+        </button>
+
+        {/* Option 3: Specific Alternative */}
+        <button
+          type="button"
+          onClick={() => onChange({ option: "specific", variantId: choice.variantId, name: choice.name })}
+          className={`flex flex-col items-center justify-center p-2 rounded-xl border text-center transition-all cursor-pointer ${choice.option === "specific"
+              ? "bg-emerald-500/10 border-2 border-emerald-600 text-emerald-950 dark:text-emerald-250 ring-1 ring-emerald-500/20 font-bold shadow-sm"
+              : "bg-white dark:bg-slate-900 border border-slate-350 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 hover:border-slate-450 font-semibold"
+            }`}
+        >
+          <svg className={`w-4 h-4 mb-1 ${choice.option === "specific" ? "text-emerald-600 stroke-[3px]" : "text-gray-400"}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5">
+            <path strokeLinecap="round" strokeLinejoin="round" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 002-2h-2a2 2 0 00-2 2" />
+          </svg>
+          <span className="text-[11px] font-bold block leading-tight">Custom</span>
+          <span className="text-[8px] font-medium text-gray-400 dark:text-gray-550 block mt-0.5 leading-none">Choose item</span>
+        </button>
+      </div>
+
+      {/* Description / Actions Area */}
+      <div className="mt-3 border-t border-emerald-200/50 dark:border-emerald-900/30 pt-2.5">
+        {choice.option === "none" && (
+          <div className="flex items-start gap-2 text-[11px] text-slate-605 dark:text-slate-400 leading-snug">
+            <span className="w-1.5 h-1.5 rounded-full bg-slate-500 mt-1.5 flex-shrink-0" />
+            <p>If this item is unavailable, it will be cancelled and the amount will be refunded directly to your wallet.</p>
+          </div>
+        )}
+
+        {choice.option === "similar" && (
+          <div className="flex items-start gap-2 text-[11px] text-emerald-700 dark:text-emerald-400 leading-snug">
+            <Check className="w-4 h-4 text-emerald-650 flex-shrink-0 stroke-[2.5px]" />
+            <p>Our packer will replace this item with a similar brand of equivalent value, size, and weight to prevent delays.</p>
+          </div>
+        )}
+
+        {choice.option === "specific" && (
+          <div className="text-xs">
+            {loading ? (
+              <p className="text-slate-500 flex items-center gap-2 py-2">
+                <Loader2 className="w-4 h-4 animate-spin text-emerald-600" /> Loading category alternatives...
+              </p>
+            ) : substitutes.length > 0 ? (
+              <div className="space-y-2">
+                <label className="block text-[9px] font-extrabold text-emerald-850 dark:text-emerald-405 uppercase tracking-wide">
+                  Select Specific Substitute:
+                </label>
+
+                {/* Horizontal Scrolling alternative items list */}
+                <div className="flex gap-2.5 overflow-x-auto pb-2 scrollbar-none snap-x snap-mandatory">
+                  {substitutes.map((s) => {
+                    const isSelected = choice.variantId === s.variantId;
+                    const displayPrice = typeof s.price === "object" ? s.price.selling : s.price;
+                    const displayMrp = typeof s.price === "object" ? s.price.mrp : null;
+
+                    return (
+                      <button
+                        key={s.variantId}
+                        type="button"
+                        onClick={() => onChange({ option: "specific", variantId: s.variantId, name: s.name })}
+                        className={`flex-shrink-0 snap-start w-52 p-3 rounded-xl border text-left transition-all relative ${isSelected
+                            ? "bg-emerald-500/10 border-2 border-emerald-600 text-emerald-950 dark:text-emerald-200 font-bold shadow-sm"
+                            : "bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-800 text-slate-700 dark:text-slate-350 hover:border-emerald-450"
+                          }`}
+                      >
+                        <div className="flex items-start justify-between gap-1">
+                          <div className="min-w-0 flex-1">
+                            <p className="text-[11px] font-bold text-gray-800 dark:text-gray-200 truncate leading-snug">
+                              {s.name?.split(" - ")[0]}
+                            </p>
+                            <p className="text-[9px] text-slate-500 dark:text-slate-400 mt-0.5 truncate">
+                              Pack: {s.label}
+                            </p>
+                            <p className="text-xs font-extrabold text-emerald-700 dark:text-emerald-450 mt-1 flex items-center gap-1.5">
+                              ₹{displayPrice}
+                              {displayMrp && displayMrp > displayPrice && (
+                                <span className="text-[9px] font-normal text-slate-400 dark:text-slate-500 line-through">
+                                  ₹{displayMrp}
+                                </span>
+                              )}
+                            </p>
+                          </div>
+
+                          {/* Selected Radio circle */}
+                          <div className={`w-4 h-4 rounded-full border flex items-center justify-center flex-shrink-0 transition-all ${isSelected ? "bg-emerald-600 border-emerald-600 text-white" : "border-slate-300 bg-white dark:bg-slate-800 dark:border-slate-700"
+                            }`}>
+                            {isSelected && (
+                              <svg className="w-2.5 h-2.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="3.5">
+                                <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                              </svg>
+                            )}
+                          </div>
+                        </div>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            ) : (
+              <p className="text-amber-700 dark:text-amber-500 font-medium text-[11px] py-1 bg-amber-50/50 dark:bg-amber-950/15 border border-amber-200/50 rounded-xl px-3 mt-2">
+                ⚠️ No other alternative products found in this category.
+              </p>
+            )}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+};
+
 const Checkout = () => {
   const router = useRouter();
   const dispatch = useDispatch<AppDispatch>();
   const { userData } = useSelector((state: RootState) => state.user);
   const selectedStore = useSelector((state: RootState) => state.location.selectedStore);
-  const reduxLocation = useSelector((state: RootState) => state.location);
+  const reduxLatitude = useSelector((state: RootState) => state.location.latitude);
+  const reduxLongitude = useSelector((state: RootState) => state.location.longitude);
+  const reduxCity = useSelector((state: RootState) => state.location.city);
+  const reduxStateName = useSelector((state: RootState) => state.location.state);
+  const reduxPincode = useSelector((state: RootState) => state.location.pincode);
+  const reduxFullAddress = useSelector((state: RootState) => state.location.fullAddress);
   const {
     cartItems,
     subTotal,
@@ -71,6 +261,8 @@ const Checkout = () => {
     finalTotal,
     couponDiscount,
     isGuest,
+    isGoldMember,
+    goldDiscount,
   } = useSelector((state: RootState) => state.cart);
 
   const [address, setAddress] = useState<any>({
@@ -106,6 +298,33 @@ const Checkout = () => {
   const [walletBalance, setWalletBalance] = useState<number>(0);
   const [useWallet, setUseWallet] = useState<boolean>(false);
   const [isKycModalOpen, setIsKycModalOpen] = useState(false);
+
+  const [substituteChoices, setSubstituteChoices] = useState<
+    Record<
+      string,
+      { option: "none" | "similar" | "specific"; variantId: string | null; name: string }
+    >
+  >({});
+
+  useEffect(() => {
+    if (cartItems.length > 0) {
+      const initial: any = {};
+      cartItems.forEach((item) => {
+        initial[item.variant._id] = {
+          option: "none",
+          variantId: null,
+          name: "",
+        };
+      });
+      setSubstituteChoices((prev) => {
+        const updated = { ...initial };
+        Object.keys(prev).forEach((key) => {
+          if (prev[key]) updated[key] = prev[key];
+        });
+        return updated;
+      });
+    }
+  }, [cartItems]);
 
   // Advanced Map-Pin Address triggers
   const [isAddressDrawerOpen, setIsAddressDrawerOpen] = useState(false);
@@ -183,7 +402,7 @@ const Checkout = () => {
   useEffect(() => {
     setIsSubscribed(false); // Reset subscriber feedback on position change
     if (!position) return;
-    
+
     const handler = setTimeout(() => {
       fetchPricing();
     }, 400);
@@ -239,6 +458,7 @@ const Checkout = () => {
             items: cart.items,
             cartId: cart.cart?._id,
             isGuest: cart.isGuest ?? false,
+            isGoldMember: cart.isGoldMember,
           })
         );
       } catch (err) {
@@ -329,17 +549,17 @@ const Checkout = () => {
   /* ================= Pre-fill location from Redux ================= */
   useEffect(() => {
     if (selectedSavedAddress) return;
-    if (reduxLocation.latitude && reduxLocation.longitude) {
-      setPosition([reduxLocation.latitude, reduxLocation.longitude]);
+    if (reduxLatitude && reduxLongitude) {
+      setPosition([reduxLatitude, reduxLongitude]);
       setAddress((prev: any) => ({
         ...prev,
-        city: reduxLocation.city || prev.city,
-        state: reduxLocation.state || prev.state,
-        pincode: reduxLocation.pincode || prev.pincode,
-        fullAddress: reduxLocation.fullAddress || prev.fullAddress,
+        city: reduxCity || prev.city,
+        state: reduxStateName || prev.state,
+        pincode: reduxPincode || prev.pincode,
+        fullAddress: reduxFullAddress || prev.fullAddress,
       }));
     }
-  }, [reduxLocation, selectedSavedAddress]);
+  }, [reduxLatitude, reduxLongitude, reduxCity, reduxStateName, reduxPincode, reduxFullAddress, selectedSavedAddress]);
 
   /* ================= Handle Saved Address Selection ================= */
   const handleSelectSavedAddress = async (addressId: string) => {
@@ -437,11 +657,17 @@ const Checkout = () => {
           location: position ? { lat: position[0], lng: position[1] } : undefined,
         },
         storeId: nearestStoreInfo?._id || undefined,
-        orderItems: cartItems.map((item) => ({
-          variantId: item.variant._id,
-          quantity: item.quantity,
-          priceAtAdd: item.priceAtAdd,
-        })),
+        orderItems: cartItems.map((item) => {
+          const choice = substituteChoices[item.variant._id] || { option: "none", variantId: null, name: "" };
+          return {
+            variantId: item.variant._id,
+            quantity: item.quantity,
+            priceAtAdd: item.priceAtAdd,
+            substituteOption: choice.option,
+            substituteVariantId: choice.variantId,
+            substituteName: choice.name,
+          };
+        }),
         couponDiscount,
         useWallet,
       };
@@ -468,6 +694,17 @@ const Checkout = () => {
         onlinePaymentType,
         storeId: nearestStoreInfo?._id || undefined,
         useWallet,
+        orderItems: cartItems.map((item) => {
+          const choice = substituteChoices[item.variant._id] || { option: "none", variantId: null, name: "" };
+          return {
+            variantId: item.variant._id,
+            quantity: item.quantity,
+            priceAtAdd: item.priceAtAdd,
+            substituteOption: choice.option,
+            substituteVariantId: choice.variantId,
+            substituteName: choice.name,
+          };
+        }),
       };
 
       const response = await axios.post("/api/payment/session/create", payload);
@@ -508,7 +745,7 @@ const Checkout = () => {
         if (!orderData || !orderData.success || !orderData.orderId) {
           throw new Error(
             orderData?.message ||
-              "Order ID not received from server or order creation failed"
+            "Order ID not received from server or order creation failed"
           );
         }
 
@@ -525,7 +762,7 @@ const Checkout = () => {
         if (!sessionData || !sessionData.success || !sessionData.paymentSessionId) {
           throw new Error(
             sessionData?.message ||
-              "Payment session ID not received from server"
+            "Payment session ID not received from server"
           );
         }
 
@@ -588,184 +825,268 @@ const Checkout = () => {
       </motion.h1>
 
       <div className="grid md:grid-cols-2 gap-8">
-        {/* ================= Delivery Address ================= */}
-        <motion.div
-          initial={{ opacity: 0, x: -20 }}
-          animate={{ opacity: 1, x: 0 }}
-          transition={{ duration: 0.3 }}
-          className="bg-white rounded-2xl shadow-lg hover:shadow-xl transition-all duration-300 p-6 border border-gray-100"
-        >
-          <div className="flex items-center justify-between mb-4">
-            <h2 className="text-xl font-bold text-gray-800 flex items-center gap-2">
-              <MapPin size={22} className="text-green-600" /> Delivery Address
-            </h2>
-            {addressValidated && checkoutServiceableStatus === "serviceable" && (
-              <span className="px-2.5 py-1 rounded-full bg-green-50 text-green-700 text-xs font-bold flex items-center gap-1 border border-green-100">
-                <Check size={12} />
-                Serviceable
-              </span>
-            )}
-          </div>
+        {/* Column 1 (Left) */}
+        <div className="space-y-6">
+          {/* ================= Delivery Address ================= */}
+          <motion.div
+            initial={{ opacity: 0, x: -20 }}
+            animate={{ opacity: 1, x: 0 }}
+            transition={{ duration: 0.3 }}
+            className="bg-white rounded-2xl shadow-lg hover:shadow-xl transition-all duration-300 p-6 border border-gray-100"
+          >
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-xl font-bold text-gray-800 flex items-center gap-2">
+                <MapPin size={22} className="text-green-600" /> Delivery Address
+              </h2>
+              {addressValidated && checkoutServiceableStatus === "serviceable" && (
+                <span className="px-2.5 py-1 rounded-full bg-green-50 text-green-700 text-xs font-bold flex items-center gap-1 border border-green-100">
+                  <Check size={12} />
+                  Serviceable
+                </span>
+              )}
+            </div>
 
-          <div className="space-y-4">
-            {addressValidated ? (
-              <div className="p-5 border border-slate-100 bg-slate-50/50 rounded-2xl relative overflow-hidden transition-all duration-200 text-left">
-                {/* Warning for Incomplete Address */}
-                {!isAddressComplete && (
-                  <div className="mb-4 p-4 bg-rose-50 rounded-2xl border border-rose-200 flex gap-3 text-left">
-                    <AlertCircle className="w-5.5 h-5.5 text-rose-600 flex-shrink-0 mt-0.5" />
-                    <div className="flex-1">
-                      <h4 className="text-xs font-bold text-rose-900 uppercase tracking-wider">Address Details Incomplete</h4>
-                      <p className="text-[11px] text-rose-700 mt-1 leading-normal">
-                        House / Flat / Floor / Building details are required to deliver your order. Please complete and save this address.
-                      </p>
+            <div className="space-y-4">
+              {addressValidated ? (
+                <div className="p-5 border border-slate-100 bg-slate-50/50 rounded-2xl relative overflow-hidden transition-all duration-200 text-left">
+                  {/* Warning for Incomplete Address */}
+                  {!isAddressComplete && (
+                    <div className="mb-4 p-4 bg-rose-50 rounded-2xl border border-rose-200 flex gap-3 text-left">
+                      <AlertCircle className="w-5.5 h-5.5 text-rose-600 flex-shrink-0 mt-0.5" />
+                      <div className="flex-1">
+                        <h4 className="text-xs font-bold text-rose-900 uppercase tracking-wider">Address Details Incomplete</h4>
+                        <p className="text-[11px] text-rose-700 mt-1 leading-normal">
+                          House / Flat / Floor / Building details are required to deliver your order. Please complete and save this address.
+                        </p>
+                        <button
+                          type="button"
+                          onClick={handleCompleteCurrentAddress}
+                          className="mt-2.5 px-3 py-1.5 bg-rose-600 hover:bg-rose-700 text-white font-bold text-[10px] rounded-lg transition-all cursor-pointer shadow-md shadow-rose-600/10"
+                        >
+                          Complete & Save Address Details
+                        </button>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Type Badge */}
+                  <div className="flex items-center gap-2 mb-3">
+                    <span className="px-2.5 py-1 rounded-xl bg-green-50 text-green-700 text-xs font-bold capitalize flex items-center gap-1.5 border border-green-100/50">
+                      {address.type === "work" ? (
+                        <Briefcase size={12} />
+                      ) : address.type === "home" ? (
+                        <Home size={12} />
+                      ) : (
+                        <MapPin size={12} />
+                      )}
+                      {address.type === "others" ? (address.customLabel || "Other") : (address.type || "Delivery Location")}
+                    </span>
+                    {address.landmark && (
+                      <span className="text-xs text-slate-500 font-medium truncate max-w-[180px]">
+                        📍 {address.landmark}
+                      </span>
+                    )}
+                  </div>
+
+                  {/* Recipient Details */}
+                  <h4 className="text-base font-bold text-slate-800 flex flex-wrap items-center gap-1.5">
+                    {address.fullName}
+                    <span className="text-xs font-semibold text-slate-400">• {address.mobile}</span>
+                    {address.alternateMobile && (
+                      <span className="text-xs font-medium text-slate-400">(Alt: {address.alternateMobile})</span>
+                    )}
+                  </h4>
+
+                  {/* Address details */}
+                  {address.street && (
+                    <p className="text-sm font-bold text-slate-700 mt-2">
+                      {address.street}
+                    </p>
+                  )}
+                  <p className="text-xs text-slate-500 mt-1 leading-relaxed">
+                    {address.fullAddress}
+                  </p>
+
+                  {/* Change button */}
+                  <div className="mt-4 flex gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setIsAddressDrawerOpen(true)}
+                      className="inline-flex items-center gap-1.5 px-4.5 py-2 rounded-2xl bg-green-600 hover:bg-green-700 text-white text-xs font-bold transition shadow-md shadow-green-600/10 cursor-pointer"
+                    >
+                      Change Address
+                    </button>
+                    {!isAddressComplete && (
                       <button
                         type="button"
                         onClick={handleCompleteCurrentAddress}
-                        className="mt-2.5 px-3 py-1.5 bg-rose-600 hover:bg-rose-700 text-white font-bold text-[10px] rounded-lg transition-all cursor-pointer shadow-md shadow-rose-600/10"
+                        className="inline-flex items-center gap-1.5 px-4.5 py-2 rounded-2xl bg-rose-600 hover:bg-rose-700 text-white text-xs font-bold transition shadow-md shadow-rose-600/10 cursor-pointer"
                       >
-                        Complete & Save Address Details
+                        Complete Details
                       </button>
-                    </div>
-                  </div>
-                )}
-
-                {/* Type Badge */}
-                <div className="flex items-center gap-2 mb-3">
-                  <span className="px-2.5 py-1 rounded-xl bg-green-50 text-green-700 text-xs font-bold capitalize flex items-center gap-1.5 border border-green-100/50">
-                    {address.type === "work" ? (
-                      <Briefcase size={12} />
-                    ) : address.type === "home" ? (
-                      <Home size={12} />
-                    ) : (
-                      <MapPin size={12} />
                     )}
-                    {address.type === "others" ? (address.customLabel || "Other") : (address.type || "Delivery Location")}
-                  </span>
-                  {address.landmark && (
-                    <span className="text-xs text-slate-500 font-medium truncate max-w-[180px]">
-                      📍 {address.landmark}
-                    </span>
-                  )}
+                  </div>
                 </div>
-
-                {/* Recipient Details */}
-                <h4 className="text-base font-bold text-slate-800 flex flex-wrap items-center gap-1.5">
-                  {address.fullName}
-                  <span className="text-xs font-semibold text-slate-400">• {address.mobile}</span>
-                  {address.alternateMobile && (
-                    <span className="text-xs font-medium text-slate-400">(Alt: {address.alternateMobile})</span>
-                  )}
-                </h4>
-
-                {/* Address details */}
-                {address.street && (
-                  <p className="text-sm font-bold text-slate-700 mt-2">
-                    {address.street}
+              ) : (
+                <div className="p-6 border border-dashed border-slate-300 bg-slate-50/50 rounded-2xl text-center flex flex-col items-center justify-center">
+                  <div className="w-12 h-12 rounded-full bg-slate-100 flex items-center justify-center text-slate-500 mb-3">
+                    <MapPin size={24} />
+                  </div>
+                  <h3 className="text-sm font-bold text-slate-800">No Address Selected</h3>
+                  <p className="text-xs text-slate-500 mt-1 max-w-xs leading-normal">
+                    Pinpoint your location on the map to unlock hyper-fast 10-minute grocery delivery!
                   </p>
-                )}
-                <p className="text-xs text-slate-500 mt-1 leading-relaxed">
-                  {address.fullAddress}
-                </p>
-
-                {/* Change button */}
-                <div className="mt-4 flex gap-2">
                   <button
                     type="button"
                     onClick={() => setIsAddressDrawerOpen(true)}
-                    className="inline-flex items-center gap-1.5 px-4.5 py-2 rounded-2xl bg-green-600 hover:bg-green-700 text-white text-xs font-bold transition shadow-md shadow-green-600/10 cursor-pointer"
+                    className="mt-4 px-5 py-2.5 rounded-2xl bg-green-600 hover:bg-green-700 text-white text-xs font-bold transition shadow-lg shadow-green-600/10 cursor-pointer"
                   >
-                    Change Address
+                    Select / Add Address
                   </button>
-                  {!isAddressComplete && (
-                    <button
-                      type="button"
-                      onClick={handleCompleteCurrentAddress}
-                      className="inline-flex items-center gap-1.5 px-4.5 py-2 rounded-2xl bg-rose-600 hover:bg-rose-700 text-white text-xs font-bold transition shadow-md shadow-rose-600/10 cursor-pointer"
-                    >
-                      Complete Details
-                    </button>
-                  )}
                 </div>
-              </div>
-            ) : (
-              <div className="p-6 border border-dashed border-slate-300 bg-slate-50/50 rounded-2xl text-center flex flex-col items-center justify-center">
-                <div className="w-12 h-12 rounded-full bg-slate-100 flex items-center justify-center text-slate-500 mb-3">
-                  <MapPin size={24} />
-                </div>
-                <h3 className="text-sm font-bold text-slate-800">No Address Selected</h3>
-                <p className="text-xs text-slate-500 mt-1 max-w-xs leading-normal">
-                  Pinpoint your location on the map to unlock hyper-fast 10-minute grocery delivery!
-                </p>
-                <button
-                  type="button"
-                  onClick={() => setIsAddressDrawerOpen(true)}
-                  className="mt-4 px-5 py-2.5 rounded-2xl bg-green-600 hover:bg-green-700 text-white text-xs font-bold transition shadow-lg shadow-green-600/10 cursor-pointer"
+              )}
+
+              {/* Real-time Serviceability Notification Form */}
+              {checkoutServiceableStatus === "not_serviceable" && (
+                <motion.div
+                  initial={{ opacity: 0, y: 15 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  className="p-5 rounded-2xl border border-rose-200 bg-rose-50/50 shadow-inner text-center relative overflow-hidden"
                 >
-                  Select / Add Address
-                </button>
-              </div>
-            )}
+                  <div className="absolute top-0 right-0 w-32 h-32 bg-rose-500/5 rounded-full blur-2xl -z-10 translate-x-6 -translate-y-6"></div>
+                  <div className="w-12 h-12 rounded-xl bg-rose-100 flex items-center justify-center text-rose-600 mx-auto mb-3">
+                    <MapPin className="w-6 h-6 animate-pulse" />
+                  </div>
 
-            {/* Real-time Serviceability Notification Form */}
-            {checkoutServiceableStatus === "not_serviceable" && (
-              <motion.div
-                initial={{ opacity: 0, y: 15 }}
-                animate={{ opacity: 1, y: 0 }}
-                className="p-5 rounded-2xl border border-rose-200 bg-rose-50/50 shadow-inner text-center relative overflow-hidden"
-              >
-                <div className="absolute top-0 right-0 w-32 h-32 bg-rose-500/5 rounded-full blur-2xl -z-10 translate-x-6 -translate-y-6"></div>
-                <div className="w-12 h-12 rounded-xl bg-rose-100 flex items-center justify-center text-rose-600 mx-auto mb-3">
-                  <MapPin className="w-6 h-6 animate-pulse" />
-                </div>
-                
-                <h3 className="text-base font-bold text-rose-900">
-                  Coming Soon to this Location!
-                </h3>
-                <p className="text-xs text-rose-700 mt-1 max-w-sm mx-auto">
-                  We don't deliver here yet. Register your email to request launch and get notified as soon as we open a dark store near you!
-                </p>
+                  <h3 className="text-base font-bold text-rose-900">
+                    Coming Soon to this Location!
+                  </h3>
+                  <p className="text-xs text-rose-700 mt-1 max-w-sm mx-auto">
+                    We don't deliver here yet. Register your email to request launch and get notified as soon as we open a dark store near you!
+                  </p>
 
-                {!isSubscribed ? (
-                  <form
-                    onSubmit={handleNotifySubmit}
-                    className="mt-4 flex flex-col sm:flex-row gap-2 max-w-sm mx-auto"
-                  >
-                    <input
-                      type="email"
-                      value={notifyEmail}
-                      onChange={(e) => setNotifyEmail(e.target.value)}
-                      placeholder="Enter email address"
-                      required
-                      className="flex-1 px-3 py-2 bg-white border border-rose-200 rounded-xl text-xs focus:outline-none focus:ring-2 focus:ring-rose-400 transition"
-                    />
-                    <button
-                      type="submit"
-                      disabled={isNotifying}
-                      className="flex items-center justify-center gap-1.5 bg-rose-600 hover:bg-rose-700 text-white text-xs font-semibold px-4 py-2 rounded-xl cursor-pointer shadow-md shadow-rose-600/10 active:scale-95 transition"
+                  {!isSubscribed ? (
+                    <form
+                      onSubmit={handleNotifySubmit}
+                      className="mt-4 flex flex-col sm:flex-row gap-2 max-w-sm mx-auto"
                     >
-                      {isNotifying ? (
-                        <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                      ) : (
-                        <Send className="w-3.5 h-3.5" />
-                      )}
-                      Notify Me
-                    </button>
-                  </form>
-                ) : (
-                  <motion.div
-                    initial={{ scale: 0.95 }}
-                    animate={{ scale: 1 }}
-                    className="mt-4 bg-emerald-50 border border-emerald-200 text-emerald-800 px-4 py-2 rounded-xl text-xs font-semibold max-w-sm mx-auto flex items-center gap-1.5 justify-center"
-                  >
-                    <Sparkles className="w-4 h-4 text-emerald-600 animate-pulse" />
-                    <span>Registered for alerts! We'll keep you posted.</span>
-                  </motion.div>
-                )}
-              </motion.div>
-            )}
-          </div>
-        </motion.div>
+                      <input
+                        type="email"
+                        value={notifyEmail}
+                        onChange={(e) => setNotifyEmail(e.target.value)}
+                        placeholder="Enter email address"
+                        required
+                        className="flex-1 px-3 py-2 bg-white border border-rose-200 rounded-xl text-xs focus:outline-none focus:ring-2 focus:ring-rose-400 transition"
+                      />
+                      <button
+                        type="submit"
+                        disabled={isNotifying}
+                        className="flex items-center justify-center gap-1.5 bg-rose-600 hover:bg-rose-700 text-white text-xs font-semibold px-4 py-2 rounded-xl cursor-pointer shadow-md shadow-rose-600/10 active:scale-95 transition"
+                      >
+                        {isNotifying ? (
+                          <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                        ) : (
+                          <Send className="w-3.5 h-3.5" />
+                        )}
+                        Notify Me
+                      </button>
+                    </form>
+                  ) : (
+                    <motion.div
+                      initial={{ scale: 0.95 }}
+                      animate={{ scale: 1 }}
+                      className="mt-4 bg-emerald-50 border border-emerald-200 text-emerald-800 px-4 py-2 rounded-xl text-xs font-semibold max-w-sm mx-auto flex items-center gap-1.5 justify-center"
+                    >
+                      <Sparkles className="w-4 h-4 text-emerald-600 animate-pulse" />
+                      <span>Registered for alerts! We'll keep you posted.</span>
+                    </motion.div>
+                  )}
+                </motion.div>
+              )}
+            </div>
+          </motion.div>
+
+          {/* ================= Review Order Items & Substitutes ================= */}
+          <motion.div
+            initial={{ opacity: 0, x: -20 }}
+            animate={{ opacity: 1, x: 0 }}
+            transition={{ duration: 0.3, delay: 0.1 }}
+            className="bg-white rounded-2xl shadow-lg hover:shadow-xl transition-all duration-300 p-6 border border-gray-100 text-left"
+          >
+            <h2 className="text-xl font-bold text-gray-800 flex items-center gap-2 mb-4">
+              <ShoppingBag size={22} className="text-green-600" /> Review Items & Substitutes
+            </h2>
+            <div className="space-y-4 divide-y divide-gray-100">
+              {cartItems.map((item, index) => (
+                <div key={item.variant._id} className={`pt-4 ${index === 0 ? "pt-0 border-t-0" : ""}`}>
+                  <div className="flex items-start gap-3">
+                    <img
+                      src={item.variant.grocery?.images?.[0]?.url || "/placeholder-image.png"}
+                      alt={item.variant.grocery?.name}
+                      className="w-16 h-16 rounded-xl border border-gray-150 object-cover flex-shrink-0"
+                    />
+                    <div className="min-w-0 flex-1">
+                      <h4 className="text-sm font-bold text-gray-800 truncate">
+                        {item.variant.grocery?.name}
+                      </h4>
+                      <p className="text-xs text-gray-400 mt-0.5">
+                        Pack: {item.variant.label} · Qty: {item.quantity}
+                      </p>
+                      <div className="flex flex-wrap items-center gap-2 mt-1">
+                        {(() => {
+                          const categoryObj = item.variant.grocery?.category as any;
+                          const categoryName = (categoryObj && typeof categoryObj === "object" ? categoryObj.name : "").toLowerCase();
+                          const isVegOrFruit = categoryName.includes("vegetable") || categoryName.includes("fruit") || categoryName.includes("veg") || categoryName.includes("frut");
+                          const basePrice = item.priceAtAdd?.selling ?? item.variant.price.selling;
+                          const discountedPrice = isGoldMember 
+                            ? (isVegOrFruit ? Math.round(basePrice * 0.9 * 100) / 100 : Math.round(basePrice * 0.95 * 100) / 100)
+                            : basePrice;
+                          const originalMRP = item.priceAtAdd?.mrp ?? item.variant.price.mrp;
+                          
+                          return (
+                            <>
+                              <span className="text-sm font-bold text-green-700">
+                                ₹{(discountedPrice * item.quantity).toFixed(2)}
+                              </span>
+                              {(originalMRP > discountedPrice) && (
+                                <span className="text-xs font-normal text-gray-400 line-through">
+                                  ₹{(originalMRP * item.quantity).toFixed(2)}
+                                </span>
+                              )}
+                              {isGoldMember && (
+                                <span className="bg-amber-100 text-amber-800 border border-amber-350 text-[10px] font-black px-1.5 py-0.5 rounded whitespace-nowrap flex items-center gap-0.5 shadow-sm">
+                                  👑 GOLD {isVegOrFruit ? "10%" : "5%"} OFF
+                                </span>
+                              )}
+                            </>
+                          );
+                        })()}
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Substitute Choice Selector */}
+                  <SubstituteChoiceSelector
+                    item={item}
+                    choice={
+                      substituteChoices[item.variant._id] || {
+                        option: "none",
+                        variantId: null,
+                        name: "",
+                      }
+                    }
+                    onChange={(newChoice) =>
+                      setSubstituteChoices((prev) => ({
+                        ...prev,
+                        [item.variant._id]: newChoice,
+                      }))
+                    }
+                  />
+                </div>
+              ))}
+            </div>
+          </motion.div>
+        </div>
 
         {/* ================= Payment & Order Summary ================= */}
         <div className="space-y-6">
@@ -846,11 +1167,10 @@ const Checkout = () => {
                 <div className="space-y-3">
                   {/* Razorpay Option */}
                   <button
-                    className={`flex items-center gap-4 w-full border rounded-lg p-4 transition-all ${
-                      paymentMethod === "online" && onlinePaymentType === "razorpay"
+                    className={`flex items-center gap-4 w-full border rounded-lg p-4 transition-all ${paymentMethod === "online" && onlinePaymentType === "razorpay"
                         ? "border-green-600 bg-green-50 shadow-sm"
                         : "hover:bg-gray-50"
-                    }`}
+                      }`}
                     onClick={() => {
                       setPaymentMethod("online");
                       setOnlinePaymentType("razorpay");
@@ -877,11 +1197,10 @@ const Checkout = () => {
 
                   {/* Stripe Option */}
                   <button
-                    className={`flex items-center gap-4 w-full border rounded-lg p-4 transition-all ${
-                      paymentMethod === "online" && onlinePaymentType === "stripe"
+                    className={`flex items-center gap-4 w-full border rounded-lg p-4 transition-all ${paymentMethod === "online" && onlinePaymentType === "stripe"
                         ? "border-green-600 bg-green-50 shadow-sm"
                         : "hover:bg-gray-50"
-                    }`}
+                      }`}
                     onClick={() => {
                       setPaymentMethod("online");
                       setOnlinePaymentType("stripe");
@@ -909,11 +1228,10 @@ const Checkout = () => {
                   {/* COD Option */}
                   <button
                     disabled={codInfo && !codInfo.isCodAvailable}
-                    className={`flex items-center gap-4 w-full border rounded-lg p-4 transition-all ${
-                      paymentMethod === "cod"
+                    className={`flex items-center gap-4 w-full border rounded-lg p-4 transition-all ${paymentMethod === "cod"
                         ? "border-green-600 bg-green-50 shadow-sm"
                         : "hover:bg-gray-50"
-                    } ${codInfo && !codInfo.isCodAvailable ? "opacity-50 cursor-not-allowed" : ""}`}
+                      } ${codInfo && !codInfo.isCodAvailable ? "opacity-50 cursor-not-allowed" : ""}`}
                     onClick={() => {
                       if (codInfo?.isCodAvailable) {
                         setPaymentMethod("cod");
@@ -1029,6 +1347,19 @@ const Checkout = () => {
               )}
             </h3>
 
+            {isGoldMember && (
+              <div className="mb-4 bg-gradient-to-r from-amber-500/10 via-yellow-500/5 to-amber-500/10 dark:from-amber-950/20 dark:to-slate-900/5 border border-amber-250 dark:border-amber-900/60 rounded-xl p-3 flex items-center justify-between shadow-sm">
+                <div className="flex items-center gap-2">
+                  <span className="text-lg">👑</span>
+                  <div className="text-left">
+                    <p className="text-xs font-black text-amber-950 dark:text-amber-200 uppercase tracking-wider leading-none">Snapcart Gold Member</p>
+                    <p className="text-[9px] font-semibold text-amber-700 dark:text-amber-400 mt-1">Benefits auto-applied to this order</p>
+                  </div>
+                </div>
+                <span className="text-[9px] font-black bg-amber-500/20 text-amber-800 px-2 py-0.5 rounded-full border border-amber-300">ACTIVE</span>
+              </div>
+            )}
+
             <div className="space-y-3 text-sm">
               <div className="flex justify-between">
                 <span className="text-gray-600">Total MRP</span>
@@ -1039,6 +1370,13 @@ const Checkout = () => {
                 <div className="flex justify-between text-green-600">
                   <span>Product Discount</span>
                   <span className="font-medium">-₹{(pricing ? pricing.savings : savings).toFixed(2)}</span>
+                </div>
+              )}
+
+              {((pricing ? pricing.goldDiscount : goldDiscount) > 0) && (
+                <div className="flex justify-between text-amber-700 font-bold bg-amber-50 dark:bg-amber-950/20 px-2 py-1.5 rounded-lg border border-amber-200 dark:border-amber-900/60">
+                  <span className="flex items-center gap-1">👑 Snapcart Gold Discount</span>
+                  <span>-₹{(pricing ? pricing.goldDiscount : goldDiscount).toFixed(2)}</span>
                 </div>
               )}
 
@@ -1059,15 +1397,27 @@ const Checkout = () => {
                   )}
                 </span>
                 <span className={(pricing ? pricing.deliveryFee : deliveryFee) === 0 ? "text-green-600 font-bold" : "text-gray-800"}>
-                  {(pricing ? pricing.deliveryFee : deliveryFee) === 0 ? "FREE" : `+₹${(pricing ? pricing.deliveryFee : deliveryFee).toFixed(2)}`}
+                  {(pricing ? pricing.deliveryFee : deliveryFee) === 0 ? (
+                    (pricing ? pricing.isGold : isGoldMember) ? "FREE (Gold Benefit)" : "FREE"
+                  ) : `+₹${(pricing ? pricing.deliveryFee : deliveryFee).toFixed(2)}`}
                 </span>
               </div>
 
-              {pricing && pricing.packagingFee > 0 && (
+              {(pricing ? pricing.isGold : isGoldMember) ? (
                 <div className="flex justify-between text-gray-600">
                   <span>Packaging & Handling Fee</span>
-                  <span className="text-gray-800">+₹{pricing.packagingFee.toFixed(2)}</span>
+                  <span className="text-green-600 font-bold">
+                    <span className="text-gray-400 line-through mr-1.5">₹4.00</span>
+                    FREE
+                  </span>
                 </div>
+              ) : (
+                pricing && pricing.packagingFee > 0 && (
+                  <div className="flex justify-between text-gray-600">
+                    <span>Packaging & Handling Fee</span>
+                    <span className="text-gray-800">+₹{pricing.packagingFee.toFixed(2)}</span>
+                  </div>
+                )
               )}
 
               {pricing && pricing.weightSurcharge > 0 && (
@@ -1161,11 +1511,10 @@ const Checkout = () => {
 
             <motion.button
               whileTap={{ scale: 0.95 }}
-              className={`mt-6 w-full ${
-                isAddressComplete && checkoutServiceableStatus === "serviceable"
+              className={`mt-6 w-full ${isAddressComplete && checkoutServiceableStatus === "serviceable"
                   ? "bg-green-600 hover:bg-green-700"
                   : "bg-gray-400 cursor-not-allowed"
-              } text-white py-3 rounded-full font-semibold transition-all flex items-center justify-center`}
+                } text-white py-3 rounded-full font-semibold transition-all flex items-center justify-center`}
               onClick={handlePayment}
               disabled={!isAddressComplete || checkoutServiceableStatus !== "serviceable" || loading}
             >
@@ -1213,7 +1562,7 @@ const Checkout = () => {
           </motion.div>
         </div>
       </div>
-      
+
       {/* Slide-over Saved Address Selector Drawer */}
       <AnimatePresence>
         {isAddressDrawerOpen && (
@@ -1260,11 +1609,10 @@ const Checkout = () => {
                           handleSelectSavedAddress(addr._id);
                           setIsAddressDrawerOpen(false);
                         }}
-                        className={`w-full text-left p-4 border rounded-2xl transition-all duration-200 cursor-pointer relative group ${
-                          isSelected
+                        className={`w-full text-left p-4 border rounded-2xl transition-all duration-200 cursor-pointer relative group ${isSelected
                             ? "border-green-600 bg-green-50/20 shadow-sm"
                             : "border-slate-150 hover:border-green-300 hover:bg-slate-50/50"
-                        }`}
+                          }`}
                       >
                         <div className="flex items-start justify-between">
                           <div className="flex-1 min-w-0 pr-6">

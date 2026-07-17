@@ -3,12 +3,33 @@ import axios from "axios";
 /* ================= AUTH CART ================= */
 
 export const fetchCartApi = async () => {
-  const { data } = await axios.get("/api/cart");
+  let url = "/api/cart";
+  if (typeof window !== "undefined") {
+    const groupCode = localStorage.getItem("snapcart_group_code");
+    if (groupCode) {
+      url += `?groupCode=${encodeURIComponent(groupCode)}`;
+    }
+  }
+  const { data } = await axios.get(url);
   return data;
 };
 
 export const addToCartApi = async (variantId: string, quantity = 1) => {
-  const { data } = await axios.post("/api/cart/add", { variantId, quantity });
+  let groupCode = null;
+  let memberId = null;
+  let memberName = null;
+  if (typeof window !== "undefined") {
+    groupCode = localStorage.getItem("snapcart_group_code");
+    memberId = localStorage.getItem("snapcart_group_member_id");
+    memberName = localStorage.getItem("snapcart_group_member_name");
+  }
+  const { data } = await axios.post("/api/cart/add", {
+    variantId,
+    quantity,
+    groupCode,
+    memberId,
+    memberName,
+  });
   return data;
 };
 
@@ -16,27 +37,49 @@ export const updateCartQuantityApi = async (
   cartItemId: string,
   quantity: number
 ) => {
+  let groupCode = null;
+  let memberId = null;
+  if (typeof window !== "undefined") {
+    groupCode = localStorage.getItem("snapcart_group_code");
+    memberId = localStorage.getItem("snapcart_group_member_id");
+  }
   const { data } = await axios.patch("/api/cart/update", {
     cartItemId,
     quantity,
+    groupCode,
+    memberId,
   });
   return data;
 };
 
 export const removeFromCartApi = async (cartItemId: string) => {
+  let groupCode = null;
+  let memberId = null;
+  if (typeof window !== "undefined") {
+    groupCode = localStorage.getItem("snapcart_group_code");
+    memberId = localStorage.getItem("snapcart_group_member_id");
+  }
   const res = await fetch("/api/cart/remove", {
     method: "DELETE",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ cartItemId }),
+    body: JSON.stringify({ cartItemId, groupCode, memberId }),
   });
 
   return res.json();
 };
 
 export const clearCartApi = async () => {
-  const { data } = await axios.delete("/api/cart/clear");
+  let url = "/api/cart/clear";
+  if (typeof window !== "undefined") {
+    const groupCode = localStorage.getItem("snapcart_group_code");
+    const memberId = localStorage.getItem("snapcart_group_member_id");
+    if (groupCode && memberId) {
+      url += `?groupCode=${encodeURIComponent(groupCode)}&memberId=${encodeURIComponent(memberId)}`;
+    }
+  }
+  const { data } = await axios.delete(url);
   return data;
-}
+};
 
 /* ================= GUEST CART (BACKEND COOKIE) ================= */
 

@@ -21,14 +21,6 @@ const customerIcon = new L.Icon({
   popupAnchor: [0, -40],
 });
 
-const deliveryIcon = new L.Icon({
-  iconUrl:
-    "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='40' height='40' viewBox='0 0 24 24' fill='%2310B981'%3E%3Cpath d='M18 18.5c.83 0 1.5-.67 1.5-1.5s-.67-1.5-1.5-1.5-1.5.67-1.5 1.5.67 1.5 1.5 1.5zm1.5-9H17V12h4.46L19.5 9.5zM6 18.5c.83 0 1.5-.67 1.5-1.5s-.67-1.5-1.5-1.5-1.5.67-1.5 1.5.67 1.5 1.5 1.5zM20 8l3 4v5h-2c0 1.66-1.34 3-3 3s-3-1.34-3-3H9c0 1.66-1.34 3-3 3s-3-1.34-3-3H1V6c0-1.11.89-2 2-2h14v4h3zM3 6v9h.76c.55-.61 1.35-1 2.24-1 .89 0 1.69.39 2.24 1H15V6H3z'/%3E%3C/svg%3E",
-  iconSize: [40, 40],
-  iconAnchor: [20, 40],
-  popupAnchor: [0, -40],
-});
-
 const storeIcon = new L.Icon({
   iconUrl:
     "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='40' height='40' viewBox='0 0 24 24' fill='%23EF4444'%3E%3Cpath d='M20 4H4v2h16V4zm1 10v-2l-1-5H4L3 12v2c0 1.66 1.34 3 3 3h12c1.66 0 3-1.34 3-3zm-10 0H5v-2h6v2zm8 0h-6v-2h6v2zm-2-8H7V7h10v1z'/%3E%3C/svg%3E",
@@ -46,34 +38,156 @@ interface TrackingMapProps {
   estimatedTime?: number;
 }
 
+// Custom delivery boy marker with CSS animation and auto-rotation
+const deliveryDivIcon = L.divIcon({
+  html: `
+    <div class="relative flex items-center justify-center w-10 h-10">
+      <div class="absolute inset-0 bg-emerald-500/25 rounded-full animate-ping" style="animation-duration: 2s;" />
+      <div class="absolute w-8 h-8 bg-emerald-50 rounded-full shadow-md border border-emerald-400/30 flex items-center justify-center" />
+      <div class="bike-icon-img relative z-10 transition-transform duration-200 ease-out" style="transform: rotate(0deg);">
+        <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#059669" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="18.5" cy="17.5" r="2.5"/>
+          <circle cx="5.5" cy="17.5" r="2.5"/>
+          <path d="M9 17.5h6"/>
+          <path d="M12 17.5V14"/>
+          <path d="M12 14H7.5L5.5 8"/>
+          <path d="M12 14h5.5l1.5-6h-4.5"/>
+          <circle cx="16.5" cy="5.5" r="1.5"/>
+        </svg>
+      </div>
+    </div>
+  `,
+  className: "custom-delivery-div-icon",
+  iconSize: [40, 40],
+  iconAnchor: [20, 20],
+  popupAnchor: [0, -20],
+});
+
 const AnimatedMarker = ({
   position,
-  icon,
   children,
 }: {
   position: [number, number];
-  icon: L.Icon;
   children?: React.ReactNode;
 }) => {
   const markerRef = useRef<L.Marker | null>(null);
   const [animatedPos, setAnimatedPos] = useState<[number, number]>(position);
+  const prevPositionRef = useRef<[number, number]>(position);
+  const rotationAngleRef = useRef<number>(0);
+
+  const getAngle = (p1: [number, number], p2: [number, number]) => {
+    const dy = p2[0] - p1[0];
+    const dx = p2[1] - p1[1];
+    return -((Math.atan2(dy, dx) * 180) / Math.PI);
+  };
 
   useEffect(() => {
-    const start = animatedPos;
+    const start = prevPositionRef.current;
     const end = position;
-    const duration = 900;
-    const startTime = performance.now();
+    prevPositionRef.current = position;
 
-    const step = (now: number) => {
-      const t = Math.min(1, (now - startTime) / duration);
-      const lat = start[0] + (end[0] - start[0]) * t;
-      const lng = start[1] + (end[1] - start[1]) * t;
-      setAnimatedPos([lat, lng]);
-      if (t < 1) requestAnimationFrame(step);
+    if (start[0] === end[0] && start[1] === end[1]) return;
+
+    let active = true;
+
+    const fetchAndAnimate = async () => {
+      let path: [number, number][] = [start, end];
+
+      try {
+        const osrmUrl = `https://router.project-osrm.org/route/v1/driving/${start[1]},${start[0]};${end[1]},${end[0]}?overview=full&geometries=geojson`;
+        const res = await fetch(osrmUrl);
+        if (res.ok) {
+          const data = await res.json();
+          const coords = data?.routes?.[0]?.geometry?.coordinates;
+          if (coords && coords.length > 0) {
+            path = coords.map((c: [number, number]) => [c[1], c[0]]);
+          }
+        }
+      } catch (err) {
+        console.error("OSRM route retrieval failed:", err);
+      }
+
+      if (!active) return;
+
+      const totalPoints = path.length;
+      if (totalPoints < 2) {
+        setAnimatedPos(end);
+        return;
+      }
+
+      const distances: number[] = [0];
+      let totalDist = 0;
+      for (let i = 1; i < totalPoints; i++) {
+        const d = L.latLng(path[i - 1]).distanceTo(L.latLng(path[i]));
+        totalDist += d;
+        distances.push(totalDist);
+      }
+
+      const duration = 3500; // Animate over 3.5 seconds
+      const startTime = performance.now();
+
+      const animateStep = (now: number) => {
+        if (!active) return;
+        const elapsed = now - startTime;
+        const progress = Math.min(1, elapsed / duration);
+
+        const currentDist = progress * totalDist;
+        let segmentIdx = 0;
+        while (segmentIdx < totalPoints - 1 && distances[segmentIdx + 1] < currentDist) {
+          segmentIdx++;
+        }
+
+        const p1 = path[segmentIdx];
+        const p2 = path[segmentIdx + 1];
+        if (!p1 || !p2) {
+          setAnimatedPos(end);
+          return;
+        }
+
+        const segStartDist = distances[segmentIdx];
+        const segEndDist = distances[segmentIdx + 1];
+        const segLen = segEndDist - segStartDist;
+        const segProgress = segLen > 0 ? (currentDist - segStartDist) / segLen : 1;
+
+        const lat = p1[0] + (p2[0] - p1[0]) * segProgress;
+        const lng = p1[1] + (p2[1] - p1[1]) * segProgress;
+
+        const targetAngle = getAngle(p1, p2);
+        
+        let currentAngle = rotationAngleRef.current;
+        let diff = targetAngle - currentAngle;
+        while (diff < -180) diff += 360;
+        while (diff > 180) diff -= 360;
+        currentAngle += diff * 0.15;
+        rotationAngleRef.current = currentAngle;
+
+        setAnimatedPos([lat, lng]);
+
+        if (markerRef.current) {
+          const el = markerRef.current.getElement();
+          if (el) {
+            const iconImage = el.querySelector(".bike-icon-img");
+            if (iconImage) {
+              (iconImage as HTMLElement).style.transform = `rotate(${currentAngle}deg)`;
+            }
+          }
+        }
+
+        if (progress < 1) {
+          requestAnimationFrame(animateStep);
+        } else {
+          setAnimatedPos(end);
+        }
+      };
+
+      requestAnimationFrame(animateStep);
     };
 
-    requestAnimationFrame(step);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    fetchAndAnimate();
+
+    return () => {
+      active = false;
+    };
   }, [position[0], position[1]]);
 
   useEffect(() => {
@@ -83,7 +197,7 @@ const AnimatedMarker = ({
   }, [animatedPos]);
 
   return (
-    <Marker ref={markerRef as any} position={animatedPos} icon={icon}>
+    <Marker ref={markerRef as any} position={animatedPos} icon={deliveryDivIcon}>
       {children}
     </Marker>
   );
@@ -145,38 +259,31 @@ const TrackingMap = ({
       setRouteLoading(true);
       setRouteError(null);
       try {
-        // Primary: OpenRouteService (2000 req/day free, best results)
-        const orsUrl = `https://api.openrouteservice.org/v2/directions/driving-car?start=${startPoint[1]},${startPoint[0]}&end=${endPoint[1]},${endPoint[0]}`;
-        
-        try {
-          const orsRes = await fetch(orsUrl, { signal: controller.signal });
-          if (orsRes.ok) {
-            const orsData = await orsRes.json();
-            if (orsData.features?.[0]?.geometry?.coordinates) {
-              const coords = orsData.features[0].geometry.coordinates.map(
-                (c: [number, number]) => [c[1], c[0]] as [number, number]
-              );
-              setRoute(coords);
-              setRouteLoading(false);
-              return;
-            }
-          }
-        } catch (orsError) {
-          console.log('OpenRouteService failed, trying OSRM...');
-        }
-        
-        // Fallback: OSRM (free, no limits)
+        // Primary: OSRM (free, no limits, instant)
         const osrmUrl = `https://router.project-osrm.org/route/v1/driving/${startPoint[1]},${startPoint[0]};${endPoint[1]},${endPoint[0]}?overview=full&geometries=geojson`;
         const osrmRes = await fetch(osrmUrl, { signal: controller.signal });
         const osrmData = await osrmRes.json();
         
-        if (!osrmRes.ok || osrmData?.code !== "Ok") {
-          throw new Error("Both routing services failed");
+        if (osrmRes.ok && osrmData?.code === "Ok") {
+          const coords = osrmData?.routes?.[0]?.geometry?.coordinates || [];
+          const mapped = coords.map((c: [number, number]) => [c[1], c[0]] as [number, number]);
+          setRoute(mapped);
+          setRouteLoading(false);
+          return;
         }
-        
-        const coords = osrmData?.routes?.[0]?.geometry?.coordinates || [];
-        const mapped = coords.map((c: [number, number]) => [c[1], c[0]]);
-        setRoute(mapped);
+
+        // Fallback: OpenRouteService
+        const orsUrl = `https://api.openrouteservice.org/v2/directions/driving-car?start=${startPoint[1]},${startPoint[0]}&end=${endPoint[1]},${endPoint[0]}`;
+        const orsRes = await fetch(orsUrl, { signal: controller.signal });
+        if (orsRes.ok) {
+          const orsData = await orsRes.json();
+          if (orsData.features?.[0]?.geometry?.coordinates) {
+            const coords = orsData.features[0].geometry.coordinates.map(
+              (c: [number, number]) => [c[1], c[0]] as [number, number]
+            );
+            setRoute(coords);
+          }
+        }
       } catch (error) {
         if ((error as any)?.name !== "AbortError") {
           setRoute([]);
@@ -277,7 +384,7 @@ const TrackingMap = ({
 
         {/* Delivery partner marker */}
         {deliveryLocation && (
-          <AnimatedMarker position={deliveryLocation} icon={deliveryIcon}>
+          <AnimatedMarker position={deliveryLocation}>
             <Popup>
               <div className="text-center">
                 <p className="font-bold text-green-600">🚴 Delivery Partner</p>

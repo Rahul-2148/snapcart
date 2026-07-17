@@ -3,7 +3,7 @@ import { NextRequest, NextResponse } from "next/server";
 import connectDb from "@/lib/server/db";
 import { Store } from "@/models/store.model";
 import { DeliverySettings } from "@/models/deliverySettings.model";
-import { haversineDistance } from "@/lib/utils/haversine";
+import { haversineDistance, estimateDeliveryTime } from "@/lib/utils/haversine";
 
 /**
  * GET /api/stores/nearby?lat=X&lng=Y&radiusKm=15
@@ -79,10 +79,17 @@ export async function GET(req: NextRequest) {
         isOpen = false;
       }
 
+      const eta = estimateDeliveryTime(
+        distanceKm,
+        store.estimatedDeliveryMinutes?.min || 8,
+        store.estimatedDeliveryMinutes?.max || 15,
+      );
+
       return {
         ...store,
         isOpen,
         distanceKm: Math.round(distanceKm * 10) / 10, // 1 decimal place
+        estimatedDeliveryMinutes: eta,
       };
     });
 

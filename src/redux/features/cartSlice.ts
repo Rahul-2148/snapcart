@@ -72,6 +72,11 @@ export interface CartItem {
 
   priceAtAdd: PriceAtAdd;
 
+  addedBy?: {
+    memberId: string;
+    name: string;
+  };
+
 }
 
 
@@ -100,11 +105,23 @@ interface CartState {
 
   isGuest: boolean;
 
+  isGoldMember: boolean;
+
+  goldDiscount: number;
+
+  groupCode?: string | null;
+
+  groupMemberId?: string | null;
+
+  groupMemberName?: string | null;
+
+  groupSession?: any;
+
 }
 
 
 
-const calculateTotals = (items: CartItem[], coupon: AppliedCoupon | null) => {
+const calculateTotals = (items: CartItem[], coupon: AppliedCoupon | null, isGold = false) => {
 
   let totalMRP = 0;
 
@@ -112,13 +129,38 @@ const calculateTotals = (items: CartItem[], coupon: AppliedCoupon | null) => {
 
   let totalItems = 0;
 
+  let goldDiscount = 0;
+
 
 
   items.forEach((item) => {
 
     const mrp = item.priceAtAdd?.mrp ?? item.variant.price.mrp;
 
-    const selling = item.priceAtAdd?.selling ?? item.variant.price.selling;
+    const originalSelling = item.priceAtAdd?.selling ?? item.variant.price.selling;
+
+    let selling = originalSelling;
+
+
+
+    // Check if vegetable or fruit
+
+    const categoryObj = item.variant.grocery?.category as any;
+
+    const categoryName = (categoryObj && typeof categoryObj === "object" ? categoryObj.name : "").toLowerCase();
+
+    const isVegOrFruit = categoryName.includes("vegetable") || categoryName.includes("fruit") || categoryName.includes("veg") || categoryName.includes("frut");
+
+
+
+    if (isGold) {
+      if (isVegOrFruit) {
+        selling = Math.round(selling * 0.9 * 100) / 100;
+      } else {
+        selling = Math.round(selling * 0.95 * 100) / 100;
+      }
+      goldDiscount += (originalSelling - selling) * item.quantity;
+    }
 
 
 
@@ -132,10 +174,13 @@ const calculateTotals = (items: CartItem[], coupon: AppliedCoupon | null) => {
 
 
 
-  const savings = totalMRP - subTotal;
+  const savings = totalMRP - subTotal - goldDiscount;
 
-  // Delivery fee: free for orders >= 199 or empty cart; otherwise ₹15 (align with backend quick commerce standards)
-  const deliveryFee = subTotal >= 199 || subTotal === 0 ? 0 : 15;
+  // Delivery fee: free above ₹149 for Gold, or ₹199 for normal users
+
+  const threshold = isGold ? 149 : 199;
+
+  const deliveryFee = subTotal >= threshold || subTotal === 0 ? 0 : 15;
 
 
 
@@ -183,6 +228,8 @@ const calculateTotals = (items: CartItem[], coupon: AppliedCoupon | null) => {
 
     finalTotal,
 
+    goldDiscount,
+
   };
 
 };
@@ -213,6 +260,18 @@ const initialState: CartState = {
 
   isGuest: false,
 
+  isGoldMember: false,
+
+  goldDiscount: 0,
+
+  groupCode: null,
+
+  groupMemberId: null,
+
+  groupMemberName: null,
+
+  groupSession: null,
+
 };
 
 
@@ -237,6 +296,8 @@ const cartSlice = createSlice({
 
         isGuest?: boolean;
 
+        isGoldMember?: boolean;
+
         appliedCoupon?: AppliedCoupon | null;
 
       }>
@@ -259,11 +320,19 @@ const cartSlice = createSlice({
 
 
 
+      if (typeof action.payload.isGoldMember === "boolean")
+
+        state.isGoldMember = action.payload.isGoldMember;
+
+
+
       const totals = calculateTotals(
 
         state.cartItems,
 
-        action.payload.appliedCoupon ?? state.appliedCoupon
+        action.payload.appliedCoupon ?? state.appliedCoupon,
+
+        state.isGoldMember
 
       );
 
@@ -280,6 +349,8 @@ const cartSlice = createSlice({
       state.couponDiscount = totals.couponDiscount;
 
       state.finalTotal = totals.finalTotal;
+
+      state.goldDiscount = totals.goldDiscount;
 
 
 
@@ -303,7 +374,19 @@ const cartSlice = createSlice({
 
     applyCoupon: (state, action: PayloadAction<AppliedCoupon>) => {
 
-      const totals = calculateTotals(state.cartItems, action.payload);
+      const totals = calculateTotals(state.cartItems, action.payload, state.isGoldMember);
+
+      state.totalMRP = totals.totalMRP;
+
+      state.subTotal = totals.subTotal;
+
+      state.savings = totals.savings;
+
+      state.deliveryFee = totals.deliveryFee;
+
+      state.totalItems = totals.totalItems;
+
+      state.goldDiscount = totals.goldDiscount;
 
       if (totals.couponDiscount > 0) {
 
@@ -331,9 +414,55 @@ const cartSlice = createSlice({
 
       state.couponDiscount = 0;
 
-      const totals = calculateTotals(state.cartItems, null);
+      const totals = calculateTotals(state.cartItems, null, state.isGoldMember);
+
+      state.totalMRP = totals.totalMRP;
+
+      state.subTotal = totals.subTotal;
+
+      state.savings = totals.savings;
+
+      state.deliveryFee = totals.deliveryFee;
+
+      state.totalItems = totals.totalItems;
+
+      state.goldDiscount = totals.goldDiscount;
 
       state.finalTotal = totals.finalTotal;
+
+    },
+
+
+
+    setGroupSession: (
+
+      state,
+
+      action: PayloadAction<{
+
+        groupCode: string | null;
+
+        groupMemberId: string | null;
+
+        groupMemberName: string | null;
+
+        groupSession?: any;
+
+      }>
+
+    ) => {
+
+      state.groupCode = action.payload.groupCode;
+
+      state.groupMemberId = action.payload.groupMemberId;
+
+      state.groupMemberName = action.payload.groupMemberName;
+
+      if (action.payload.groupSession !== undefined) {
+
+        state.groupSession = action.payload.groupSession;
+
+      }
 
     },
 
@@ -347,7 +476,7 @@ const cartSlice = createSlice({
 
 
 
-export const { setCart, applyCoupon, removeCoupon, clearCart } =
+export const { setCart, applyCoupon, removeCoupon, setGroupSession, clearCart } =
 
   cartSlice.actions;
 

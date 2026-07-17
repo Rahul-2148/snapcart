@@ -1,13 +1,14 @@
 "use client";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { User, MapPin, Bell, Package, Shield, Wallet } from "lucide-react";
+import { User, MapPin, Bell, Package, Shield, Wallet, Crown } from "lucide-react";
 import { useSelector } from "react-redux";
 import { RootState } from "@/redux/store";
 
 const links = [
   { href: "/user/account/profile", label: "Profile", icon: User },
   { href: "/user/account/wallet", label: "Wallet & Rewards", icon: Wallet },
+  { href: "/user/account/gold", label: "Snapcart Gold", icon: Crown },
   { href: "/user/account/addresses", label: "Addresses", icon: MapPin },
   { href: "/user/account/orders", label: "Orders", icon: Package },
   { href: "/user/account/notifications", label: "Notifications", icon: Bell },
@@ -23,11 +24,12 @@ export default function SideNav({ onNavigate, className = "" }: SideNavProps) {
   const pathname = usePathname();
   const userData = useSelector((state: RootState) => state.user.userData);
 
-  // Filter links based on user role - Orders and Wallet should only show for regular users
+  // Filter links based on user role - Orders, Wallet and Gold should only show for regular users
   const filteredLinks = links.filter((link) => {
     if (
       link.href === "/user/account/orders" ||
-      link.href === "/user/account/wallet"
+      link.href === "/user/account/wallet" ||
+      link.href === "/user/account/gold"
     ) {
       return userData?.currentRole === "user";
     }

@@ -9,6 +9,10 @@ export interface ICartItem {
     mrp: number;
     selling: number;
   };
+  addedBy?: {
+    memberId: string;
+    name: string;
+  };
   createdAt?: Date;
   updatedAt?: Date;
 }
@@ -31,11 +35,15 @@ const cartItemSchema = new mongoose.Schema<ICartItem>(
       mrp: { type: Number, required: true },
       selling: { type: Number, required: true },
     },
+    addedBy: {
+      memberId: { type: String, default: null },
+      name: { type: String, default: null },
+    },
   },
   { timestamps: true }
 );
 
-cartItemSchema.index({ cart: 1, variant: 1 }, { unique: true });
+cartItemSchema.index({ cart: 1, variant: 1, "addedBy.memberId": 1 }, { unique: true });
 
 export const CartItem =
   mongoose.models.CartItem ||

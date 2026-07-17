@@ -46,6 +46,9 @@ export interface IUser extends Document {
   passwordResetTokenExpires?: Date;
   passwordResetOtp?: string;
   passwordResetOtpExpires?: Date;
+  isGoldMember?: boolean;
+  goldExpiryDate?: Date;
+  goldAutoRenew?: boolean;
 }
 
 const userSchema = new mongoose.Schema<IUser>(
@@ -172,6 +175,18 @@ const userSchema = new mongoose.Schema<IUser>(
     passwordResetOtpExpires: {
       type: Date,
       default: null,
+    },
+    isGoldMember: {
+      type: Boolean,
+      default: false,
+    },
+    goldExpiryDate: {
+      type: Date,
+      default: null,
+    },
+    goldAutoRenew: {
+      type: Boolean,
+      default: true,
     },
   },
   { timestamps: true },

@@ -23,7 +23,7 @@ export const POST = async (req: NextRequest) => {
       return NextResponse.json({ message: "User not found" }, { status: 404 });
     }
 
-    const { deliveryAddress, onlinePaymentType, storeId, useWallet } = await req.json();
+    const { deliveryAddress, onlinePaymentType, storeId, useWallet, orderItems: bodyOrderItems } = await req.json();
 
     if (!deliveryAddress || !onlinePaymentType) {
       return NextResponse.json(
@@ -100,19 +100,29 @@ export const POST = async (req: NextRequest) => {
       );
     }
 
-    const itemsSnapshot = cartItems.map((item: any) => ({
-      variantId: item.variant._id,
-      groceryId: item.variant.grocery._id,
-      groceryName: item.variant.grocery.name,
-      variantLabel: item.variant.label,
-      unit: item.variant.unit,
-      value: item.variant.value,
-      quantity: item.quantity,
-      price: {
-        mrpPrice: item.priceAtAdd.mrp,
-        sellingPrice: item.priceAtAdd.selling,
-      },
-    }));
+    const itemsSnapshot = cartItems.map((item: any) => {
+      const bodyItem = bodyOrderItems?.find((bi: any) => bi.variantId === item.variant._id.toString());
+      return {
+        variantId: item.variant._id,
+        groceryId: item.variant.grocery._id,
+        groceryName: item.variant.grocery.name,
+        variantLabel: item.variant.label,
+        unit: item.variant.unit,
+        value: item.variant.value,
+        quantity: item.quantity,
+        price: {
+          mrpPrice: item.priceAtAdd.mrp,
+          sellingPrice: item.priceAtAdd.selling,
+        },
+        substituteOption: bodyItem?.substituteOption || "none",
+        substituteVariantId: bodyItem?.substituteVariantId || null,
+        substituteName: bodyItem?.substituteName || "",
+        addedBy: item.addedBy ? {
+          memberId: item.addedBy.memberId,
+          name: item.addedBy.name,
+        } : undefined,
+      };
+    });
 
     const expiryMinutes = Number(
       process.env.PENDING_ORDER_EXPIRY_MINUTES || 30

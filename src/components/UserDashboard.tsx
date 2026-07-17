@@ -24,6 +24,8 @@ import HeroSection from "./HeroSection";
 
 import FlashDealsBanner from "./FlashDealsBanner";
 
+import SnapcartGoldBanner from "./SnapcartGoldBanner";
+
 import GroceryItemCard from "./GroceryItemCard";
 
 import { useStoreInventory } from "@/hooks/useStoreInventory";
@@ -96,7 +98,7 @@ const UserDashboard = () => {
 
   // groceries redux se aayega
   const { groceries } = useSelector((state: RootState) => state.grocery);
-  const { serviceableStatus } = useSelector((state: RootState) => state.location);
+  const serviceableStatus = useSelector((state: RootState) => state.location.serviceableStatus);
 
 
 
@@ -476,6 +478,8 @@ const UserDashboard = () => {
       <CategorySlider />
 
       <FlashDealsBanner />
+
+      <SnapcartGoldBanner />
 
 
 

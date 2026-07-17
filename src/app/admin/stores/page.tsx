@@ -98,8 +98,8 @@ export default function AdminStoresPage() {
   const [openTime, setOpenTime] = useState("06:00");
   const [closeTime, setCloseTime] = useState("23:00");
   const [status, setStatus] = useState<"active" | "inactive" | "maintenance">("active");
-  const [baseDeliveryFee, setBaseDeliveryFee] = useState("25");
-  const [freeAboveDeliveryFee, setFreeAboveDeliveryFee] = useState("500");
+  const [baseDeliveryFee, setBaseDeliveryFee] = useState("15");
+  const [freeAboveDeliveryFee, setFreeAboveDeliveryFee] = useState("199");
   const [minDeliveryMinutes, setMinDeliveryMinutes] = useState("8");
   const [maxDeliveryMinutes, setMaxDeliveryMinutes] = useState("15");
   const [contactPhone, setContactPhone] = useState("");
@@ -209,8 +209,8 @@ export default function AdminStoresPage() {
     setOpenTime("06:00");
     setCloseTime("23:00");
     setStatus("active");
-    setBaseDeliveryFee("25");
-    setFreeAboveDeliveryFee("500");
+    setBaseDeliveryFee("15");
+    setFreeAboveDeliveryFee("199");
     setMinDeliveryMinutes("8");
     setMaxDeliveryMinutes("15");
     setContactPhone("");

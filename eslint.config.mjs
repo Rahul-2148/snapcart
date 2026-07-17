@@ -32,6 +32,8 @@ const eslintConfig = defineConfig([
     "next-env.d.ts",
     "scratch/**",
     "scripts/**",
+    ".venv/**",
+    "venv/**",
   ]),
 ]);
 

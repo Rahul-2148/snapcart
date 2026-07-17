@@ -54,7 +54,7 @@ export const POST = async (req: NextRequest) => {
       return NextResponse.json({ message: "User not found" }, { status: 404 });
     }
 
-    const { paymentMethod, onlinePaymentType, deliveryAddress, storeId, useWallet } =
+    const { paymentMethod, onlinePaymentType, deliveryAddress, storeId, useWallet, orderItems: bodyOrderItems } =
       await req.json();
 
     if (!paymentMethod || !deliveryAddress) {
@@ -189,22 +189,34 @@ export const POST = async (req: NextRequest) => {
       .toString()
       .slice(-5)}`;
 
-    const orderItemsPayload = cartItems.map((item: any) => ({
-      order: newOrder._id,
-      grocery: item.variant.grocery._id,
-      groceryName: item.variant.grocery.name,
-      variant: {
-        variantId: item.variant._id,
-        label: item.variant.label,
-        unit: item.variant.unit,
-        value: item.variant.value,
-      },
-      price: {
-        mrpPrice: item.priceAtAdd.mrp,
-        sellingPrice: item.priceAtAdd.selling,
-      },
-      quantity: item.quantity,
-    }));
+    const orderItemsPayload = cartItems.map((item: any) => {
+      const bodyItem = bodyOrderItems?.find((bi: any) => bi.variantId === item.variant._id.toString());
+      return {
+        order: newOrder._id,
+        grocery: item.variant.grocery._id,
+        groceryName: item.variant.grocery.name,
+        variant: {
+          variantId: item.variant._id,
+          label: item.variant.label,
+          unit: item.variant.unit,
+          value: item.variant.value,
+        },
+        price: {
+          mrpPrice: item.priceAtAdd.mrp,
+          sellingPrice: item.priceAtAdd.selling,
+        },
+        quantity: item.quantity,
+        substituteOption: bodyItem?.substituteOption || "none",
+        substituteVariantId: bodyItem?.substituteVariantId || null,
+        substituteName: bodyItem?.substituteName || "",
+        isSubstituted: false,
+        substituteStatus: "pending",
+        addedBy: item.addedBy ? {
+          memberId: item.addedBy.memberId,
+          name: item.addedBy.name,
+        } : undefined,
+      };
+    });
 
     const insertedOrderItems = await OrderItem.insertMany(orderItemsPayload, {
       session: dbSession,
@@ -278,6 +290,13 @@ export const POST = async (req: NextRequest) => {
     }
 
     await newOrder.save({ session: dbSession });
+
+    // Deactivate active group session for this host
+    await mongoose.model("GroupCart").updateMany(
+      { host: user._id, isActive: true },
+      { $set: { isActive: false } },
+      { session: dbSession }
+    );
 
     // Award loyalty rewards (coins and scratchcard)
     if (paymentMethod === "cod" || isFullyPaid) {

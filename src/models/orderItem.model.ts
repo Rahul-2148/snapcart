@@ -16,6 +16,21 @@ export interface IOrderItem extends Document {
     sellingPrice: number;
   };
   quantity: number;
+  substituteOption?: "none" | "similar" | "specific";
+  substituteVariantId?: mongoose.Types.ObjectId | null;
+  substituteName?: string;
+  isSubstituted?: boolean;
+  substituteStatus?: "pending" | "original_packed" | "substituted" | "out_of_stock_refunded" | "extra_amount_requested";
+  substitutedWith?: {
+    variantId?: mongoose.Types.ObjectId;
+    label?: string;
+    price?: number;
+    name?: string;
+  };
+  addedBy?: {
+    memberId: string;
+    name: string;
+  };
 }
 
 const OrderItemSchema = new Schema<IOrderItem>(
@@ -54,6 +69,45 @@ const OrderItemSchema = new Schema<IOrderItem>(
       required: true,
       min: 1,
       max: 99,
+    },
+    substituteOption: {
+      type: String,
+      enum: ["none", "similar", "specific"],
+      default: "none",
+    },
+    substituteVariantId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "GroceryVariant",
+      default: null,
+    },
+    substituteName: {
+      type: String,
+      default: "",
+    },
+    isSubstituted: {
+      type: Boolean,
+      default: false,
+    },
+    substituteStatus: {
+      type: String,
+      enum: [
+        "pending",
+        "original_packed",
+        "substituted",
+        "out_of_stock_refunded",
+        "extra_amount_requested"
+      ],
+      default: "pending",
+    },
+    substitutedWith: {
+      variantId: { type: mongoose.Schema.Types.ObjectId, ref: "GroceryVariant" },
+      label: String,
+      price: Number,
+      name: String,
+    },
+    addedBy: {
+      memberId: { type: String, default: null },
+      name: { type: String, default: null },
     },
   },
   { timestamps: true }

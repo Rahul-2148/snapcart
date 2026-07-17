@@ -5,67 +5,115 @@ import connectDb from "@/lib/server/db";
 import { Cart } from "@/models/cart.model";
 import { CartItem } from "@/models/cartItem.model";
 import { GroceryVariant } from "@/models/groceryVariant.model";
+import { GroupCart } from "@/models/groupCart.model";
 
 export async function POST(req: NextRequest) {
   try {
     await connectDb();
-    const session = await auth();
-    if (!session?.user?.id)
-      return NextResponse.json(
-        { success: false, message: "Login required" },
-        { status: 401 }
-      );
+    const body = await req.json();
+    const { variantId, quantity = 1, groupCode, memberId, memberName, items } = body;
 
-    const { variantId, quantity = 1 } = await req.json();
-    const variant = await GroceryVariant.findById(variantId).populate(
-      "grocery"
-    );
-    if (!variant || !variant.grocery?.isActive)
-      return NextResponse.json(
-        { success: false, message: "Variant unavailable" },
-        { status: 404 }
-      );
+    let cart;
+    let addedBy = undefined;
 
-    let cart = await Cart.findOne({ user: session.user.id });
-    if (!cart) cart = await Cart.create({ user: session.user.id });
+    if (groupCode && groupCode.trim() !== "") {
+      // Find active group session
+      const groupSession = await GroupCart.findOne({
+        code: groupCode.trim().toUpperCase(),
+        isActive: true,
+      });
 
-    const existingItem = await CartItem.findOne({
-      cart: cart._id,
-      variant: variantId,
-    });
-    const currentQty = existingItem?.quantity ?? 0;
-    if (currentQty + quantity > variant.countInStock)
-      return NextResponse.json(
+      if (!groupSession) {
+        return NextResponse.json(
+          { success: false, message: "Active group session not found" },
+          { status: 404 }
+        );
+      }
+
+      cart = await Cart.findOne({ user: groupSession.host });
+      if (!cart) {
+        cart = await Cart.create({ user: groupSession.host });
+      }
+
+      if (memberId && memberName) {
+        addedBy = { memberId, name: memberName };
+      }
+    } else {
+      // Normal flow: require authenticated user
+      const session = await auth();
+      if (!session?.user?.id) {
+        return NextResponse.json(
+          { success: false, message: "Login required" },
+          { status: 401 }
+        );
+      }
+
+      cart = await Cart.findOne({ user: session.user.id });
+      if (!cart) {
+        cart = await Cart.create({ user: session.user.id });
+      }
+    }
+
+    const itemsToAdd = Array.isArray(items) ? items : [{ variantId, quantity }];
+
+    for (const item of itemsToAdd) {
+      const currentVariantId = item.variantId;
+      const currentQty = item.quantity || 1;
+
+      if (!currentVariantId) continue;
+
+      const variant = await GroceryVariant.findById(currentVariantId).populate("grocery");
+      if (!variant || !variant.grocery?.isActive) {
+        continue;
+      }
+
+      // Check total variant quantity across all group members for stock validation
+      const existingItems = await CartItem.find({
+        cart: cart._id,
+        variant: currentVariantId,
+      });
+      const currentTotalQty = existingItems.reduce((sum, it) => sum + it.quantity, 0);
+
+      if (currentTotalQty + currentQty > variant.countInStock) {
+        continue;
+      }
+
+      // Build query targeting this member specifically (or host without addedBy)
+      const query: any = { cart: cart._id, variant: currentVariantId };
+      if (addedBy) {
+        query["addedBy.memberId"] = addedBy.memberId;
+      } else {
+        query["addedBy"] = { $exists: false };
+      }
+
+      await CartItem.findOneAndUpdate(
+        query,
         {
-          success: false,
-          message: `Only ${variant.countInStock} items available`,
-        },
-        { status: 400 }
-      );
-
-    await CartItem.findOneAndUpdate(
-      { cart: cart._id, variant: variantId },
-      {
-        $inc: { quantity },
-        $setOnInsert: {
-          priceAtAdd: {
-            mrp: variant.price.mrp,
-            selling: variant.price.selling,
+          $inc: { quantity: currentQty },
+          $setOnInsert: {
+            priceAtAdd: {
+              mrp: variant.price.mrp,
+              selling: variant.price.selling,
+            },
+            ...(addedBy ? { addedBy } : {}),
           },
         },
-      },
-      { upsert: true, new: true }
-    );
+        { upsert: true, new: true }
+      );
+    }
 
-    // fetch updated cart items after add
+    // Fetch updated cart items
     const updatedItems = await CartItem.find({ cart: cart._id }).populate({
       path: "variant",
-      populate: "grocery",
+      populate: {
+        path: "grocery",
+        populate: { path: "category", select: "name" },
+      },
     });
 
     return NextResponse.json({
       success: true,
-      message: "Item added to cart",
+      message: "Items added to cart",
       cartId: cart._id,
       items: updatedItems,
     });

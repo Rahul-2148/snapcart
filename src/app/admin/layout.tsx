@@ -1,11 +1,31 @@
 "use client";
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import Sidebar from "@/components/admin/Sidebar";
 import AdminHeader from "@/components/admin/AdminHeader";
+import { useSession } from "next-auth/react";
+import { useRouter, usePathname } from "next/navigation";
+import { ShieldAlert } from "lucide-react";
 
 const AdminLayout = ({ children }: { children: React.ReactNode }) => {
+  const { data: session, status } = useSession({
+    required: true,
+    onUnauthenticated() {
+      router.push(`/login?redirect=${encodeURIComponent(pathname || "/admin")}`);
+    },
+  });
+  const router = useRouter();
+  const pathname = usePathname();
+
   const [isCollapsed, setCollapsed] = useState(false);
   const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
+
+  useEffect(() => {
+    if (status === "loading") return;
+    const isAdmin = session?.user?.currentRole === "admin";
+    if (!isAdmin) {
+      router.push("/unauthorized");
+    }
+  }, [session, status, router]);
 
   const toggleCollapse = () => {
     setCollapsed(!isCollapsed);
@@ -14,6 +34,17 @@ const AdminLayout = ({ children }: { children: React.ReactNode }) => {
   const toggleMobileSidebar = () => {
     setIsMobileSidebarOpen(!isMobileSidebarOpen);
   };
+
+  if (status === "loading" || session?.user?.currentRole !== "admin") {
+    return (
+      <div className="h-screen w-screen flex items-center justify-center bg-slate-50">
+        <div className="flex flex-col items-center gap-3">
+          <div className="w-10 h-10 border-4 border-emerald-500 border-t-transparent rounded-full animate-spin"></div>
+          <span className="text-sm font-semibold text-slate-500">Checking administrator privileges...</span>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="flex h-screen bg-gradient-to-br from-slate-50 to-gray-100 text-gray-900">

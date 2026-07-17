@@ -23,7 +23,7 @@ const LocationPermissionPrompt = () => {
 
   const handleAllow = async () => {
     dispatch(setPermissionPromptShown(false));
-    detectViaGPS();
+    detectViaGPS(true);
   };
 
   const handleManual = () => {

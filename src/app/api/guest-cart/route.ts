@@ -189,38 +189,41 @@ export async function POST(req: NextRequest) {
   const blocked = await blockIfLoggedIn();
   if (blocked) return blocked;
 
-  const { variantId, quantity = 1 } = await req.json();
+  const body = await req.json();
+  const { variantId, quantity = 1, items } = body;
   await connectDb();
 
-  const variant = await GroceryVariant.findById(variantId);
-  if (!variant || variant.countInStock <= 0) {
-    return NextResponse.json(
-      { success: false, message: "Variant unavailable" },
-      { status: 400 }
-    );
-  }
-
   const guestCart = await getGuestCart();
-  const idx = guestCart.findIndex((i) => i.variantId === variantId);
+  const itemsToAdd = Array.isArray(items) ? items : [{ variantId, quantity }];
 
-  if (idx > -1) {
-    const newQty = guestCart[idx].quantity + quantity;
-    if (newQty > variant.countInStock) {
-      return NextResponse.json(
-        { success: false, message: "Stock exceeded" },
-        { status: 400 }
-      );
+  for (const item of itemsToAdd) {
+    const currentVariantId = item.variantId;
+    const currentQty = item.quantity || 1;
+
+    if (!currentVariantId) continue;
+
+    const variant = await GroceryVariant.findById(currentVariantId);
+    if (!variant || variant.countInStock <= 0) {
+      continue;
     }
-    guestCart[idx].quantity = newQty;
-  } else {
-    guestCart.push({
-      variantId,
-      quantity,
-      priceAtAdd: {
-        mrp: variant.price.mrp,
-        selling: variant.price.selling,
-      },
-    });
+
+    const idx = guestCart.findIndex((i) => i.variantId === currentVariantId);
+
+    if (idx > -1) {
+      const newQty = guestCart[idx].quantity + currentQty;
+      if (newQty <= variant.countInStock) {
+        guestCart[idx].quantity = newQty;
+      }
+    } else {
+      guestCart.push({
+        variantId: currentVariantId,
+        quantity: currentQty,
+        priceAtAdd: {
+          mrp: variant.price.mrp,
+          selling: variant.price.selling,
+        },
+      });
+    }
   }
 
   await setGuestCart(guestCart);
@@ -235,7 +238,7 @@ export async function POST(req: NextRequest) {
 
   return NextResponse.json({
     success: true,
-    message: "Item added to cart",
+    message: "Items added to guest cart",
     cartCount: guestCart.reduce((s, i) => s + i.quantity, 0),
     coupon: validCoupon,
     totals: calculateGuestCartTotals(guestCart, discount),

@@ -18,6 +18,7 @@ import {
   Camera,
   ScanLine,
   ImageIcon,
+  Crown,
 } from "lucide-react";
 import { AnimatePresence, motion } from "motion/react";
 import { signOut, useSession } from "next-auth/react";
@@ -64,6 +65,9 @@ const Navbar = ({ user: propUser }: NavbarProps = {}) => {
     isAuthenticated,
     isLoading,
   } = useSelector((state: RootState) => state.user);
+
+  // Gold member status from cart slice
+  const isGoldMember = useSelector((state: RootState) => state.cart.isGoldMember);
 
   // Handle role switch
   const handleRoleSwitch = async (newRole: string) => {
@@ -425,10 +429,27 @@ const Navbar = ({ user: propUser }: NavbarProps = {}) => {
         <div className="flex flex-col items-start justify-start md:flex-row md:items-center gap-0 md:gap-4 leading-none flex-grow md:flex-grow-0 min-w-0 mr-2 md:mr-0 pt-1 md:pt-0">
           <Link
             href={"/"}
-            className="font-extrabold text-xl sm:text-2xl md:text-3xl tracking-wide hover:scale-105 transition-transform whitespace-nowrap"
+            className="font-extrabold text-xl sm:text-2xl md:text-3xl tracking-wide hover:scale-105 transition-transform whitespace-nowrap flex items-center gap-1.5"
           >
             Snapcart
+            {isGoldMember && (
+              <span className="relative inline-flex items-center" title="Gold Member">
+                <Crown
+                  className="w-4 h-4 sm:w-5 sm:h-5 text-yellow-300 drop-shadow-[0_0_6px_rgba(253,224,71,0.6)]"
+                  style={{ animation: "goldCrownPulse 2s ease-in-out infinite" }}
+                />
+              </span>
+            )}
           </Link>
+          {/* Gold crown animation keyframes */}
+          {isGoldMember && (
+            <style jsx global>{`
+              @keyframes goldCrownPulse {
+                0%, 100% { filter: drop-shadow(0 0 4px rgba(253, 224, 71, 0.4)); transform: scale(1); }
+                50% { filter: drop-shadow(0 0 8px rgba(253, 224, 71, 0.8)); transform: scale(1.1); }
+              }
+            `}</style>
+          )}
 
           {/* Location Header - Show for guests and users */}
           {(!authenticatedUser ||

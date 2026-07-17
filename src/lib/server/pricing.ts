@@ -7,6 +7,7 @@ import { DeliverySettings } from "@/models/deliverySettings.model";
 import { Cart } from "@/models/cart.model";
 import { CartItem } from "@/models/cartItem.model";
 import { calculateDistance, calculateSurgeFactor } from "@/lib/server/delivery";
+import { estimateDeliveryTime } from "@/lib/utils/haversine";
 import Wallet from "@/models/wallet.model";
 
 export interface CalculatePricingParams {
@@ -46,6 +47,9 @@ export interface PricingBreakdown {
   savings: number;
   deliveryFee: number;
   deliveryBaseFee: number;
+  isGold: boolean;
+  goldDiscount: number;
+  goldDeliveryWaiver: boolean;
   deliveryDistanceFee: number;
   deliverySurgeFee: number;
   packagingFee: number;
@@ -89,6 +93,15 @@ export async function calculateCheckoutPricing({
 }: CalculatePricingParams): Promise<PricingBreakdown> {
   await connectDb();
 
+  let isGold = false;
+  if (userId) {
+    const { User } = await import("@/models/user.model");
+    const userObj = await User.findById(userId).select("isGoldMember goldExpiryDate").lean();
+    if (userObj?.isGoldMember && userObj.goldExpiryDate && new Date(userObj.goldExpiryDate) > new Date()) {
+      isGold = true;
+    }
+  }
+
   // 1. Fetch Cart Items
   let items: any[] = [];
   let cartObj: any = null;
@@ -112,6 +125,7 @@ export async function calculateCheckoutPricing({
   // Calculate base item totals
   let subTotal = 0;
   let totalMRP = 0;
+  let goldDiscount = 0;
   const itemsBreakdown: any[] = [];
   let containsFreeDeliveryItem = false;
   const codStatusList: Array<{ name: string; status: string }> = [];
@@ -122,9 +136,32 @@ export async function calculateCheckoutPricing({
       continue;
     }
 
-    const sellingPrice = item.priceAtAdd?.selling ?? variant.price.selling;
+    let isVegOrFruit = false;
+    if (variant.grocery) {
+      const { Grocery } = await import("@/models/grocery.model");
+      const groceryDoc = await Grocery.findById(variant.grocery._id || variant.grocery)
+        .populate("category", "name")
+        .lean();
+      
+      const categoryName = (groceryDoc?.category as any)?.name?.toLowerCase() || "";
+      if (categoryName.includes("vegetable") || categoryName.includes("fruit") || categoryName.includes("veg") || categoryName.includes("frut")) {
+        isVegOrFruit = true;
+      }
+    }
+
+    const originalPrice = item.priceAtAdd?.selling ?? variant.price.selling;
+    let sellingPrice = originalPrice;
     const mrpPrice = item.priceAtAdd?.mrp ?? variant.price.mrp;
     const quantity = item.quantity;
+
+    if (isGold) {
+      if (isVegOrFruit) {
+        sellingPrice = Math.round(sellingPrice * 0.9 * 100) / 100;
+      } else {
+        sellingPrice = Math.round(sellingPrice * 0.95 * 100) / 100;
+      }
+      goldDiscount += (originalPrice - sellingPrice) * quantity;
+    }
 
     subTotal += sellingPrice * quantity;
     totalMRP += mrpPrice * quantity;
@@ -142,16 +179,9 @@ export async function calculateCheckoutPricing({
       weightKg = 0.1; // Default low weight for piece/pack
     }
 
-    // Heavy check (>= 5kg/L)
-    const isHeavy = weightKg >= 5;
+    // Heavy check (>= 10kg/L)
+    const isHeavy = weightKg >= 10;
     let surchargePerItem = variant.handlingSurcharge || 0;
-    if (surchargePerItem === 0 && isHeavy) {
-      if (weightKg >= 10) {
-        surchargePerItem = 30; // ₹30 surcharge for >= 10kg
-      } else {
-        surchargePerItem = 15; // ₹15 surcharge for >= 5kg
-      }
-    }
 
     // Free delivery check
     if (variant.freeDelivery) {
@@ -187,7 +217,7 @@ export async function calculateCheckoutPricing({
     });
   }
 
-  const savings = totalMRP - subTotal;
+  const savings = totalMRP - subTotal - goldDiscount;
 
   // 2. Fetch nearest store and check serviceability
   let serviceable = false;
@@ -262,6 +292,7 @@ export async function calculateCheckoutPricing({
   let deliveryBaseFee = 0;
   let deliveryDistanceFee = 0;
   let deliverySurgeFee = 0;
+  let goldDeliveryWaiver = false;
 
   const isDeliveryFeeDisabled = deliverySettings?.disableDeliveryFee === true;
 
@@ -269,36 +300,44 @@ export async function calculateCheckoutPricing({
     const baseFee = nearestStore.deliveryFee?.base ?? 15; // Realistic: default ₹15 base
     deliveryBaseFee = baseFee;
 
-    // Extra distance: if distance exceeds 2km, add ₹5 per km
-    if (distanceKm > 2.0) {
-      deliveryDistanceFee = Math.ceil(distanceKm - 2.0) * 5; // Realistic: ₹5 per km (was ₹10)
-    }
-
-    // Surge multiplier (rain / peak hour)
-    const surgeMultiplier = calculateSurgeFactor();
-    const isSurgeFeeDisabled = deliverySettings?.disableSurgeFee === true;
-    if (surgeMultiplier > 1 && !isSurgeFeeDisabled) {
-      deliverySurgeFee = Math.round(baseFee * (surgeMultiplier - 1));
-    }
-
-    deliveryFee = deliveryBaseFee + deliveryDistanceFee + deliverySurgeFee;
-
     // Waiver overrides: check if cart subtotal matches freeAbove threshold or global freeDeliveryThreshold
     const freeAbove = nearestStore.deliveryFee?.freeAbove ?? 199;
     const threshold = deliverySettings?.freeDeliveryThreshold ?? 199; // Realistic: free above ₹199 minimum
-    const finalFreeAbove = Math.min(freeAbove, threshold);
+    const finalFreeAbove = isGold ? 149 : Math.min(freeAbove, threshold);
+    
     if (subTotal >= finalFreeAbove || containsFreeDeliveryItem) {
       deliveryFee = 0; // Free delivery waived
+      // Specifying if it was free strictly because of Gold membership threshold (subtotal is >= 149 but < normal threshold)
+      const normalThreshold = Math.min(freeAbove, threshold);
+      if (isGold && subTotal >= 149 && subTotal < normalThreshold && !containsFreeDeliveryItem) {
+        goldDeliveryWaiver = true;
+      }
+    } else {
+      // Below threshold: charge flat base fee only (no distance or surge charges to keep it simple & affordable)
+      deliveryFee = baseFee;
     }
   }
 
   // 4. Packaging & Handling Fee
   const isPackagingFeeDisabled = deliverySettings?.disablePackagingFee === true;
-  const packagingFee = (itemsBreakdown.length > 0 && !isPackagingFeeDisabled) ? 4 : 0; // Flat ₹4 packing fee (allow promo toggle)
+  let packagingFee = (itemsBreakdown.length > 0 && !isPackagingFeeDisabled) ? 4 : 0; // Flat ₹4 packing fee (allow promo toggle)
+  if (isGold) {
+    packagingFee = 0; // Waived for Gold
+  }
 
   // 5. Weight Surcharges
   const isWeightSurchargeDisabled = deliverySettings?.disableWeightSurcharge === true;
-  const weightSurcharge = isWeightSurchargeDisabled ? 0 : itemsBreakdown.reduce((sum, item) => sum + item.handlingSurcharge, 0);
+  let weightSurcharge = 0;
+  if (!isWeightSurchargeDisabled) {
+    const explicitSurcharge = itemsBreakdown.reduce((sum, item) => sum + (item.handlingSurcharge || 0), 0);
+    const totalWeightKg = itemsBreakdown.reduce((sum, item) => sum + (item.weightKg * item.quantity), 0);
+    
+    if (explicitSurcharge > 0) {
+      weightSurcharge = explicitSurcharge;
+    } else if (totalWeightKg >= 20) {
+      weightSurcharge = 25; // Flat ₹25 only for bulk orders >= 20kg
+    }
+  }
 
   // 6. COD Eligibility & Fee
   let codEligible = true;
@@ -396,7 +435,11 @@ export async function calculateCheckoutPricing({
       ? {
           id: nearestStore._id.toString(),
           name: nearestStore.name,
-          estimatedDeliveryMinutes: nearestStore.estimatedDeliveryMinutes || { min: 8, max: 15 },
+          estimatedDeliveryMinutes: estimateDeliveryTime(
+            distanceKm,
+            nearestStore.estimatedDeliveryMinutes?.min || 8,
+            nearestStore.estimatedDeliveryMinutes?.max || 15,
+          ),
         }
       : undefined,
     subTotal,
@@ -404,6 +447,9 @@ export async function calculateCheckoutPricing({
     savings,
     deliveryFee,
     deliveryBaseFee,
+    isGold,
+    goldDiscount,
+    goldDeliveryWaiver,
     deliveryDistanceFee,
     deliverySurgeFee,
     packagingFee,

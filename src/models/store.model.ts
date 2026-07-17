@@ -104,8 +104,8 @@ const storeSchema = new Schema<IStore>(
     },
 
     deliveryFee: {
-      base: { type: Number, default: 25, min: 0 },
-      freeAbove: { type: Number, default: 500, min: 0 },
+      base: { type: Number, default: 15, min: 0 },
+      freeAbove: { type: Number, default: 199, min: 0 },
     },
 
     estimatedDeliveryMinutes: {

@@ -59,14 +59,25 @@ export async function POST(req: NextRequest) {
     // return updated cart (realtime consistency)
     const updatedItems = await CartItem.find({ cart: cart._id }).populate({
       path: "variant",
-      populate: "grocery",
+      populate: {
+        path: "grocery",
+        populate: { path: "category", select: "name" },
+      },
     });
+
+    const { User } = await import("@/models/user.model");
+    const userObj = await User.findById(session.user.id).select("isGoldMember goldExpiryDate").lean();
+    let isGoldMember = false;
+    if (userObj?.isGoldMember && userObj.goldExpiryDate && new Date(userObj.goldExpiryDate) > new Date()) {
+      isGoldMember = true;
+    }
 
     return NextResponse.json({
       success: true,
       message: "Cart merged",
       cartId: cart._id,
       items: updatedItems,
+      isGoldMember,
     });
   } catch (error: any) {
     return NextResponse.json(

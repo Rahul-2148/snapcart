@@ -5,6 +5,7 @@ import { useLocationDetection } from "@/hooks/useLocationDetection";
 import LocationPickerModal from "./LocationPickerModal";
 import LocationPermissionPrompt from "./LocationPermissionPrompt";
 import CartStoreChangeWarning from "./CartStoreChangeWarning";
+import LocationDetectionOverlay from "./LocationDetectionOverlay";
 
 /**
  * Silent component that initializes the location system on app mount.
@@ -18,6 +19,9 @@ const LocationInitializer = () => {
 
   return (
     <>
+      {/* Zepto/Blinkit-style GPS detection overlay — shown on first auto-detect */}
+      <LocationDetectionOverlay />
+
       {/* Location picker modal — opens when user clicks location header */}
       <LocationPickerModal />
 

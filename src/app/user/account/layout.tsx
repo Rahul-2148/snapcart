@@ -18,6 +18,7 @@ export default function AccountLayout({
   const mobilePageTitle = useMemo(() => {
     if (!pathname) return "Profile";
     if (pathname.includes("/wallet")) return "Wallet & Rewards";
+    if (pathname.includes("/gold")) return "Snapcart Gold";
     if (pathname.includes("/addresses")) return "Addresses";
     if (pathname.includes("/orders")) return "Orders";
     if (pathname.includes("/notifications")) return "Notifications";

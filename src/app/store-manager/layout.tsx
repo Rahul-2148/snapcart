@@ -67,8 +67,9 @@ export default function StoreManagerLayout({
 }: {
   children: React.ReactNode;
 }) {
-  const { data: session, update: updateSession } = useSession();
+  const { data: session, status, update: updateSession } = useSession();
   const router = useRouter();
+  const pathname = usePathname();
 
   const [storeName, setStoreName] = useState<string>("Loading Store...");
   const socket = useSocket();
@@ -141,11 +142,12 @@ export default function StoreManagerLayout({
   }, []);
 
   useEffect(() => {
-    // If not logged in or doesn't have manager/admin role at all, redirect to unauthorized
-    if (session && !roles.includes("storeManager") && !roles.includes("admin")) {
+    if (status === "unauthenticated") {
+      router.replace(`/login?redirect=${encodeURIComponent(pathname || "/store-manager")}`);
+    } else if (session && !roles.includes("storeManager") && !roles.includes("admin")) {
       router.replace("/unauthorized");
     }
-  }, [session, roles, router]);
+  }, [session, status, roles, router, pathname]);
 
   const handleSwitchRole = async (targetRole: string) => {
     try {
@@ -169,11 +171,11 @@ export default function StoreManagerLayout({
     }
   };
 
-  if (!session) {
+  if (status === "loading" || !session) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-slate-900">
         <div className="animate-pulse flex flex-col items-center gap-2">
-          <Building className="w-10 h-10 text-green-500" />
+          <Building className="w-10 h-10 text-green-500 animate-bounce" />
           <p className="text-slate-400 text-sm">Authenticating Store Manager...</p>
         </div>
       </div>

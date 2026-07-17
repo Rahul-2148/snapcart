@@ -171,6 +171,7 @@ const GroceryItemCard = ({
         cartId: cart?._id ?? cart?.cartId ?? null,
         isGuest: cart?.isGuest ?? false,
         appliedCoupon: mappedCoupon,
+        isGoldMember: cart?.isGoldMember,
       }),
     );
   };
@@ -400,8 +401,9 @@ const GroceryItemCard = ({
         const cart = await fetchCartApi();
         syncCartToStore({
           items: cart?.items || [],
-          cartId: cart?.cartId,
+          cartId: cart?.cart?._id || cart?.cartId,
           isGuest: false,
+          isGoldMember: cart?.isGoldMember,
         });
       }
     };

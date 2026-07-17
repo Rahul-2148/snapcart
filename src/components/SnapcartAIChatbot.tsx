@@ -527,6 +527,149 @@ const getLanguageLabel = (langCode: string): string => {
   return labels[langCode] || langCode;
 };
 
+interface RecipeIngredientItem {
+  variantId: string;
+  groceryName: string;
+  variantLabel: string;
+  price: number;
+  image?: string;
+  quantity?: number;
+}
+
+const RecipeIngredientsWidget = ({ 
+  ingredients, 
+  isGuest, 
+  refreshCartFromServer 
+}: { 
+  ingredients: RecipeIngredientItem[]; 
+  isGuest: boolean; 
+  refreshCartFromServer: () => Promise<void>; 
+}) => {
+  const [items, setItems] = useState(() => 
+    ingredients.map(ing => ({ ...ing, checked: true, qty: ing.quantity || 1 }))
+  );
+  const [adding, setAdding] = useState(false);
+  const [added, setAdded] = useState(false);
+
+  const toggleCheck = (idx: number) => {
+    setItems(prev => prev.map((item, i) => i === idx ? { ...item, checked: !item.checked } : item));
+  };
+
+  const updateQty = (idx: number, delta: number) => {
+    setItems(prev => prev.map((item, i) => {
+      if (i === idx) {
+        const nextQty = Math.max(1, item.qty + delta);
+        return { ...item, qty: nextQty };
+      }
+      return item;
+    }));
+  };
+
+  const totalPrice = items.reduce((sum, item) => sum + (item.checked ? item.price * item.qty : 0), 0);
+  const checkedCount = items.filter(i => i.checked).length;
+
+  const handleAddAll = async () => {
+    const selectedItems = items.filter(i => i.checked).map(i => ({ variantId: i.variantId, quantity: i.qty }));
+    if (selectedItems.length === 0) return;
+
+    setAdding(true);
+    try {
+      const endpoint = isGuest ? "/api/guest-cart" : "/api/cart/add";
+      const payload = { items: selectedItems };
+      const response = await axios.post(endpoint, payload);
+      if (response.data?.success) {
+        setAdded(true);
+        await refreshCartFromServer();
+      }
+    } catch (error) {
+      console.error("Error adding recipe ingredients to cart:", error);
+    } finally {
+      setAdding(false);
+    }
+  };
+
+  return (
+    <div className="mt-4 p-4 rounded-2xl bg-slate-50 border border-slate-200/80 shadow-sm w-full max-w-md animate-fadeIn">
+      <div className="flex items-center gap-2 mb-3">
+        <span className="text-lg">🍳</span>
+        <h4 className="text-sm font-black text-slate-800">
+          Recipe Ingredients ({items.length})
+        </h4>
+      </div>
+
+      <div className="space-y-2.5 max-h-64 overflow-y-auto mb-4 pr-1 snapcart-scrollbar">
+        {items.map((item, idx) => (
+          <div key={idx} className="flex items-center gap-3 bg-white p-2.5 rounded-xl border border-slate-150 shadow-sm">
+            <input 
+              type="checkbox" 
+              checked={item.checked} 
+              onChange={() => toggleCheck(idx)}
+              className="w-4 h-4 rounded text-emerald-600 border-gray-300 focus:ring-emerald-500 cursor-pointer"
+            />
+            
+            <div className="w-10 h-10 rounded-lg overflow-hidden bg-slate-100 flex-shrink-0 border border-slate-200">
+              <img 
+                src={item.image || "/images/product-placeholder.png"} 
+                alt={item.groceryName} 
+                className="w-full h-full object-cover"
+                onError={(e) => {
+                  (e.target as HTMLImageElement).src = "/images/product-placeholder.png";
+                }}
+              />
+            </div>
+
+            <div className="flex-1 min-w-0">
+              <h5 className="text-xs font-bold text-slate-800 truncate">{item.groceryName}</h5>
+              <p className="text-[10px] text-slate-500">{item.variantLabel}</p>
+              <p className="text-xs font-black text-emerald-700 mt-0.5">₹{item.price}</p>
+            </div>
+
+            {item.checked && (
+              <div className="flex items-center gap-2 border border-slate-200 rounded-lg p-1 bg-slate-50 select-none">
+                <button 
+                  onClick={() => updateQty(idx, -1)}
+                  className="w-5 h-5 flex items-center justify-center text-xs font-bold hover:bg-slate-100 rounded cursor-pointer"
+                >
+                  -
+                </button>
+                <span className="text-xs font-bold w-4 text-center">{item.qty}</span>
+                <button 
+                  onClick={() => updateQty(idx, 1)}
+                  className="w-5 h-5 flex items-center justify-center text-xs font-bold hover:bg-slate-100 rounded cursor-pointer"
+                >
+                  +
+                </button>
+              </div>
+            )}
+          </div>
+        ))}
+      </div>
+
+      <button
+        onClick={handleAddAll}
+        disabled={adding || checkedCount === 0}
+        className={`w-full py-3 px-4 rounded-xl text-xs font-black tracking-wide text-white transition-all flex items-center justify-center gap-2 shadow-lg shadow-emerald-500/10 active:scale-[0.98] cursor-pointer ${
+          added
+            ? "bg-gradient-to-r from-emerald-500 to-teal-500"
+            : "bg-gradient-to-r from-emerald-500 via-emerald-600 to-teal-600 hover:from-emerald-600 hover:to-teal-700 disabled:from-slate-300 disabled:to-slate-400 disabled:shadow-none"
+        }`}
+      >
+        {adding ? (
+          <>
+            <span className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+            Adding to Cart...
+          </>
+        ) : added ? (
+          "✓ Added Ingredients to Cart"
+        ) : (
+          `Add ${checkedCount} Items to Cart (₹${totalPrice})`
+        )}
+      </button>
+    </div>
+  );
+};
+
+
 export default function SnapcartAIChatbot({
   showLauncher = true,
 }: SnapcartAIChatbotProps) {
@@ -2769,32 +2912,37 @@ export default function SnapcartAIChatbot({
   }, [sendMessage]);
 
   const renderMessageContent = (content: string) => {
+    if (!content) return null;
+    const contentStr = String(content);
+
     // If markdown is disabled, render plain text
     if (!chatbotSettings.markdownEnabled) {
-      return <span>{content}</span>;
+      return <span>{contentStr}</span>;
     }
 
     const systemActionRegex = /\*\(System Executed Actions:\s*([\s\S]*?)\)\*/;
-    const match = content.match(systemActionRegex);
+    const recipeIngredientsRegex = /\*\(Recipe Ingredients:\s*([\s\S]*?)\)\*/;
 
-    if (!match) {
-      return <span>{content}</span>;
+    const actionMatch = contentStr.match(systemActionRegex);
+    const recipeMatch = contentStr.match(recipeIngredientsRegex);
+
+    if (!actionMatch && !recipeMatch) {
+      return <span>{contentStr}</span>;
     }
 
-    const actionsText = match[1];
-    const textBefore = content.split(match[0])[0] || "";
-    const textAfter = content.split(match[0])[1] || "";
+    let textContent = contentStr;
+    let actionsWidget: React.ReactNode = null;
+    let recipeWidget: React.ReactNode = null;
 
-    // Split actions by comma or newline
-    const actions = actionsText
-      .split(/[,\n]/)
-      .map((a) => a.trim())
-      .filter(Boolean);
+    if (actionMatch) {
+      const actionsText = actionMatch[1];
+      textContent = textContent.replace(actionMatch[0], "");
+      const actions = actionsText
+        .split(/[,\n]/)
+        .map((a) => a.trim())
+        .filter(Boolean);
 
-    return (
-      <div className="space-y-3 w-full">
-        {textBefore && <div className="whitespace-pre-wrap">{textBefore}</div>}
-
+      actionsWidget = (
         <details className="group bg-gradient-to-br from-emerald-900 to-teal-950 text-white rounded-xl shadow-lg border border-emerald-500/30 overflow-hidden relative my-2 [&_summary::-webkit-details-marker]:hidden">
           <summary className="flex items-center justify-between p-4 cursor-pointer select-none focus:outline-none">
             <div className="flex items-center gap-2">
@@ -2818,7 +2966,7 @@ export default function SnapcartAIChatbot({
               <Sparkles className="w-3.5 h-3.5 text-emerald-400 animate-pulse" />
               System Execution Tasks
             </h4>
-
+            
             <div className="space-y-2">
               {actions.map((action, i) => (
                 <div key={i} className="flex items-center gap-2 text-xs text-emerald-100/90 animate-fadeIn">
@@ -2840,15 +2988,40 @@ export default function SnapcartAIChatbot({
                 </div>
               ))}
             </div>
-
+            
             <div className="mt-3 pt-3 border-t border-emerald-800/40 flex items-center justify-between text-[10px] text-emerald-400/80 font-medium">
               <span>Status: Executed Successfully</span>
               <span>Agent ID: SC-909</span>
             </div>
           </div>
         </details>
+      );
+    }
 
-        {textAfter && <div className="whitespace-pre-wrap">{textAfter}</div>}
+    if (recipeMatch) {
+      const recipeText = recipeMatch[1];
+      textContent = textContent.replace(recipeMatch[0], "");
+      try {
+        const ingredientsList = JSON.parse(recipeText) as RecipeIngredientItem[];
+        if (Array.isArray(ingredientsList) && ingredientsList.length > 0) {
+          recipeWidget = (
+            <RecipeIngredientsWidget 
+              ingredients={ingredientsList} 
+              isGuest={!session?.user?.id}
+              refreshCartFromServer={refreshCartFromServer}
+            />
+          );
+        }
+      } catch (err) {
+        console.error("Error parsing recipe ingredients JSON:", err);
+      }
+    }
+
+    return (
+      <div className="space-y-3 w-full">
+        {textContent && <div className="whitespace-pre-wrap">{textContent.trim()}</div>}
+        {actionsWidget}
+        {recipeWidget}
       </div>
     );
   };

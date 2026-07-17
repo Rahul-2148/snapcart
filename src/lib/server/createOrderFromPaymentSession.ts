@@ -101,6 +101,15 @@ export const createOrderFromPaymentSession = async (
       sellingPrice: item.price.sellingPrice,
     },
     quantity: item.quantity,
+    substituteOption: item.substituteOption || "none",
+    substituteVariantId: item.substituteVariantId || null,
+    substituteName: item.substituteName || "",
+    isSubstituted: false,
+    substituteStatus: "pending",
+    addedBy: item.addedBy ? {
+      memberId: item.addedBy.memberId,
+      name: item.addedBy.name,
+    } : undefined,
   }));
 
   const insertedOrderItems = await OrderItem.insertMany(orderItemsPayload, {
@@ -120,6 +129,14 @@ export const createOrderFromPaymentSession = async (
   newOrder.paymentDetails.push(paymentDetails);
 
   await newOrder.save({ session: dbSession });
+
+  // Deactivate active group session for this host
+  const { GroupCart } = await import("@/models/groupCart.model");
+  await GroupCart.updateMany(
+    { host: paymentSession.userId, isActive: true },
+    { $set: { isActive: false } },
+    { session: dbSession }
+  );
 
   // If payment session had a wallet deduction, process it now
   if (paymentSession.walletDeduction && paymentSession.walletDeduction > 0) {
@@ -196,10 +213,17 @@ export const createOrderFromPaymentSession = async (
   const cart = await Cart.findOne({ user: paymentSession.userId }).session(dbSession);
   if (cart) {
     for (const item of paymentSession.items) {
-      const cartItem = await CartItem.findOne({
+      const query: any = {
         cart: cart._id,
         variant: item.variantId,
-      }).session(dbSession);
+      };
+      if (item.addedBy?.memberId) {
+        query["addedBy.memberId"] = item.addedBy.memberId;
+      } else {
+        query["addedBy"] = { $exists: false };
+      }
+
+      const cartItem = await CartItem.findOne(query).session(dbSession);
       if (!cartItem) continue;
 
       if (cartItem.quantity > item.quantity) {

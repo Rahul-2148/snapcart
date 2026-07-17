@@ -5,6 +5,7 @@ import { auth } from "@/auth";
 import { Cart } from "@/models/cart.model";
 import { CartItem } from "@/models/cartItem.model";
 import { GroceryVariant } from "@/models/groceryVariant.model";
+import { GroupCart } from "@/models/groupCart.model";
 
 export async function PATCH(req: NextRequest) {
   try {
@@ -12,15 +13,9 @@ export async function PATCH(req: NextRequest) {
 
     /* ================= AUTH ================= */
     const session = await auth();
-    if (!session?.user?.id) {
-      return NextResponse.json(
-        { success: false, message: "Unauthorized" },
-        { status: 401 }
-      );
-    }
 
     /* ================= BODY ================= */
-    const { cartItemId, quantity } = await req.json();
+    const { cartItemId, quantity, groupCode, memberId } = await req.json();
 
     if (!cartItemId || quantity === undefined) {
       return NextResponse.json(
@@ -49,6 +44,44 @@ export async function PATCH(req: NextRequest) {
       return NextResponse.json(
         { success: false, message: "Cart not found" },
         { status: 404 }
+      );
+    }
+
+    /* ================= PERMISSION & AUTH CHECK ================= */
+    let isAuthorized = false;
+
+    // 1. Check if authenticated user owns the cart (Normal Cart or Group Cart Host)
+    if (session?.user?.id && cart.user.toString() === session.user.id) {
+      isAuthorized = true;
+    }
+
+    // 2. If not host, check if guest member is authorized for this group cart item
+    if (!isAuthorized && groupCode && memberId) {
+      const groupSession = await GroupCart.findOne({
+        code: groupCode.trim().toUpperCase(),
+        isActive: true,
+      });
+
+      if (groupSession) {
+        // If logged-in user matches the host, they are authorized
+        if (session?.user?.id && groupSession.host.toString() === session.user.id) {
+          isAuthorized = true;
+        } else {
+          // Check if guest is a member of the group AND is the owner of this cart item
+          const isMember = groupSession.members.some((m: any) => m.memberId === memberId);
+          const itemOwnerMemberId = cartItem.addedBy?.memberId;
+          
+          if (isMember && itemOwnerMemberId === memberId) {
+            isAuthorized = true;
+          }
+        }
+      }
+    }
+
+    if (!isAuthorized) {
+      return NextResponse.json(
+        { success: false, message: "Unauthorized: You are not allowed to update this item" },
+        { status: 401 }
       );
     }
 
@@ -99,7 +132,10 @@ export async function PATCH(req: NextRequest) {
     /* ================= FETCH UPDATED ITEMS ================= */
     const updatedItems = await CartItem.find({ cart: cart._id }).populate({
       path: "variant",
-      populate: "grocery",
+      populate: {
+        path: "grocery",
+        populate: { path: "category", select: "name" },
+      },
     });
 
     /* ================= CALCULATE SUBTOTAL ================= */

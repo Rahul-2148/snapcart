@@ -17,14 +17,12 @@ interface ServiceabilityGateProps {
 export default function ServiceabilityGate({ children }: ServiceabilityGateProps) {
   const pathname = usePathname();
   const dispatch = useAppDispatch();
-  const {
-    serviceableStatus,
-    city,
-    pincode,
-    latitude,
-    longitude,
-    hasInitialized,
-  } = useAppSelector((state) => state.location);
+  const serviceableStatus = useAppSelector((state) => state.location.serviceableStatus);
+  const city = useAppSelector((state) => state.location.city);
+  const pincode = useAppSelector((state) => state.location.pincode);
+  const latitude = useAppSelector((state) => state.location.latitude);
+  const longitude = useAppSelector((state) => state.location.longitude);
+  const hasInitialized = useAppSelector((state) => state.location.hasInitialized);
 
   const [email, setEmail] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);

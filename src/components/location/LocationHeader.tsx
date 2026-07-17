@@ -17,6 +17,7 @@ const LocationHeader = () => {
   const displayText = useAppSelector(selectLocationDisplayText);
   const deliveryEta = useAppSelector((state) => state.store.deliveryEta);
   const selectedStore = location.selectedStore;
+  const eta = deliveryEta || selectedStore?.estimatedDeliveryMinutes;
 
   const isLoading = location.isDetecting || location.isReverseGeocoding;
 
@@ -50,10 +51,10 @@ const LocationHeader = () => {
       <div className="flex flex-col min-w-0 leading-tight">
         <span className="text-[10px] md:text-xs text-green-100 font-medium flex items-center gap-1">
           Deliver to
-          {deliveryEta && (
+          {eta && (
             <span className="inline-flex items-center gap-0.5 bg-white/20 text-white text-[9px] md:text-[10px] px-1.5 py-0.5 rounded-full font-semibold">
               <Clock className="w-2.5 h-2.5" />
-              {deliveryEta.min}-{deliveryEta.max} min
+              {eta.min}-{eta.max} min
             </span>
           )}
         </span>
