@@ -594,18 +594,18 @@ const GroceryItemCard = ({
       initial={{ opacity: 0, y: 40, scale: 0.95 }}
       animate={{ opacity: 1, y: 0, scale: 1 }}
       transition={{ duration: 0.5, ease: "easeOut" }}
-      className={`bg-white rounded-2xl shadow-sm hover:shadow-xl transition-all overflow-visible border border-gray-100 flex flex-col h-full min-h-[320px] sm:min-h-[340px] ${
+      className={`bg-white rounded-2xl shadow-sm hover:shadow-xl transition-all border border-gray-100 ${
         isListView
-          ? "md:flex-row md:items-stretch md:gap-4 md:min-h-[220px] md:h-auto"
-          : ""
+          ? "flex flex-row items-stretch gap-2 sm:gap-4 h-auto min-h-[160px] sm:min-h-[180px]"
+          : "flex flex-col h-full min-h-[320px] sm:min-h-[340px]"
       }`}
     >
       {/* IMAGE */}
       <div
-        className={`relative overflow-hidden ${
+        className={`relative overflow-hidden flex-shrink-0 ${
           isListView
-            ? "md:w-64 md:flex-shrink-0 md:rounded-l-2xl md:rounded-r-none"
-            : "rounded-t-2xl"
+            ? "w-28 sm:w-44 md:w-56 rounded-l-2xl rounded-r-none"
+            : "w-full rounded-t-2xl"
         }`}
       >
         <Link
@@ -617,8 +617,10 @@ const GroceryItemCard = ({
             ref={sliderRef}
             onMouseEnter={handleMouseEnter}
             onMouseLeave={handleMouseLeave}
-            className={`keen-slider relative bg-gray-50 h-32 sm:h-36 md:h-40 ${
-              isListView ? "w-full md:w-64" : "w-full"
+            className={`keen-slider relative bg-gray-50 ${
+              isListView
+                ? "w-full h-full min-h-[160px] sm:min-h-[180px]"
+                : "w-full h-32 sm:h-36 md:h-40"
             }`}
           >
             {grocery?.images?.map((img) => (
@@ -732,7 +734,7 @@ const GroceryItemCard = ({
         </h3>
 
         {/* PRICE & VARIANTS - flexible growth */}
-        <div className={`flex flex-col ${isListView ? "" : "flex-grow"}`}>
+        <div className="flex flex-col flex-grow">
           <div className="flex items-center gap-1 mt-2 flex-wrap">
             <span className="text-green-700 font-bold text-base">
               ₹{sellingPrice}
@@ -806,9 +808,7 @@ const GroceryItemCard = ({
 
         {/* UNIT */}
         <div
-          className={`flex justify-between items-center pt-2 text-sm border-t border-gray-100 ${
-            isListView ? "mt-3" : "mt-auto"
-          }`}
+          className="flex justify-between items-center pt-2 text-xs sm:text-sm border-t border-gray-100 mt-auto"
         >
           <span className="bg-gray-100 text-gray-900 text-[11px] font-medium px-2 py-1 rounded max-w-[170px] break-words leading-tight">
             {activeVariantLabel}
